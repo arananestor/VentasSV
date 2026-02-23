@@ -71,9 +71,7 @@ export function AppProvider({ children }) {
   const [sales, setSales] = useState([]);
   const [currentOrder, setCurrentOrder] = useState(null);
 
-  useEffect(() => {
-    loadData();
-  }, []);
+  useEffect(() => { loadData(); }, []);
 
   const loadData = async () => {
     try {
@@ -81,9 +79,7 @@ export function AppProvider({ children }) {
       const savedSales = await AsyncStorage.getItem('ventasv_sales');
       if (savedProducts) setProducts(JSON.parse(savedProducts));
       if (savedSales) setSales(JSON.parse(savedSales));
-    } catch (e) {
-      console.log('Error loading data', e);
-    }
+    } catch (e) { console.log('Error loading data', e); }
   };
 
   const saveProducts = async (newProducts) => {
@@ -123,17 +119,13 @@ export function AppProvider({ children }) {
     return sales.filter(s => new Date(s.timestamp).toDateString() === today);
   };
 
+  const getAllSales = () => sales;
+
   return (
     <AppContext.Provider value={{
-      products,
-      sales,
-      currentOrder,
-      setCurrentOrder,
-      addProduct,
-      updateProduct,
-      deleteProduct,
-      addSale,
-      getTodaySales,
+      products, sales, currentOrder, setCurrentOrder,
+      addProduct, updateProduct, deleteProduct,
+      addSale, getTodaySales, getAllSales,
     }}>
       {children}
     </AppContext.Provider>
