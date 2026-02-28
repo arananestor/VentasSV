@@ -9,14 +9,16 @@ import {
   TextInput,
   Alert,
   Modal,
+  Image,
 } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
 import { useAuth } from '../context/AuthContext';
 
 export default function ProfileScreen({ navigation }) {
   const {
     currentWorker, workers, isAdminMode,
-    enterAdminMode, exitAdminMode, logout,
-    addWorker, removeWorker, updateWorkerPin,
+    enterAdminMode, exitAdminMode, switchWorker,
+    addWorker, removeWorker, updateWorkerPhoto,
   } = useAuth();
 
   const [showAdminModal, setShowAdminModal] = useState(false);
@@ -37,32 +39,36 @@ export default function ProfileScreen({ navigation }) {
 
   const handleAddWorker = async () => {
     if (!newName.trim()) { Alert.alert('', 'Escribí el nombre'); return; }
-    if (newPin.length < 4) { Alert.alert('', 'El PIN debe tener al menos 4 dígitos'); return; }
+    if (newPin.length < 4) { Alert.alert('', 'PIN de al menos 4 dígitos'); return; }
     const result = await addWorker(newName.trim(), newPin);
     if (result.error) { Alert.alert('', result.error); return; }
     setShowAddWorker(false);
     setNewName('');
     setNewPin('');
-    Alert.alert('', `${result.worker.name} agregado con PIN: ${result.worker.pin}`);
+    Alert.alert('✓ Listo', `${result.worker.name} agregado\nPIN: ${result.worker.pin}`);
   };
 
   const handleRemoveWorker = (worker) => {
-    Alert.alert(
-      'Eliminar',
-      `¿Eliminar a ${worker.name}?`,
-      [
-        { text: 'No', style: 'cancel' },
-        {
-          text: 'Sí, eliminar',
-          style: 'destructive',
-          onPress: () => removeWorker(worker.id),
-        },
-      ]
-    );
+    Alert.alert('Eliminar', `¿Eliminar a ${worker.name}?`, [
+      { text: 'No', style: 'cancel' },
+      { text: 'Sí', style: 'destructive', onPress: () => removeWorker(worker.id) },
+    ]);
   };
 
-  const handleLogout = () => {
-    logout();
+  const handleChangePhoto = async () => {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      allowsEditing: true, aspect: [1, 1], quality: 0.5,
+    });
+    if (!result.canceled) {
+      await updateWorkerPhoto(currentWorker.id, result.assets[0].uri);
+    }
+  };
+
+  const handleSwitchWorker = () => {
+    Alert.alert('Cambiar turno', '¿Cerrar sesión y cambiar de cajero?', [
+      { text: 'No', style: 'cancel' },
+      { text: 'Sí, cambiar', onPress: () => switchWorker() },
+    ]);
   };
 
   return (
@@ -76,13 +82,27 @@ export default function ProfileScreen({ navigation }) {
       </View>
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-        {/* Current Worker Card */}
+        {/* Profile Card */}
         <View style={styles.profileCard}>
-          <View style={styles.avatar}>
-            <Text style={styles.avatarText}>
-              {currentWorker?.name?.charAt(0)?.toUpperCase() || '?'}
-            </Text>
-          </View>
+          <TouchableOpacity onPress={handleChangePhoto} activeOpacity={0.8}>
+            {currentWorker?.photo ? (
+              <View>
+                <Image source={{ uri: currentWorker.photo }} style={styles.photo} />
+                <View style={styles.photoEdit}>
+                  <Text style={styles.photoEditText}>📷</Text>
+                </View>
+              </View>
+            ) : (
+              <View style={[styles.avatar, { backgroundColor: currentWorker?.color || '#FFF' }]}>
+                <Text style={styles.avatarText}>
+                  {currentWorker?.name?.charAt(0)?.toUpperCase() || '?'}
+                </Text>
+                <View style={styles.photoEdit}>
+                  <Text style={styles.photoEditText}>📷</Text>
+                </View>
+              </View>
+            )}
+          </TouchableOpacity>
           <Text style={styles.profileName}>{currentWorker?.name}</Text>
           <View style={styles.roleBadge}>
             <Text style={styles.roleText}>
@@ -91,37 +111,47 @@ export default function ProfileScreen({ navigation }) {
           </View>
         </View>
 
+        {/* Switch Worker */}
+        <TouchableOpacity style={styles.optionBtn} onPress={handleSwitchWorker}>
+          <Text style={styles.optionIcon}>🔄</Text>
+          <View style={styles.optionInfo}>
+            <Text style={styles.optionTitle}>Cambiar turno</Text>
+            <Text style={styles.optionSub}>Entrar con otro cajero</Text>
+          </View>
+          <Text style={styles.chevron}>›</Text>
+        </TouchableOpacity>
+
         {/* Admin Mode */}
         {!isAdminMode ? (
-          <TouchableOpacity
-            style={styles.adminBtn}
-            onPress={() => setShowAdminModal(true)}
-          >
-            <Text style={styles.adminBtnIcon}>🔐</Text>
-            <View style={styles.adminBtnInfo}>
-              <Text style={styles.adminBtnTitle}>Modo administrador</Text>
-              <Text style={styles.adminBtnSub}>Acceder a configuración avanzada</Text>
+          <TouchableOpacity style={styles.optionBtn} onPress={() => setShowAdminModal(true)}>
+            <Text style={styles.optionIcon}>🔐</Text>
+            <View style={styles.optionInfo}>
+              <Text style={styles.optionTitle}>Modo administrador</Text>
+              <Text style={styles.optionSub}>Gestionar equipo y configuración</Text>
             </View>
             <Text style={styles.chevron}>›</Text>
           </TouchableOpacity>
         ) : (
           <View>
-            <View style={styles.adminActive}>
-              <Text style={styles.adminActiveText}>🔓 MODO ADMIN ACTIVO</Text>
+            <View style={styles.adminBar}>
+              <Text style={styles.adminBarText}>🔓 MODO ADMIN</Text>
               <TouchableOpacity onPress={exitAdminMode}>
-                <Text style={styles.adminExitText}>Salir</Text>
+                <Text style={styles.adminExit}>Salir</Text>
               </TouchableOpacity>
             </View>
 
-            {/* Workers List */}
             <Text style={styles.sectionLabel}>EQUIPO</Text>
             {workers.map(worker => (
               <View key={worker.id} style={styles.workerRow}>
-                <View style={styles.workerAvatar}>
-                  <Text style={styles.workerAvatarText}>
-                    {worker.name.charAt(0).toUpperCase()}
-                  </Text>
-                </View>
+                {worker.photo ? (
+                  <Image source={{ uri: worker.photo }} style={styles.workerPhoto} />
+                ) : (
+                  <View style={[styles.workerAvatar, { backgroundColor: worker.color || '#333' }]}>
+                    <Text style={styles.workerInitial}>
+                      {worker.name.charAt(0).toUpperCase()}
+                    </Text>
+                  </View>
+                )}
                 <View style={styles.workerInfo}>
                   <Text style={styles.workerName}>{worker.name}</Text>
                   <Text style={styles.workerRole}>
@@ -129,29 +159,18 @@ export default function ProfileScreen({ navigation }) {
                   </Text>
                 </View>
                 {worker.id !== 'admin' && (
-                  <TouchableOpacity
-                    style={styles.workerRemove}
-                    onPress={() => handleRemoveWorker(worker)}
-                  >
+                  <TouchableOpacity style={styles.workerRemove} onPress={() => handleRemoveWorker(worker)}>
                     <Text style={styles.workerRemoveText}>✕</Text>
                   </TouchableOpacity>
                 )}
               </View>
             ))}
 
-            <TouchableOpacity
-              style={styles.addWorkerBtn}
-              onPress={() => setShowAddWorker(true)}
-            >
+            <TouchableOpacity style={styles.addWorkerBtn} onPress={() => setShowAddWorker(true)}>
               <Text style={styles.addWorkerText}>+ Agregar empleado</Text>
             </TouchableOpacity>
           </View>
         )}
-
-        {/* Logout */}
-        <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
-          <Text style={styles.logoutText}>Cerrar sesión</Text>
-        </TouchableOpacity>
       </ScrollView>
 
       {/* Admin PIN Modal */}
@@ -173,10 +192,7 @@ export default function ProfileScreen({ navigation }) {
             <TouchableOpacity style={styles.modalBtn} onPress={handleAdminLogin}>
               <Text style={styles.modalBtnText}>VERIFICAR</Text>
             </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.modalCancel}
-              onPress={() => { setShowAdminModal(false); setAdminPinInput(''); }}
-            >
+            <TouchableOpacity style={styles.modalCancel} onPress={() => { setShowAdminModal(false); setAdminPinInput(''); }}>
               <Text style={styles.modalCancelText}>Cancelar</Text>
             </TouchableOpacity>
           </View>
@@ -193,16 +209,16 @@ export default function ProfileScreen({ navigation }) {
               style={styles.modalInput}
               value={newName}
               onChangeText={setNewName}
-              placeholder="Nombre del empleado"
+              placeholder="Nombre"
               placeholderTextColor="#333"
               autoFocus
             />
-            <Text style={styles.modalLabel}>PIN (mínimo 4 dígitos)</Text>
+            <Text style={styles.modalLabel}>PIN</Text>
             <TextInput
               style={styles.modalInput}
               value={newPin}
               onChangeText={setNewPin}
-              placeholder="PIN del empleado"
+              placeholder="Mínimo 4 dígitos"
               placeholderTextColor="#333"
               keyboardType="numeric"
               maxLength={8}
@@ -210,10 +226,7 @@ export default function ProfileScreen({ navigation }) {
             <TouchableOpacity style={styles.modalBtn} onPress={handleAddWorker}>
               <Text style={styles.modalBtnText}>AGREGAR</Text>
             </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.modalCancel}
-              onPress={() => { setShowAddWorker(false); setNewName(''); setNewPin(''); }}
-            >
+            <TouchableOpacity style={styles.modalCancel} onPress={() => { setShowAddWorker(false); setNewName(''); setNewPin(''); }}>
               <Text style={styles.modalCancelText}>Cancelar</Text>
             </TouchableOpacity>
           </View>
@@ -226,11 +239,8 @@ export default function ProfileScreen({ navigation }) {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#000' },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: 16, paddingVertical: 12,
   },
   backBtn: {
     width: 44, height: 44, borderRadius: 22,
@@ -241,40 +251,45 @@ const styles = StyleSheet.create({
   headerTitle: { color: '#FFF', fontSize: 14, fontWeight: '800', letterSpacing: 3 },
   scroll: { paddingHorizontal: 16, paddingBottom: 60 },
   profileCard: {
-    alignItems: 'center',
-    paddingVertical: 30,
-    borderBottomWidth: 1,
-    borderColor: '#151515',
+    alignItems: 'center', paddingVertical: 30,
+    borderBottomWidth: 1, borderColor: '#151515',
   },
+  photo: { width: 80, height: 80, borderRadius: 40 },
   avatar: {
-    width: 72, height: 72, borderRadius: 36,
-    backgroundColor: '#FFF', alignItems: 'center', justifyContent: 'center',
-    marginBottom: 14,
+    width: 80, height: 80, borderRadius: 40,
+    alignItems: 'center', justifyContent: 'center',
   },
-  avatarText: { fontSize: 30, fontWeight: '900', color: '#000' },
-  profileName: { fontSize: 22, fontWeight: '900', color: '#FFF' },
+  avatarText: { fontSize: 34, fontWeight: '900', color: '#000' },
+  photoEdit: {
+    position: 'absolute', bottom: -2, right: -2,
+    width: 28, height: 28, borderRadius: 14,
+    backgroundColor: '#222', alignItems: 'center', justifyContent: 'center',
+    borderWidth: 2, borderColor: '#000',
+  },
+  photoEditText: { fontSize: 12 },
+  profileName: { fontSize: 22, fontWeight: '900', color: '#FFF', marginTop: 14 },
   roleBadge: {
     backgroundColor: '#111', borderRadius: 8,
     paddingHorizontal: 12, paddingVertical: 4, marginTop: 8,
     borderWidth: 1, borderColor: '#222',
   },
   roleText: { fontSize: 10, fontWeight: '800', color: '#555', letterSpacing: 2 },
-  adminBtn: {
+  optionBtn: {
     flexDirection: 'row', alignItems: 'center',
     backgroundColor: '#111', borderRadius: 16, padding: 18,
-    marginTop: 20, borderWidth: 1, borderColor: '#222',
+    marginTop: 12, borderWidth: 1, borderColor: '#222',
   },
-  adminBtnIcon: { fontSize: 24, marginRight: 14 },
-  adminBtnInfo: { flex: 1 },
-  adminBtnTitle: { fontSize: 15, fontWeight: '700', color: '#FFF' },
-  adminBtnSub: { fontSize: 12, fontWeight: '600', color: '#555', marginTop: 2 },
+  optionIcon: { fontSize: 22, marginRight: 14 },
+  optionInfo: { flex: 1 },
+  optionTitle: { fontSize: 15, fontWeight: '700', color: '#FFF' },
+  optionSub: { fontSize: 12, fontWeight: '600', color: '#555', marginTop: 2 },
   chevron: { fontSize: 22, color: '#444', fontWeight: '300' },
-  adminActive: {
+  adminBar: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    backgroundColor: '#FFF', borderRadius: 14, padding: 16, marginTop: 20,
+    backgroundColor: '#FFF', borderRadius: 14, padding: 16, marginTop: 12,
   },
-  adminActiveText: { fontSize: 13, fontWeight: '800', color: '#000', letterSpacing: 1 },
-  adminExitText: { fontSize: 13, fontWeight: '700', color: '#666' },
+  adminBarText: { fontSize: 13, fontWeight: '800', color: '#000', letterSpacing: 1 },
+  adminExit: { fontSize: 13, fontWeight: '700', color: '#666' },
   sectionLabel: {
     fontSize: 11, fontWeight: '800', color: '#555',
     letterSpacing: 3, marginTop: 24, marginBottom: 12,
@@ -284,12 +299,12 @@ const styles = StyleSheet.create({
     backgroundColor: '#111', borderRadius: 14, padding: 14,
     marginBottom: 6, borderWidth: 1, borderColor: '#222',
   },
+  workerPhoto: { width: 40, height: 40, borderRadius: 20, marginRight: 12 },
   workerAvatar: {
     width: 40, height: 40, borderRadius: 20,
-    backgroundColor: '#222', alignItems: 'center', justifyContent: 'center',
-    marginRight: 12,
+    alignItems: 'center', justifyContent: 'center', marginRight: 12,
   },
-  workerAvatarText: { fontSize: 16, fontWeight: '800', color: '#FFF' },
+  workerInitial: { fontSize: 16, fontWeight: '800', color: '#000' },
   workerInfo: { flex: 1 },
   workerName: { fontSize: 15, fontWeight: '700', color: '#FFF' },
   workerRole: { fontSize: 12, fontWeight: '600', color: '#555', marginTop: 2 },
@@ -299,18 +314,11 @@ const styles = StyleSheet.create({
   },
   workerRemoveText: { color: '#FF3B30', fontSize: 14, fontWeight: '700' },
   addWorkerBtn: {
-    backgroundColor: '#111', borderRadius: 14,
-    paddingVertical: 16, alignItems: 'center',
-    borderWidth: 1, borderColor: '#222', borderStyle: 'dashed',
-    marginTop: 4,
+    backgroundColor: '#111', borderRadius: 14, paddingVertical: 16,
+    alignItems: 'center', borderWidth: 1, borderColor: '#222',
+    borderStyle: 'dashed', marginTop: 4,
   },
   addWorkerText: { fontSize: 14, fontWeight: '700', color: '#555' },
-  logoutBtn: {
-    marginTop: 30, paddingVertical: 18,
-    alignItems: 'center', borderRadius: 14,
-    borderWidth: 1, borderColor: '#222',
-  },
-  logoutText: { fontSize: 14, fontWeight: '700', color: '#FF3B30' },
   modalOverlay: {
     flex: 1, backgroundColor: 'rgba(0,0,0,0.85)',
     justifyContent: 'center', paddingHorizontal: 24,

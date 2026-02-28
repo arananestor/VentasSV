@@ -38,10 +38,24 @@ export default function HomeScreen({ navigation }) {
           style={styles.profileBtn}
           onPress={() => navigation.navigate('Profile')}
         >
-          <Text style={styles.profileInitial}>
-            {currentWorker?.name?.charAt(0)?.toUpperCase() || '?'}
-          </Text>
+          {currentWorker?.photo ? (
+            <Image source={{ uri: currentWorker.photo }} style={styles.profilePhoto} />
+          ) : (
+            <View style={[styles.profileCircle, { backgroundColor: currentWorker?.color || '#FFF' }]}>
+              <Text style={styles.profileInitial}>
+                {currentWorker?.name?.charAt(0)?.toUpperCase() || '?'}
+              </Text>
+            </View>
+          )}
         </TouchableOpacity>
+      </View>
+
+      {/* Active Worker Indicator */}
+      <View style={styles.workerBar}>
+        <View style={styles.workerDot} />
+        <Text style={styles.workerText}>
+          En turno: <Text style={styles.workerName}>{currentWorker?.name}</Text>
+        </Text>
       </View>
 
       <TouchableOpacity
@@ -108,15 +122,39 @@ const styles = StyleSheet.create({
   },
   logo: { fontSize: 30, fontWeight: '900', color: '#FFF', letterSpacing: 6 },
   logoSub: { fontSize: 10, fontWeight: '600', color: '#555', letterSpacing: 4, marginTop: 2 },
-  profileBtn: {
+  profileBtn: { overflow: 'hidden' },
+  profilePhoto: { width: 44, height: 44, borderRadius: 22 },
+  profileCircle: {
     width: 44, height: 44, borderRadius: 22,
-    backgroundColor: '#FFF', alignItems: 'center', justifyContent: 'center',
+    alignItems: 'center', justifyContent: 'center',
   },
   profileInitial: { fontSize: 18, fontWeight: '900', color: '#000' },
+  workerBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: PADDING,
+    paddingVertical: 10,
+    gap: 8,
+  },
+  workerDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#4ECDC4',
+  },
+  workerText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#555',
+  },
+  workerName: {
+    color: '#FFF',
+    fontWeight: '800',
+  },
   salesBtn: {
     flexDirection: 'row', alignItems: 'center',
     backgroundColor: '#111', borderRadius: 14, padding: 14,
-    marginHorizontal: PADDING, marginTop: 16, marginBottom: 8,
+    marginHorizontal: PADDING, marginBottom: 8,
     borderWidth: 1, borderColor: '#222',
   },
   salesInfo: { flex: 1 },

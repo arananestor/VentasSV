@@ -6,10 +6,12 @@ import {
   StyleSheet,
   SafeAreaView,
   Vibration,
+  Image,
 } from 'react-native';
 import { useAuth } from '../context/AuthContext';
 
-export default function LoginScreen() {
+export default function PinEntryScreen({ route, navigation }) {
+  const { worker } = route.params;
   const { loginWithPin } = useAuth();
   const [pin, setPin] = useState('');
   const [error, setError] = useState(false);
@@ -21,8 +23,10 @@ export default function LoginScreen() {
       setError(false);
 
       if (newPin.length >= 4) {
-        const worker = loginWithPin(newPin);
-        if (!worker && newPin.length === 8) {
+        const result = loginWithPin(newPin, worker.id);
+        if (result) {
+          // Success — navigation handled by App.js
+        } else if (newPin.length === 8) {
           setError(true);
           Vibration.vibrate(200);
           setTimeout(() => setPin(''), 400);
@@ -43,14 +47,14 @@ export default function LoginScreen() {
 
   const renderDots = () => {
     const dots = [];
-    for (let i = 0; i < 8; i++) {
+    for (let i = 0; i < 6; i++) {
       dots.push(
         <View
           key={i}
           style={[
             styles.dot,
             i < pin.length && styles.dotFilled,
-            error && styles.dotError,
+            error && i < pin.length && styles.dotError,
           ]}
         />
       );
@@ -60,8 +64,21 @@ export default function LoginScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
+      <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
+        <Text style={styles.backText}>‹</Text>
+      </TouchableOpacity>
+
       <View style={styles.top}>
-        <Text style={styles.logo}>VENTA</Text>
+        {worker.photo ? (
+          <Image source={{ uri: worker.photo }} style={styles.photo} />
+        ) : (
+          <View style={[styles.avatar, { backgroundColor: worker.color || '#FFF' }]}>
+            <Text style={styles.avatarText}>
+              {worker.name.charAt(0).toUpperCase()}
+            </Text>
+          </View>
+        )}
+        <Text style={styles.name}>{worker.name}</Text>
         <Text style={styles.subtitle}>Ingresá tu PIN</Text>
 
         <View style={styles.dotsRow}>{renderDots()}</View>
@@ -82,8 +99,7 @@ export default function LoginScreen() {
                 key={key}
                 style={[
                   styles.key,
-                  key === 'C' && styles.keyAction,
-                  key === '⌫' && styles.keyAction,
+                  (key === 'C' || key === '⌫') && styles.keyAction,
                 ]}
                 onPress={() => {
                   if (key === '⌫') handleDelete();
@@ -109,33 +125,67 @@ export default function LoginScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#000' },
+  backBtn: {
+    position: 'absolute',
+    top: 56,
+    left: 16,
+    zIndex: 10,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#111',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#222',
+  },
+  backText: { color: '#FFF', fontSize: 24, fontWeight: '300', marginTop: -2 },
   top: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingTop: 40,
+    paddingTop: 20,
   },
-  logo: {
-    fontSize: 36,
+  photo: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    resizeMode: 'cover',
+    marginBottom: 14,
+  },
+  avatar: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 14,
+  },
+  avatarText: {
+    fontSize: 34,
+    fontWeight: '900',
+    color: '#000',
+  },
+  name: {
+    fontSize: 22,
     fontWeight: '900',
     color: '#FFF',
-    letterSpacing: 8,
   },
   subtitle: {
     fontSize: 14,
     fontWeight: '600',
     color: '#555',
-    marginTop: 10,
+    marginTop: 6,
   },
   dotsRow: {
     flexDirection: 'row',
-    gap: 12,
-    marginTop: 30,
+    gap: 14,
+    marginTop: 28,
   },
   dot: {
-    width: 14,
-    height: 14,
-    borderRadius: 7,
+    width: 16,
+    height: 16,
+    borderRadius: 8,
     borderWidth: 2,
     borderColor: '#333',
   },
@@ -164,9 +214,9 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   key: {
-    width: 76,
-    height: 76,
-    borderRadius: 38,
+    width: 72,
+    height: 72,
+    borderRadius: 36,
     backgroundColor: '#111',
     alignItems: 'center',
     justifyContent: 'center',
@@ -178,12 +228,12 @@ const styles = StyleSheet.create({
     borderColor: 'transparent',
   },
   keyText: {
-    fontSize: 30,
+    fontSize: 28,
     fontWeight: '700',
     color: '#FFF',
   },
   keyActionText: {
-    fontSize: 18,
+    fontSize: 16,
     color: '#555',
     fontWeight: '800',
   },

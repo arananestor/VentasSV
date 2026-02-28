@@ -5,7 +5,8 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { AppProvider } from './src/context/AppContext';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
 import SetupScreen from './src/screens/SetupScreen';
-import LoginScreen from './src/screens/LoginScreen';
+import SelectWorkerScreen from './src/screens/SelectWorkerScreen';
+import PinEntryScreen from './src/screens/PinEntryScreen';
 import HomeScreen from './src/screens/HomeScreen';
 import CustomizeScreen from './src/screens/CustomizeScreen';
 import PaymentScreen from './src/screens/PaymentScreen';
@@ -38,7 +39,10 @@ function AppNavigator() {
       {!isSetup ? (
         <Stack.Screen name="Setup" component={SetupScreen} />
       ) : !currentWorker ? (
-        <Stack.Screen name="Login" component={LoginScreen} />
+        <>
+          <Stack.Screen name="SelectWorker" component={SelectWorkerScreen} />
+          <Stack.Screen name="PinEntry" component={PinEntryScreen} />
+        </>
       ) : (
         <>
           <Stack.Screen name="Home" component={HomeScreen} />
