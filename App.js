@@ -4,6 +4,7 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { AppProvider } from './src/context/AppContext';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
+import { ThemeProvider, useTheme } from './src/context/ThemeContext';
 import SetupScreen from './src/screens/SetupScreen';
 import SelectWorkerScreen from './src/screens/SelectWorkerScreen';
 import PinEntryScreen from './src/screens/PinEntryScreen';
@@ -19,11 +20,12 @@ const Stack = createNativeStackNavigator();
 
 function AppNavigator() {
   const { isSetup, currentWorker } = useAuth();
+  const { theme } = useTheme();
 
   if (isSetup === null) {
     return (
-      <View style={{ flex: 1, backgroundColor: '#000', justifyContent: 'center', alignItems: 'center' }}>
-        <ActivityIndicator color="#FFF" size="large" />
+      <View style={{ flex: 1, backgroundColor: theme.bg, justifyContent: 'center', alignItems: 'center' }}>
+        <ActivityIndicator color={theme.text} size="large" />
       </View>
     );
   }
@@ -33,7 +35,7 @@ function AppNavigator() {
       screenOptions={{
         headerShown: false,
         animation: 'slide_from_right',
-        contentStyle: { backgroundColor: '#000' },
+        contentStyle: { backgroundColor: theme.bg },
       }}
     >
       {!isSetup ? (
@@ -60,12 +62,14 @@ function AppNavigator() {
 
 export default function App() {
   return (
-    <AuthProvider>
-      <AppProvider>
-        <NavigationContainer>
-          <AppNavigator />
-        </NavigationContainer>
-      </AppProvider>
-    </AuthProvider>
+    <ThemeProvider>
+      <AuthProvider>
+        <AppProvider>
+          <NavigationContainer>
+            <AppNavigator />
+          </NavigationContainer>
+        </AppProvider>
+      </AuthProvider>
+    </ThemeProvider>
   );
 }

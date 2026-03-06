@@ -1,17 +1,11 @@
 import React, { useState } from 'react';
 import {
-  View,
-  Text,
-  TouchableOpacity,
-  TextInput,
-  ScrollView,
-  StyleSheet,
-  SafeAreaView,
-  Alert,
-  Image,
+  View, Text, TouchableOpacity, TextInput, ScrollView,
+  StyleSheet, SafeAreaView, Alert, Image,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { useApp } from '../context/AppContext';
+import { useTheme } from '../context/ThemeContext';
 
 const STICKER_OPTIONS = [
   { type: 'minuta', label: '🍧' },
@@ -22,6 +16,7 @@ const STICKER_OPTIONS = [
 
 export default function AddProductScreen({ navigation }) {
   const { addProduct } = useApp();
+  const { theme } = useTheme();
   const [name, setName] = useState('');
   const [imageMode, setImageMode] = useState('sticker');
   const [stickerType, setStickerType] = useState(null);
@@ -31,217 +26,159 @@ export default function AddProductScreen({ navigation }) {
   const [toppings, setToppings] = useState([]);
 
   const pickCustomIcon = async () => {
-    const result = await ImagePicker.launchImageLibraryAsync({
-      allowsEditing: true, aspect: [1, 1], quality: 0.5,
-    });
-    if (!result.canceled) { setCustomIcon(result.assets[0].uri); setStickerType(null); }
+    const r = await ImagePicker.launchImageLibraryAsync({ allowsEditing: true, aspect: [1,1], quality: 0.5 });
+    if (!r.canceled) { setCustomIcon(r.assets[0].uri); setStickerType(null); }
   };
-
   const pickProductPhoto = async () => {
-    const result = await ImagePicker.launchImageLibraryAsync({
-      allowsEditing: true, aspect: [1, 1], quality: 0.6,
-    });
-    if (!result.canceled) setProductPhoto(result.assets[0].uri);
+    const r = await ImagePicker.launchImageLibraryAsync({ allowsEditing: true, aspect: [1,1], quality: 0.6 });
+    if (!r.canceled) setProductPhoto(r.assets[0].uri);
   };
-
   const takeProductPhoto = async () => {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
-    if (status !== 'granted') { Alert.alert('', 'Necesitamos la cámara'); return; }
-    const result = await ImagePicker.launchCameraAsync({
-      allowsEditing: true, aspect: [1, 1], quality: 0.6,
-    });
-    if (!result.canceled) setProductPhoto(result.assets[0].uri);
+    if (status !== 'granted') { Alert.alert('','Necesitamos la cámara'); return; }
+    const r = await ImagePicker.launchCameraAsync({ allowsEditing: true, aspect: [1,1], quality: 0.6 });
+    if (!r.canceled) setProductPhoto(r.assets[0].uri);
   };
 
   const addSize = () => setSizes([...sizes, { name: '', price: '' }]);
-  const updateSize = (i, field, val) => {
-    const n = [...sizes]; n[i][field] = val; setSizes(n);
-  };
-  const removeSize = (i) => setSizes(sizes.filter((_, idx) => idx !== i));
-
+  const updateSize = (i, f, v) => { const n=[...sizes]; n[i][f]=v; setSizes(n); };
+  const removeSize = (i) => setSizes(sizes.filter((_,idx)=>idx!==i));
   const addTopping = () => setToppings([...toppings, { name: '', price: '', isDefault: false }]);
-  const updateTopping = (i, field, val) => {
-    const n = [...toppings]; n[i][field] = val; setToppings(n);
-  };
-  const removeTopping = (i) => setToppings(toppings.filter((_, idx) => idx !== i));
+  const updateTopping = (i, f, v) => { const n=[...toppings]; n[i][f]=v; setToppings(n); };
+  const removeTopping = (i) => setToppings(toppings.filter((_,idx)=>idx!==i));
 
   const handleSave = async () => {
-    if (!name.trim()) { Alert.alert('', 'Ponele un nombre'); return; }
-    if (!sizes[0]?.price) { Alert.alert('', 'Agregá al menos un precio'); return; }
-
+    if (!name.trim()) { Alert.alert('','Ponele un nombre'); return; }
+    if (!sizes[0]?.price) { Alert.alert('','Agregá al menos un precio'); return; }
     await addProduct({
       name: name.trim(),
-      stickerType: imageMode === 'sticker' ? stickerType : null,
-      customImage: imageMode === 'sticker' ? customIcon : productPhoto,
+      stickerType: imageMode==='sticker'?stickerType:null,
+      customImage: imageMode==='sticker'?customIcon:productPhoto,
       imageMode,
-      sizes: sizes.filter(s => s.price).map(s => ({
-        name: s.name || 'Normal', price: parseFloat(s.price) || 0,
-      })),
-      toppings: toppings.filter(t => t.name).map(t => ({
-        name: t.name, price: parseFloat(t.price) || 0, isDefault: t.isDefault,
-      })),
+      sizes: sizes.filter(s=>s.price).map(s=>({ name: s.name||'Normal', price: parseFloat(s.price)||0 })),
+      toppings: toppings.filter(t=>t.name).map(t=>({ name: t.name, price: parseFloat(t.price)||0, isDefault: t.isDefault })),
     });
     navigation.goBack();
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, { backgroundColor: theme.bg }]}>
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
-          <Text style={styles.backText}>‹</Text>
+        <TouchableOpacity style={[styles.backBtn, { backgroundColor: theme.card, borderColor: theme.cardBorder }]} onPress={() => navigation.goBack()}>
+          <Text style={[styles.backText, { color: theme.text }]}>‹</Text>
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>NUEVO PRODUCTO</Text>
+        <Text style={[styles.headerTitle, { color: theme.text }]}>NUEVO PRODUCTO</Text>
         <View style={{ width: 44 }} />
       </View>
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-        {/* Name */}
-        <Text style={styles.label}>NOMBRE</Text>
-        <TextInput
-          style={styles.input}
-          value={name}
-          onChangeText={setName}
-          placeholder="Ej: Pupusa de queso"
-          placeholderTextColor="#333"
-        />
+        <Text style={[styles.label, { color: theme.textMuted }]}>NOMBRE</Text>
+        <TextInput style={[styles.input, { backgroundColor: theme.input, borderColor: theme.inputBorder, color: theme.text }]}
+          value={name} onChangeText={setName} placeholder="Ej: Pupusa de queso" placeholderTextColor={theme.textMuted} />
 
-        {/* Image Mode */}
-        <Text style={styles.label}>IMAGEN</Text>
+        <Text style={[styles.label, { color: theme.textMuted }]}>IMAGEN</Text>
         <View style={styles.modeRow}>
-          <TouchableOpacity
-            style={[styles.modeBtn, imageMode === 'sticker' && styles.modeActive]}
-            onPress={() => setImageMode('sticker')}
-          >
-            <Text style={[styles.modeText, imageMode === 'sticker' && styles.modeTextActive]}>
-              Ícono
-            </Text>
+          <TouchableOpacity style={[styles.modeBtn, { backgroundColor: theme.card, borderColor: theme.cardBorder },
+            imageMode==='sticker' && { backgroundColor: theme.accent, borderColor: theme.accent }]}
+            onPress={() => setImageMode('sticker')}>
+            <Text style={[styles.modeText, { color: theme.textSecondary },
+              imageMode==='sticker' && { color: theme.accentText }]}>Ícono</Text>
           </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.modeBtn, imageMode === 'photo' && styles.modeActive]}
-            onPress={() => setImageMode('photo')}
-          >
-            <Text style={[styles.modeText, imageMode === 'photo' && styles.modeTextActive]}>
-              Foto real
-            </Text>
+          <TouchableOpacity style={[styles.modeBtn, { backgroundColor: theme.card, borderColor: theme.cardBorder },
+            imageMode==='photo' && { backgroundColor: theme.accent, borderColor: theme.accent }]}
+            onPress={() => setImageMode('photo')}>
+            <Text style={[styles.modeText, { color: theme.textSecondary },
+              imageMode==='photo' && { color: theme.accentText }]}>Foto real</Text>
           </TouchableOpacity>
         </View>
 
-        {imageMode === 'sticker' && (
+        {imageMode==='sticker' && (
           <View style={styles.stickerRow}>
-            {STICKER_OPTIONS.map(opt => (
-              <TouchableOpacity
-                key={opt.type}
-                style={[styles.stickerBtn, stickerType === opt.type && styles.stickerActive]}
-                onPress={() => { setStickerType(opt.type); setCustomIcon(null); }}
-              >
-                <Text style={styles.stickerEmoji}>{opt.label}</Text>
+            {STICKER_OPTIONS.map(o => (
+              <TouchableOpacity key={o.type}
+                style={[styles.stickerBtn, { backgroundColor: theme.card, borderColor: theme.cardBorder },
+                  stickerType===o.type && { backgroundColor: theme.accent, borderColor: theme.accent }]}
+                onPress={() => { setStickerType(o.type); setCustomIcon(null); }}>
+                <Text style={styles.stickerEmoji}>{o.label}</Text>
               </TouchableOpacity>
             ))}
-            <TouchableOpacity
-              style={[styles.stickerBtn, customIcon && styles.stickerActive]}
-              onPress={pickCustomIcon}
-            >
-              {customIcon ? (
-                <Image source={{ uri: customIcon }} style={styles.miniPreview} />
-              ) : (
-                <Text style={styles.uploadIcon}>📤</Text>
-              )}
+            <TouchableOpacity style={[styles.stickerBtn, { backgroundColor: theme.card, borderColor: theme.cardBorder },
+              customIcon && { backgroundColor: theme.accent, borderColor: theme.accent }]}
+              onPress={pickCustomIcon}>
+              {customIcon ? <Image source={{ uri: customIcon }} style={styles.miniPreview} /> : <Text style={{ fontSize: 22 }}>📤</Text>}
             </TouchableOpacity>
           </View>
         )}
 
-        {imageMode === 'photo' && (
+        {imageMode==='photo' && (
           <View>
             {productPhoto ? (
               <View style={styles.photoWrap}>
                 <Image source={{ uri: productPhoto }} style={styles.photoImg} />
-                <TouchableOpacity style={styles.photoRemove} onPress={() => setProductPhoto(null)}>
-                  <Text style={styles.photoRemoveText}>✕</Text>
+                <TouchableOpacity style={[styles.photoRemove, { backgroundColor: theme.bg, borderColor: theme.cardBorder }]}
+                  onPress={() => setProductPhoto(null)}>
+                  <Text style={[{ color: theme.text, fontSize: 14, fontWeight: '600' }]}>✕</Text>
                 </TouchableOpacity>
               </View>
             ) : (
               <View style={styles.photoBtns}>
-                <TouchableOpacity style={styles.photoBtn} onPress={takeProductPhoto}>
-                  <Text style={styles.photoBtnIcon}>📸</Text>
-                  <Text style={styles.photoBtnText}>Cámara</Text>
+                <TouchableOpacity style={[styles.photoBtn, { backgroundColor: theme.card, borderColor: theme.cardBorder }]} onPress={takeProductPhoto}>
+                  <Text style={{ fontSize: 32 }}>📸</Text>
+                  <Text style={[styles.photoBtnText, { color: theme.textSecondary }]}>Cámara</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.photoBtn} onPress={pickProductPhoto}>
-                  <Text style={styles.photoBtnIcon}>🖼️</Text>
-                  <Text style={styles.photoBtnText}>Galería</Text>
+                <TouchableOpacity style={[styles.photoBtn, { backgroundColor: theme.card, borderColor: theme.cardBorder }]} onPress={pickProductPhoto}>
+                  <Text style={{ fontSize: 32 }}>🖼️</Text>
+                  <Text style={[styles.photoBtnText, { color: theme.textSecondary }]}>Galería</Text>
                 </TouchableOpacity>
               </View>
             )}
           </View>
         )}
 
-        {/* Sizes */}
-        <Text style={styles.label}>TAMAÑOS Y PRECIOS</Text>
-        {sizes.map((s, i) => (
+        <Text style={[styles.label, { color: theme.textMuted }]}>TAMAÑOS Y PRECIOS</Text>
+        {sizes.map((s,i) => (
           <View key={i} style={styles.fieldRow}>
-            <TextInput
-              style={[styles.input, { flex: 1 }]}
-              value={s.name}
-              onChangeText={v => updateSize(i, 'name', v)}
-              placeholder="Tamaño"
-              placeholderTextColor="#333"
-            />
-            <View style={styles.priceField}>
-              <Text style={styles.priceDollar}>$</Text>
-              <TextInput
-                style={styles.priceInput}
-                value={s.price}
-                onChangeText={v => updateSize(i, 'price', v)}
-                placeholder="0.00"
-                keyboardType="numeric"
-                placeholderTextColor="#333"
-              />
+            <TextInput style={[styles.input, { flex: 1, backgroundColor: theme.input, borderColor: theme.inputBorder, color: theme.text }]}
+              value={s.name} onChangeText={v=>updateSize(i,'name',v)} placeholder="Tamaño" placeholderTextColor={theme.textMuted} />
+            <View style={[styles.priceField, { backgroundColor: theme.input, borderColor: theme.inputBorder }]}>
+              <Text style={[styles.priceDollar, { color: theme.text }]}>$</Text>
+              <TextInput style={[styles.priceInput, { color: theme.text }]}
+                value={s.price} onChangeText={v=>updateSize(i,'price',v)} placeholder="0.00" keyboardType="numeric" placeholderTextColor={theme.textMuted} />
             </View>
             {sizes.length > 1 && (
-              <TouchableOpacity style={styles.removeBtn} onPress={() => removeSize(i)}>
-                <Text style={styles.removeBtnText}>✕</Text>
+              <TouchableOpacity style={[styles.removeBtn, { backgroundColor: theme.card, borderColor: theme.cardBorder }]} onPress={()=>removeSize(i)}>
+                <Text style={[{ color: theme.textMuted, fontSize: 14, fontWeight: '600' }]}>✕</Text>
               </TouchableOpacity>
             )}
           </View>
         ))}
-        <TouchableOpacity style={styles.addRowBtn} onPress={addSize}>
-          <Text style={styles.addRowText}>+ Tamaño</Text>
+        <TouchableOpacity style={[styles.addRowBtn, { backgroundColor: theme.card, borderColor: theme.cardBorder }]} onPress={addSize}>
+          <Text style={[styles.addRowText, { color: theme.textMuted }]}>+ Tamaño</Text>
         </TouchableOpacity>
 
-        {/* Toppings */}
-        <Text style={styles.label}>EXTRAS</Text>
-        {toppings.map((t, i) => (
+        <Text style={[styles.label, { color: theme.textMuted }]}>EXTRAS</Text>
+        {toppings.map((t,i) => (
           <View key={i} style={styles.fieldRow}>
-            <TextInput
-              style={[styles.input, { flex: 1 }]}
-              value={t.name}
-              onChangeText={v => updateTopping(i, 'name', v)}
-              placeholder="Extra"
-              placeholderTextColor="#333"
-            />
-            <View style={styles.priceField}>
-              <Text style={styles.priceDollar}>$</Text>
-              <TextInput
-                style={styles.priceInput}
-                value={t.price}
-                onChangeText={v => updateTopping(i, 'price', v)}
-                placeholder="0.00"
-                keyboardType="numeric"
-                placeholderTextColor="#333"
-              />
+            <TextInput style={[styles.input, { flex: 1, backgroundColor: theme.input, borderColor: theme.inputBorder, color: theme.text }]}
+              value={t.name} onChangeText={v=>updateTopping(i,'name',v)} placeholder="Extra" placeholderTextColor={theme.textMuted} />
+            <View style={[styles.priceField, { backgroundColor: theme.input, borderColor: theme.inputBorder }]}>
+              <Text style={[styles.priceDollar, { color: theme.text }]}>$</Text>
+              <TextInput style={[styles.priceInput, { color: theme.text }]}
+                value={t.price} onChangeText={v=>updateTopping(i,'price',v)} placeholder="0.00" keyboardType="numeric" placeholderTextColor={theme.textMuted} />
             </View>
-            <TouchableOpacity style={styles.removeBtn} onPress={() => removeTopping(i)}>
-              <Text style={styles.removeBtnText}>✕</Text>
+            <TouchableOpacity style={[styles.removeBtn, { backgroundColor: theme.card, borderColor: theme.cardBorder }]} onPress={()=>removeTopping(i)}>
+              <Text style={[{ color: theme.textMuted, fontSize: 14, fontWeight: '600' }]}>✕</Text>
             </TouchableOpacity>
           </View>
         ))}
-        <TouchableOpacity style={styles.addRowBtn} onPress={addTopping}>
-          <Text style={styles.addRowText}>+ Extra</Text>
+        <TouchableOpacity style={[styles.addRowBtn, { backgroundColor: theme.card, borderColor: theme.cardBorder }]} onPress={addTopping}>
+          <Text style={[styles.addRowText, { color: theme.textMuted }]}>+ Extra</Text>
         </TouchableOpacity>
       </ScrollView>
 
-      <View style={styles.bottomBar}>
-        <TouchableOpacity style={styles.saveBtn} onPress={handleSave}>
-          <Text style={styles.saveText}>GUARDAR</Text>
+      <View style={[styles.bottomBar, { backgroundColor: theme.bg, borderColor: theme.cardBorder }]}>
+        <TouchableOpacity style={[styles.saveBtn, { backgroundColor: theme.accent }]} onPress={handleSave}>
+          <Text style={[styles.saveText, { color: theme.accentText }]}>GUARDAR</Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>
@@ -249,159 +186,41 @@ export default function AddProductScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#000' },
+  container: { flex: 1 },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: 16, paddingVertical: 12,
   },
-  backBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: '#111',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: '#222',
-  },
-  backText: { color: '#FFF', fontSize: 24, fontWeight: '300', marginTop: -2 },
-  headerTitle: { color: '#FFF', fontSize: 14, fontWeight: '800', letterSpacing: 3 },
+  backBtn: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', borderWidth: 1 },
+  backText: { fontSize: 24, fontWeight: '300', marginTop: -2 },
+  headerTitle: { fontSize: 14, fontWeight: '800', letterSpacing: 3 },
   scroll: { paddingHorizontal: 16, paddingBottom: 120 },
-  label: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: '#555',
-    letterSpacing: 3,
-    marginTop: 24,
-    marginBottom: 10,
-  },
-  input: {
-    backgroundColor: '#111',
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#FFF',
-    borderWidth: 1,
-    borderColor: '#222',
-  },
+  label: { fontSize: 11, fontWeight: '800', letterSpacing: 3, marginTop: 24, marginBottom: 10 },
+  input: { borderRadius: 12, paddingHorizontal: 16, paddingVertical: 14, fontSize: 16, fontWeight: '600', borderWidth: 1 },
   modeRow: { flexDirection: 'row', gap: 8, marginBottom: 12 },
-  modeBtn: {
-    flex: 1,
-    backgroundColor: '#111',
-    borderRadius: 12,
-    paddingVertical: 14,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#222',
-  },
-  modeActive: { backgroundColor: '#FFF', borderColor: '#FFF' },
-  modeText: { fontSize: 14, fontWeight: '700', color: '#888' },
-  modeTextActive: { color: '#000' },
+  modeBtn: { flex: 1, borderRadius: 12, paddingVertical: 14, alignItems: 'center', borderWidth: 1 },
+  modeText: { fontSize: 14, fontWeight: '700' },
   stickerRow: { flexDirection: 'row', gap: 10 },
-  stickerBtn: {
-    width: 52,
-    height: 52,
-    borderRadius: 14,
-    backgroundColor: '#111',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: '#222',
-  },
-  stickerActive: { backgroundColor: '#FFF', borderColor: '#FFF' },
+  stickerBtn: { width: 52, height: 52, borderRadius: 14, alignItems: 'center', justifyContent: 'center', borderWidth: 1 },
   stickerEmoji: { fontSize: 24 },
-  uploadIcon: { fontSize: 22 },
   miniPreview: { width: 36, height: 36, borderRadius: 8 },
   photoBtns: { flexDirection: 'row', gap: 10 },
-  photoBtn: {
-    flex: 1,
-    backgroundColor: '#111',
-    borderRadius: 14,
-    paddingVertical: 30,
-    alignItems: 'center',
-    gap: 8,
-    borderWidth: 1,
-    borderColor: '#222',
-  },
-  photoBtnIcon: { fontSize: 32 },
-  photoBtnText: { fontSize: 12, fontWeight: '700', color: '#888' },
+  photoBtn: { flex: 1, borderRadius: 14, paddingVertical: 30, alignItems: 'center', gap: 8, borderWidth: 1 },
+  photoBtnText: { fontSize: 12, fontWeight: '700' },
   photoWrap: { position: 'relative' },
   photoImg: { width: '100%', height: 180, borderRadius: 14, resizeMode: 'cover' },
   photoRemove: {
-    position: 'absolute', top: 10, right: 10,
-    width: 36, height: 36, borderRadius: 18,
-    backgroundColor: '#000', borderWidth: 1, borderColor: '#333',
-    alignItems: 'center', justifyContent: 'center',
+    position: 'absolute', top: 10, right: 10, width: 36, height: 36, borderRadius: 18,
+    alignItems: 'center', justifyContent: 'center', borderWidth: 1,
   },
-  photoRemoveText: { color: '#FFF', fontSize: 14, fontWeight: '600' },
-  fieldRow: {
-    flexDirection: 'row',
-    gap: 8,
-    marginBottom: 8,
-    alignItems: 'center',
-  },
-  priceField: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#111',
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    borderWidth: 1,
-    borderColor: '#222',
-    width: 100,
-  },
-  priceDollar: { fontSize: 16, fontWeight: '900', color: '#FFF' },
-  priceInput: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#FFF',
-    paddingVertical: 14,
-    paddingLeft: 4,
-    flex: 1,
-  },
-  removeBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#111',
-    borderWidth: 1,
-    borderColor: '#222',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  removeBtnText: { color: '#555', fontSize: 14, fontWeight: '600' },
-  addRowBtn: {
-    backgroundColor: '#111',
-    borderRadius: 12,
-    paddingVertical: 14,
-    alignItems: 'center',
-    marginTop: 4,
-    borderWidth: 1,
-    borderColor: '#222',
-    borderStyle: 'dashed',
-  },
-  addRowText: { fontSize: 13, fontWeight: '700', color: '#555' },
-  bottomBar: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    padding: 16,
-    paddingBottom: 34,
-    backgroundColor: '#000',
-    borderTopWidth: 1,
-    borderColor: '#111',
-  },
-  saveBtn: {
-    backgroundColor: '#FFF',
-    borderRadius: 16,
-    paddingVertical: 18,
-    alignItems: 'center',
-  },
-  saveText: { color: '#000', fontSize: 18, fontWeight: '900', letterSpacing: 3 },
+  fieldRow: { flexDirection: 'row', gap: 8, marginBottom: 8, alignItems: 'center' },
+  priceField: { flexDirection: 'row', alignItems: 'center', borderRadius: 12, paddingHorizontal: 12, borderWidth: 1, width: 100 },
+  priceDollar: { fontSize: 16, fontWeight: '900' },
+  priceInput: { fontSize: 16, fontWeight: '600', paddingVertical: 14, paddingLeft: 4, flex: 1 },
+  removeBtn: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', borderWidth: 1 },
+  addRowBtn: { borderRadius: 12, paddingVertical: 14, alignItems: 'center', marginTop: 4, borderWidth: 1, borderStyle: 'dashed' },
+  addRowText: { fontSize: 13, fontWeight: '700' },
+  bottomBar: { position: 'absolute', bottom: 0, left: 0, right: 0, padding: 16, paddingBottom: 34, borderTopWidth: 1 },
+  saveBtn: { borderRadius: 16, paddingVertical: 18, alignItems: 'center' },
+  saveText: { fontSize: 18, fontWeight: '900', letterSpacing: 3 },
 });

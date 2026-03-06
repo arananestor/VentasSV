@@ -11,6 +11,7 @@ import {
   Dimensions,
 } from 'react-native';
 import { useAuth } from '../context/AuthContext';
+import { useTheme } from '../context/ThemeContext';
 
 const { width } = Dimensions.get('window');
 const CARD_GAP = 14;
@@ -19,43 +20,37 @@ const CARD_SIZE = (width - (PADDING * 2) - CARD_GAP) / 2;
 
 export default function SelectWorkerScreen({ navigation }) {
   const { workers } = useAuth();
-
-  const handleSelect = (worker) => {
-    navigation.navigate('PinEntry', { worker });
-  };
+  const { theme } = useTheme();
 
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#000" />
+    <SafeAreaView style={[styles.container, { backgroundColor: theme.bg }]}>
+      <StatusBar barStyle={theme.statusBar} backgroundColor={theme.bg} />
 
       <View style={styles.header}>
-        <Text style={styles.logo}>VENTA</Text>
-        <Text style={styles.title}>¿Quién trabaja hoy?</Text>
+        <Text style={[styles.logo, { color: theme.text }]}>VENTA</Text>
+        <Text style={[styles.title, { color: theme.textSecondary }]}>¿Quién trabaja hoy?</Text>
       </View>
 
-      <ScrollView
-        contentContainerStyle={styles.grid}
-        showsVerticalScrollIndicator={false}
-      >
+      <ScrollView contentContainerStyle={styles.grid} showsVerticalScrollIndicator={false}>
         {workers.map((worker) => (
           <TouchableOpacity
             key={worker.id}
-            style={styles.workerCard}
+            style={[styles.workerCard, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}
             activeOpacity={0.8}
-            onPress={() => handleSelect(worker)}
+            onPress={() => navigation.navigate('PinEntry', { worker })}
           >
             {worker.photo ? (
               <Image source={{ uri: worker.photo }} style={styles.workerPhoto} />
             ) : (
-              <View style={[styles.workerAvatar, { backgroundColor: worker.color || '#FFF' }]}>
-                <Text style={styles.workerInitial}>
+              <View style={[styles.workerAvatar, { backgroundColor: worker.color || theme.accent }]}>
+                <Text style={[styles.workerInitial, { color: '#000' }]}>
                   {worker.name.charAt(0).toUpperCase()}
                 </Text>
               </View>
             )}
-            <Text style={styles.workerName} numberOfLines={1}>{worker.name}</Text>
-            <View style={styles.rolePill}>
-              <Text style={styles.roleText}>
+            <Text style={[styles.workerName, { color: theme.text }]} numberOfLines={1}>{worker.name}</Text>
+            <View style={[styles.rolePill, { backgroundColor: theme.bg }]}>
+              <Text style={[styles.roleText, { color: theme.textMuted }]}>
                 {worker.role === 'admin' ? 'ADMIN' : 'CAJERO'}
               </Text>
             </View>
@@ -67,78 +62,25 @@ export default function SelectWorkerScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#000' },
-  header: {
-    paddingHorizontal: PADDING,
-    paddingTop: 40,
-    paddingBottom: 30,
-    alignItems: 'center',
-  },
-  logo: {
-    fontSize: 32,
-    fontWeight: '900',
-    color: '#FFF',
-    letterSpacing: 8,
-  },
-  title: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#666',
-    marginTop: 12,
-  },
+  container: { flex: 1 },
+  header: { paddingHorizontal: PADDING, paddingTop: 40, paddingBottom: 30, alignItems: 'center' },
+  logo: { fontSize: 32, fontWeight: '900', letterSpacing: 8 },
+  title: { fontSize: 18, fontWeight: '600', marginTop: 12 },
   grid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    paddingHorizontal: PADDING,
-    gap: CARD_GAP,
-    paddingBottom: 60,
-    justifyContent: 'center',
+    flexDirection: 'row', flexWrap: 'wrap',
+    paddingHorizontal: PADDING, gap: CARD_GAP, paddingBottom: 60, justifyContent: 'center',
   },
   workerCard: {
-    width: CARD_SIZE,
-    backgroundColor: '#111',
-    borderRadius: 22,
-    paddingVertical: 28,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#222',
-    gap: 12,
+    width: CARD_SIZE, borderRadius: 22, paddingVertical: 28,
+    alignItems: 'center', borderWidth: 1, gap: 12,
   },
-  workerPhoto: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    resizeMode: 'cover',
-  },
+  workerPhoto: { width: 72, height: 72, borderRadius: 36, resizeMode: 'cover' },
   workerAvatar: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    alignItems: 'center',
-    justifyContent: 'center',
+    width: 72, height: 72, borderRadius: 36,
+    alignItems: 'center', justifyContent: 'center',
   },
-  workerInitial: {
-    fontSize: 30,
-    fontWeight: '900',
-    color: '#000',
-  },
-  workerName: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: '#FFF',
-    paddingHorizontal: 12,
-    textAlign: 'center',
-  },
-  rolePill: {
-    backgroundColor: '#1A1A1A',
-    borderRadius: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 3,
-  },
-  roleText: {
-    fontSize: 9,
-    fontWeight: '800',
-    color: '#555',
-    letterSpacing: 2,
-  },
+  workerInitial: { fontSize: 30, fontWeight: '900' },
+  workerName: { fontSize: 16, fontWeight: '800', paddingHorizontal: 12, textAlign: 'center' },
+  rolePill: { borderRadius: 6, paddingHorizontal: 10, paddingVertical: 3 },
+  roleText: { fontSize: 9, fontWeight: '800', letterSpacing: 2 },
 });
