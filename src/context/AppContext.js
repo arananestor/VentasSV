@@ -3,68 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const AppContext = createContext();
 
-const DEFAULT_PRODUCTS = [
-  {
-    id: '1',
-    name: 'Minuta',
-    emoji: '🍧',
-    stickerType: 'minuta',
-    sizes: [
-      { name: 'Pequeña', price: 1.00 },
-      { name: 'Grande', price: 1.75 },
-    ],
-    toppings: [
-      { name: 'Leche condensada', price: 0.00, isDefault: true },
-      { name: 'Chamoy', price: 0.00, isDefault: true },
-      { name: 'Extra jarabe', price: 0.25, isDefault: false },
-    ],
-  },
-  {
-    id: '2',
-    name: 'Fresas con crema',
-    emoji: '🍓',
-    stickerType: 'fresas',
-    sizes: [
-      { name: 'Normal', price: 2.50 },
-      { name: 'Grande', price: 3.50 },
-    ],
-    toppings: [
-      { name: 'Chocolate', price: 0.50, isDefault: false },
-      { name: 'Extra crema', price: 0.50, isDefault: false },
-      { name: 'Granola', price: 0.50, isDefault: false },
-    ],
-  },
-  {
-    id: '3',
-    name: 'Chocobanano',
-    emoji: '🍌',
-    stickerType: 'chocobanano',
-    sizes: [
-      { name: 'Normal', price: 1.25 },
-    ],
-    toppings: [
-      { name: 'Extra chocolate', price: 0.50, isDefault: false },
-      { name: 'Chispas', price: 0.25, isDefault: false },
-      { name: 'Maní', price: 0.25, isDefault: false },
-    ],
-  },
-  {
-    id: '4',
-    name: 'Sorbete artesanal',
-    emoji: '🍦',
-    stickerType: 'sorbete',
-    sizes: [
-      { name: '1 bola', price: 1.00 },
-      { name: '2 bolas', price: 1.75 },
-      { name: '3 bolas', price: 2.50 },
-    ],
-    toppings: [
-      { name: 'Barquillo', price: 0.25, isDefault: false },
-      { name: 'Sirope', price: 0.00, isDefault: true },
-      { name: 'Chispas chocolate', price: 0.25, isDefault: false },
-    ],
-  },
-];
+const DEFAULT_PRODUCTS = [];
 
 export function AppProvider({ children }) {
   const [products, setProducts] = useState(DEFAULT_PRODUCTS);

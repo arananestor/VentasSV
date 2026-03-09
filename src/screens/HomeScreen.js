@@ -34,6 +34,7 @@ export default function HomeScreen({ navigation }) {
 
   const activeTab = getActiveTab();
   const filteredTabs = getFilteredTabs();
+  const existingIds = products.map(p => p.id);
 
   const tabProducts = activeTab.id === 'default' && activeTab.productIds.length === 0
     ? products
@@ -177,7 +178,7 @@ export default function HomeScreen({ navigation }) {
           contentContainerStyle={styles.tabBar}>
           {filteredTabs.map(tab => {
             const isActive = activeTabId === tab.id;
-            const count = tab.productIds.length;
+            const count = tab.productIds.filter(id => existingIds.includes(id)).length;
             return (
               <TouchableOpacity key={tab.id}
                 style={[styles.tabPill,
