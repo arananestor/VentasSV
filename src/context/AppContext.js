@@ -69,7 +69,6 @@ const DEFAULT_PRODUCTS = [
 export function AppProvider({ children }) {
   const [products, setProducts] = useState(DEFAULT_PRODUCTS);
   const [sales, setSales] = useState([]);
-  const [currentOrder, setCurrentOrder] = useState(null);
 
   useEffect(() => { loadData(); }, []);
 
@@ -88,8 +87,11 @@ export function AppProvider({ children }) {
   };
 
   const addProduct = async (product) => {
-    const newProducts = [...products, { ...product, id: Date.now().toString() }];
+    const id = Date.now().toString();
+    const newProduct = { ...product, id };
+    const newProducts = [...products, newProduct];
     await saveProducts(newProducts);
+    return newProduct;
   };
 
   const updateProduct = async (id, updates) => {
@@ -123,7 +125,7 @@ export function AppProvider({ children }) {
 
   return (
     <AppContext.Provider value={{
-      products, sales, currentOrder, setCurrentOrder,
+      products, sales,
       addProduct, updateProduct, deleteProduct,
       addSale, getTodaySales, getAllSales,
     }}>

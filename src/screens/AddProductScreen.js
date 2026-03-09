@@ -5,7 +5,9 @@ import {
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { useApp } from '../context/AppContext';
+import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
+import { useTab } from '../context/TabContext';
 
 const STICKER_OPTIONS = [
   { type: 'minuta', label: '🍧' },
@@ -16,7 +18,10 @@ const STICKER_OPTIONS = [
 
 export default function AddProductScreen({ navigation }) {
   const { addProduct } = useApp();
+  const { currentWorker } = useAuth();
   const { theme } = useTheme();
+  const { tabs, activeTabId, addProductToMultipleTabs } = useTab();
+
   const [name, setName] = useState('');
   const [imageMode, setImageMode] = useState('sticker');
   const [stickerType, setStickerType] = useState(null);
@@ -24,6 +29,13 @@ export default function AddProductScreen({ navigation }) {
   const [productPhoto, setProductPhoto] = useState(null);
   const [sizes, setSizes] = useState([{ name: '', price: '' }]);
   const [toppings, setToppings] = useState([]);
+  const [selectedTabs, setSelectedTabs] = useState([activeTabId]);
+
+  const toggleTab = (tabId) => {
+    setSelectedTabs(prev =>
+      prev.includes(tabId) ? prev.filter(id => id !== tabId) : [...prev, tabId]
+    );
+  };
 
   const pickCustomIcon = async () => {
     const r = await ImagePicker.launchImageLibraryAsync({ allowsEditing: true, aspect: [1,1], quality: 0.5 });
@@ -48,9 +60,14 @@ export default function AddProductScreen({ navigation }) {
   const removeTopping = (i) => setToppings(toppings.filter((_,idx)=>idx!==i));
 
   const handleSave = async () => {
+    if (currentWorker?.role !== 'admin') {
+      Alert.alert('', 'Solo el administrador puede agregar productos'); return;
+    }
     if (!name.trim()) { Alert.alert('','Ponele un nombre'); return; }
     if (!sizes[0]?.price) { Alert.alert('','Agregá al menos un precio'); return; }
-    await addProduct({
+    if (selectedTabs.length === 0) { Alert.alert('','Seleccioná al menos una pestaña'); return; }
+
+    const newProduct = await addProduct({
       name: name.trim(),
       stickerType: imageMode==='sticker'?stickerType:null,
       customImage: imageMode==='sticker'?customIcon:productPhoto,
@@ -58,6 +75,11 @@ export default function AddProductScreen({ navigation }) {
       sizes: sizes.filter(s=>s.price).map(s=>({ name: s.name||'Normal', price: parseFloat(s.price)||0 })),
       toppings: toppings.filter(t=>t.name).map(t=>({ name: t.name, price: parseFloat(t.price)||0, isDefault: t.isDefault })),
     });
+
+    if (newProduct && newProduct.id) {
+      await addProductToMultipleTabs(selectedTabs, newProduct.id);
+    }
+
     navigation.goBack();
   };
 
@@ -72,6 +94,31 @@ export default function AddProductScreen({ navigation }) {
       </View>
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+        {/* Tab assignment FIRST so user knows where it goes */}
+        <Text style={[styles.label, { color: theme.textMuted }]}>AGREGAR A</Text>
+        <View style={styles.tabsGrid}>
+          {tabs.map(tab => {
+            const sel = selectedTabs.includes(tab.id);
+            return (
+              <TouchableOpacity
+                key={tab.id}
+                style={[styles.tabChip,
+                  { backgroundColor: theme.card, borderColor: theme.cardBorder },
+                  sel && { backgroundColor: tab.color, borderColor: tab.color }]}
+                onPress={() => toggleTab(tab.id)}
+              >
+                <Text style={styles.tabChipIcon}>{tab.icon}</Text>
+                <Text style={[styles.tabChipText,
+                  { color: theme.textSecondary },
+                  sel && { color: tab.color === '#FFFFFF' ? '#000' : '#FFF' }]}>
+                  {tab.name}
+                </Text>
+                {sel && <Text style={[styles.tabCheck, { color: tab.color === '#FFFFFF' ? '#000' : '#FFF' }]}>✓</Text>}
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+
         <Text style={[styles.label, { color: theme.textMuted }]}>NOMBRE</Text>
         <TextInput style={[styles.input, { backgroundColor: theme.input, borderColor: theme.inputBorder, color: theme.text }]}
           value={name} onChangeText={setName} placeholder="Ej: Pupusa de queso" placeholderTextColor={theme.textMuted} />
@@ -117,7 +164,7 @@ export default function AddProductScreen({ navigation }) {
                 <Image source={{ uri: productPhoto }} style={styles.photoImg} />
                 <TouchableOpacity style={[styles.photoRemove, { backgroundColor: theme.bg, borderColor: theme.cardBorder }]}
                   onPress={() => setProductPhoto(null)}>
-                  <Text style={[{ color: theme.text, fontSize: 14, fontWeight: '600' }]}>✕</Text>
+                  <Text style={{ color: theme.text, fontSize: 14, fontWeight: '600' }}>✕</Text>
                 </TouchableOpacity>
               </View>
             ) : (
@@ -147,7 +194,7 @@ export default function AddProductScreen({ navigation }) {
             </View>
             {sizes.length > 1 && (
               <TouchableOpacity style={[styles.removeBtn, { backgroundColor: theme.card, borderColor: theme.cardBorder }]} onPress={()=>removeSize(i)}>
-                <Text style={[{ color: theme.textMuted, fontSize: 14, fontWeight: '600' }]}>✕</Text>
+                <Text style={{ color: theme.textMuted, fontSize: 14, fontWeight: '600' }}>✕</Text>
               </TouchableOpacity>
             )}
           </View>
@@ -167,7 +214,7 @@ export default function AddProductScreen({ navigation }) {
                 value={t.price} onChangeText={v=>updateTopping(i,'price',v)} placeholder="0.00" keyboardType="numeric" placeholderTextColor={theme.textMuted} />
             </View>
             <TouchableOpacity style={[styles.removeBtn, { backgroundColor: theme.card, borderColor: theme.cardBorder }]} onPress={()=>removeTopping(i)}>
-              <Text style={[{ color: theme.textMuted, fontSize: 14, fontWeight: '600' }]}>✕</Text>
+              <Text style={{ color: theme.textMuted, fontSize: 14, fontWeight: '600' }}>✕</Text>
             </TouchableOpacity>
           </View>
         ))}
@@ -197,6 +244,14 @@ const styles = StyleSheet.create({
   scroll: { paddingHorizontal: 16, paddingBottom: 120 },
   label: { fontSize: 11, fontWeight: '800', letterSpacing: 3, marginTop: 24, marginBottom: 10 },
   input: { borderRadius: 12, paddingHorizontal: 16, paddingVertical: 14, fontSize: 16, fontWeight: '600', borderWidth: 1 },
+  tabsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  tabChip: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    paddingHorizontal: 14, paddingVertical: 10, borderRadius: 12, borderWidth: 1.5,
+  },
+  tabChipIcon: { fontSize: 14 },
+  tabChipText: { fontSize: 13, fontWeight: '700' },
+  tabCheck: { fontSize: 12, fontWeight: '900', marginLeft: 2 },
   modeRow: { flexDirection: 'row', gap: 8, marginBottom: 12 },
   modeBtn: { flex: 1, borderRadius: 12, paddingVertical: 14, alignItems: 'center', borderWidth: 1 },
   modeText: { fontSize: 14, fontWeight: '700' },

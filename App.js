@@ -5,6 +5,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { AppProvider } from './src/context/AppContext';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
 import { ThemeProvider, useTheme } from './src/context/ThemeContext';
+import { TabProvider } from './src/context/TabContext';
 import SetupScreen from './src/screens/SetupScreen';
 import SelectWorkerScreen from './src/screens/SelectWorkerScreen';
 import PinEntryScreen from './src/screens/PinEntryScreen';
@@ -15,6 +16,7 @@ import AddProductScreen from './src/screens/AddProductScreen';
 import SalesScreen from './src/screens/SalesScreen';
 import SaleDetailScreen from './src/screens/SaleDetailScreen';
 import ProfileScreen from './src/screens/ProfileScreen';
+import ManageTabsScreen from './src/screens/ManageTabsScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -54,6 +56,7 @@ function AppNavigator() {
           <Stack.Screen name="Sales" component={SalesScreen} />
           <Stack.Screen name="SaleDetail" component={SaleDetailScreen} />
           <Stack.Screen name="Profile" component={ProfileScreen} />
+          <Stack.Screen name="ManageTabs" component={ManageTabsScreen} />
         </>
       )}
     </Stack.Navigator>
@@ -65,9 +68,11 @@ export default function App() {
     <ThemeProvider>
       <AuthProvider>
         <AppProvider>
-          <NavigationContainer>
-            <AppNavigator />
-          </NavigationContainer>
+          <TabProvider>
+            <NavigationContainer>
+              <AppNavigator />
+            </NavigationContainer>
+          </TabProvider>
         </AppProvider>
       </AuthProvider>
     </ThemeProvider>
