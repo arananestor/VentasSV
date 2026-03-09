@@ -1,12 +1,15 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
-  View, Text, StyleSheet, SafeAreaView, TouchableOpacity, Image, ScrollView,
+  View, Text, StyleSheet, SafeAreaView, TouchableOpacity,
+  Image, ScrollView, ActivityIndicator,
 } from 'react-native';
 import { useTheme } from '../context/ThemeContext';
+import { printTicket, shareTicket } from '../utils/ticketPrinter';
 
 export default function SaleDetailScreen({ route, navigation }) {
   const { sale } = route.params;
   const { theme } = useTheme();
+  const [isPrinting, setIsPrinting] = useState(false);
   const date = new Date(sale.timestamp);
 
   const formatTime = (d) => {
@@ -17,6 +20,18 @@ export default function SaleDetailScreen({ route, navigation }) {
     const days = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
     const months = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
     return `${days[d.getDay()]}, ${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`;
+  };
+
+  const handlePrint = async () => {
+    setIsPrinting(true);
+    await printTicket(sale);
+    setIsPrinting(false);
+  };
+
+  const handleShare = async () => {
+    setIsPrinting(true);
+    await shareTicket(sale);
+    setIsPrinting(false);
   };
 
   return (
@@ -89,6 +104,29 @@ export default function SaleDetailScreen({ route, navigation }) {
           </View>
         )}
 
+        {/* Print Actions */}
+        <Text style={[styles.sectionLabel, { color: theme.textMuted }]}>TICKET</Text>
+        {isPrinting ? (
+          <ActivityIndicator color={theme.text} size="large" style={{ marginVertical: 20 }} />
+        ) : (
+          <View style={styles.printRow}>
+            <TouchableOpacity
+              style={[styles.printBtn, { backgroundColor: theme.accent }]}
+              onPress={handlePrint}
+            >
+              <Text style={styles.printEmoji}>🖨️</Text>
+              <Text style={[styles.printBtnText, { color: theme.accentText }]}>Imprimir</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.printBtn, { backgroundColor: theme.card, borderWidth: 1, borderColor: theme.cardBorder }]}
+              onPress={handleShare}
+            >
+              <Text style={styles.printEmoji}>📤</Text>
+              <Text style={[styles.printBtnText, { color: theme.text }]}>Compartir</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
         <View style={[styles.idSection, { borderColor: theme.cardBorder }]}>
           <Text style={[styles.idLabel, { color: theme.textMuted }]}>ID</Text>
           <Text style={[styles.idValue, { color: theme.textMuted }]}>#{sale.id}</Text>
@@ -123,6 +161,13 @@ const styles = StyleSheet.create({
   detailLabel: { fontSize: 13, fontWeight: '600' },
   detailValue: { fontSize: 13, fontWeight: '700' },
   voucherImg: { width: '100%', height: 220, borderRadius: 14, resizeMode: 'cover' },
+  printRow: { flexDirection: 'row', gap: 10 },
+  printBtn: {
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    borderRadius: 14, paddingVertical: 16, gap: 8,
+  },
+  printEmoji: { fontSize: 20 },
+  printBtnText: { fontSize: 14, fontWeight: '800' },
   idSection: { alignItems: 'center', marginTop: 30, paddingVertical: 16, borderTopWidth: 1 },
   idLabel: { fontSize: 10, fontWeight: '800', letterSpacing: 2 },
   idValue: { fontSize: 12, fontWeight: '700', marginTop: 4 },

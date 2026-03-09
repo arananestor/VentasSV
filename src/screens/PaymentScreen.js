@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
 import {
   View, Text, TouchableOpacity, TextInput, StyleSheet,
-  SafeAreaView, Modal, Image, Alert, ScrollView,
+  SafeAreaView, Modal, Image, Alert, ScrollView, ActivityIndicator,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { useApp } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
+import { printTicket, shareTicket } from '../utils/ticketPrinter';
 
 export default function PaymentScreen({ route, navigation }) {
   const { order } = route.params;
@@ -17,6 +18,8 @@ export default function PaymentScreen({ route, navigation }) {
   const [cashGiven, setCashGiven] = useState('');
   const [showSuccess, setShowSuccess] = useState(false);
   const [voucherImage, setVoucherImage] = useState(null);
+  const [isPrinting, setIsPrinting] = useState(false);
+  const [completedSale, setCompletedSale] = useState(null);
 
   const change = cashGiven ? parseFloat(cashGiven) - order.total : 0;
   const quickAmounts = [1, 2, 5, 10, 20];
@@ -37,7 +40,7 @@ export default function PaymentScreen({ route, navigation }) {
     if (paymentMethod === 'card' && !voucherImage) {
       Alert.alert('', 'Tomá foto del voucher o subilo de la galería'); return;
     }
-    await addSale({
+    const saleData = {
       productId: order.product.id, productName: order.product.name,
       size: order.size.name, toppings: order.toppings,
       quantity: order.quantity, total: order.total, paymentMethod,
@@ -46,9 +49,31 @@ export default function PaymentScreen({ route, navigation }) {
       voucherImage: paymentMethod === 'card' ? voucherImage : null,
       workerId: currentWorker?.id || null,
       workerName: currentWorker?.name || 'Sin asignar',
-    });
+    };
+    const newSale = await addSale(saleData);
+    setCompletedSale(newSale);
     setShowSuccess(true);
-    setTimeout(() => { setShowSuccess(false); navigation.popToTop(); }, 1800);
+  };
+
+  const handlePrint = async () => {
+    if (!completedSale) return;
+    setIsPrinting(true);
+    await printTicket(completedSale);
+    setIsPrinting(false);
+    handleDone();
+  };
+
+  const handleShare = async () => {
+    if (!completedSale) return;
+    setIsPrinting(true);
+    await shareTicket(completedSale);
+    setIsPrinting(false);
+    handleDone();
+  };
+
+  const handleDone = () => {
+    setShowSuccess(false);
+    navigation.popToTop();
   };
 
   const canComplete =
@@ -120,14 +145,9 @@ export default function PaymentScreen({ route, navigation }) {
 
             <View style={[styles.inputRow, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
               <Text style={[styles.inputDollar, { color: theme.text }]}>$</Text>
-              <TextInput
-                style={[styles.cashInput, { color: theme.text }]}
-                value={cashGiven}
-                onChangeText={setCashGiven}
-                keyboardType="numeric"
-                placeholder="0.00"
-                placeholderTextColor={theme.textMuted}
-              />
+              <TextInput style={[styles.cashInput, { color: theme.text }]}
+                value={cashGiven} onChangeText={setCashGiven}
+                keyboardType="numeric" placeholder="0.00" placeholderTextColor={theme.textMuted} />
             </View>
 
             {cashGiven !== '' && (
@@ -147,7 +167,8 @@ export default function PaymentScreen({ route, navigation }) {
             {voucherImage ? (
               <View style={styles.voucherWrap}>
                 <Image source={{ uri: voucherImage }} style={styles.voucherImg} />
-                <TouchableOpacity style={[styles.voucherRemove, { backgroundColor: theme.bg, borderColor: theme.cardBorder }]} onPress={() => setVoucherImage(null)}>
+                <TouchableOpacity style={[styles.voucherRemove, { backgroundColor: theme.bg, borderColor: theme.cardBorder }]}
+                  onPress={() => setVoucherImage(null)}>
                   <Text style={[styles.voucherRemoveText, { color: theme.text }]}>✕</Text>
                 </TouchableOpacity>
               </View>
@@ -178,6 +199,7 @@ export default function PaymentScreen({ route, navigation }) {
         </View>
       )}
 
+      {/* Success + Print Modal */}
       <Modal visible={showSuccess} transparent animationType="fade">
         <View style={[styles.successOverlay, { backgroundColor: theme.bg }]}>
           <View style={[styles.successCircle, { borderColor: theme.accent }]}>
@@ -185,6 +207,34 @@ export default function PaymentScreen({ route, navigation }) {
           </View>
           <Text style={[styles.successTitle, { color: theme.text }]}>REGISTRADA</Text>
           <Text style={[styles.successAmount, { color: theme.textMuted }]}>${order.total.toFixed(2)}</Text>
+
+          <View style={styles.printSection}>
+            {isPrinting ? (
+              <ActivityIndicator color={theme.text} size="large" style={{ marginTop: 30 }} />
+            ) : (
+              <>
+                <TouchableOpacity
+                  style={[styles.printBtn, { backgroundColor: theme.accent }]}
+                  onPress={handlePrint}
+                >
+                  <Text style={styles.printIcon}>🖨️</Text>
+                  <Text style={[styles.printBtnText, { color: theme.accentText }]}>IMPRIMIR TICKET</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.shareBtn, { borderColor: theme.cardBorder }]}
+                  onPress={handleShare}
+                >
+                  <Text style={styles.shareIcon}>📤</Text>
+                  <Text style={[styles.shareBtnText, { color: theme.textSecondary }]}>Compartir PDF</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity style={styles.skipBtn} onPress={handleDone}>
+                  <Text style={[styles.skipText, { color: theme.textMuted }]}>Continuar sin ticket</Text>
+                </TouchableOpacity>
+              </>
+            )}
+          </View>
         </View>
       </Modal>
     </SafeAreaView>
@@ -234,7 +284,7 @@ const styles = StyleSheet.create({
   bottomBar: { position: 'absolute', bottom: 0, left: 0, right: 0, padding: 16, paddingBottom: 34, borderTopWidth: 1 },
   doneBtn: { borderRadius: 16, paddingVertical: 18, alignItems: 'center' },
   doneText: { fontSize: 18, fontWeight: '900', letterSpacing: 3 },
-  successOverlay: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  successOverlay: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 24 },
   successCircle: {
     width: 100, height: 100, borderRadius: 50, borderWidth: 3,
     alignItems: 'center', justifyContent: 'center', marginBottom: 24,
@@ -242,4 +292,19 @@ const styles = StyleSheet.create({
   successCheck: { fontSize: 48 },
   successTitle: { fontSize: 22, fontWeight: '900', letterSpacing: 6 },
   successAmount: { fontSize: 36, fontWeight: '900', marginTop: 8 },
+  printSection: { width: '100%', marginTop: 30, gap: 12 },
+  printBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    borderRadius: 16, paddingVertical: 18, gap: 10,
+  },
+  printIcon: { fontSize: 22 },
+  printBtnText: { fontSize: 16, fontWeight: '900', letterSpacing: 2 },
+  shareBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    borderRadius: 16, paddingVertical: 16, gap: 10, borderWidth: 1,
+  },
+  shareIcon: { fontSize: 20 },
+  shareBtnText: { fontSize: 14, fontWeight: '700' },
+  skipBtn: { paddingVertical: 14, alignItems: 'center' },
+  skipText: { fontSize: 14, fontWeight: '600' },
 });
