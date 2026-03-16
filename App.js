@@ -11,6 +11,7 @@ import SelectWorkerScreen from './src/screens/SelectWorkerScreen';
 import PinEntryScreen from './src/screens/PinEntryScreen';
 import HomeScreen from './src/screens/HomeScreen';
 import CustomizeScreen from './src/screens/CustomizeScreen';
+import OrderBuilderScreen from './src/screens/OrderBuilderScreen';
 import PaymentScreen from './src/screens/PaymentScreen';
 import AddProductScreen from './src/screens/AddProductScreen';
 import SalesScreen from './src/screens/SalesScreen';
@@ -51,6 +52,7 @@ function AppNavigator() {
         <>
           <Stack.Screen name="Home" component={HomeScreen} />
           <Stack.Screen name="Customize" component={CustomizeScreen} />
+          <Stack.Screen name="OrderBuilder" component={OrderBuilderScreen} />
           <Stack.Screen name="Payment" component={PaymentScreen} />
           <Stack.Screen name="AddProduct" component={AddProductScreen} />
           <Stack.Screen name="Sales" component={SalesScreen} />
