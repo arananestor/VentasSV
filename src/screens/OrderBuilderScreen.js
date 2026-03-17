@@ -1,15 +1,22 @@
 import React, { useState, useRef } from 'react';
 import {
   View, Text, TouchableOpacity, ScrollView, StyleSheet,
-  SafeAreaView, TextInput, Dimensions,
+  SafeAreaView, TextInput, Dimensions, Modal, Alert,
 } from 'react-native';
 import { useTheme } from '../context/ThemeContext';
 
 const { width } = Dimensions.get('window');
+const FLAVOR_COLORS_PALETTE = [
+  '#FF6B6B', '#A855F7', '#34D399', '#FBBF24', '#7C3AED',
+  '#D97706', '#F59E0B', '#FB923C', '#F97316', '#DC2626',
+  '#F472B6', '#86EFAC', '#FDE047', '#92400E', '#60A5FA',
+  '#818CF8', '#F87171', '#2DD4BF', '#E879F9', '#FCD34D',
+  '#6EE7B7', '#93C5FD', '#C084FC', '#FCA5A5', '#FDBA74',
+];
 
-const getTextColor = (bgColor) => {
-  if (!bgColor) return '#FFF';
-  const hex = bgColor.replace('#', '');
+const getTextColor = (bg) => {
+  if (!bg) return '#FFF';
+  const hex = bg.replace('#', '');
   const r = parseInt(hex.substr(0, 2), 16);
   const g = parseInt(hex.substr(2, 2), 16);
   const b = parseInt(hex.substr(4, 2), 16);
@@ -17,26 +24,26 @@ const getTextColor = (bgColor) => {
 };
 
 export default function OrderBuilderScreen({ route, navigation }) {
-  const { product } = route.params;
+  const { product, initialQty = 1 } = route.params;
   const { theme } = useTheme();
   const scrollRef = useRef(null);
 
-  const [units, setUnits] = useState([makeUnit(1)]);
+  const makeUnit = (num) => ({
+    id: Date.now().toString() + '_' + num + '_' + Math.random(),
+    number: num,
+    flavors: [],
+    toppings: [],
+    notes: '',
+  });
+
+  const initialUnits = Array.from({ length: initialQty }, (_, i) => makeUnit(i + 1));
+  const [units, setUnits] = useState(initialUnits);
   const [activeIdx, setActiveIdx] = useState(0);
   const [selectedSize, setSelectedSize] = useState(0);
 
-  function makeUnit(num) {
-    return {
-      id: Date.now().toString() + '_' + num,
-      number: num,
-      flavors: [],
-      toppings: [],
-      notes: '',
-    };
-  }
-
   const active = units[activeIdx] || units[0];
   const maxF = product.maxFlavors || 3;
+  const includedToppings = product.includedToppings || 1;
   const hasFlavors = product.flavors && product.flavors.length > 0;
   const hasToppings = product.toppings && product.toppings.length > 0;
 
@@ -44,72 +51,56 @@ export default function OrderBuilderScreen({ route, navigation }) {
     setUnits(prev => prev.map((u, i) => i === idx ? { ...u, ...changes } : u));
   };
 
-  const toggleFlavor = (flavorName) => {
-    const current = active.flavors;
-    if (current.includes(flavorName)) {
-      updateUnit(activeIdx, { flavors: current.filter(f => f !== flavorName) });
-    } else if (current.length < maxF) {
-      updateUnit(activeIdx, { flavors: [...current, flavorName] });
-    }
+  const toggleFlavor = (name) => {
+    const cur = active.flavors;
+    if (cur.includes(name)) updateUnit(activeIdx, { flavors: cur.filter(f => f !== name) });
+    else if (cur.length < maxF) updateUnit(activeIdx, { flavors: [...cur, name] });
   };
 
-  const toggleTopping = (toppingName) => {
-    const current = active.toppings;
-    if (current.includes(toppingName)) {
-      updateUnit(activeIdx, { toppings: current.filter(t => t !== toppingName) });
-    } else {
-      updateUnit(activeIdx, { toppings: [...current, toppingName] });
-    }
+  const toggleTopping = (name) => {
+    const cur = active.toppings;
+    if (cur.includes(name)) updateUnit(activeIdx, { toppings: cur.filter(t => t !== name) });
+    else updateUnit(activeIdx, { toppings: [...cur, name] });
   };
 
-  const setNotes = (text) => {
-    updateUnit(activeIdx, { notes: text.slice(0, 60) });
-  };
+  const setNotes = (text) => updateUnit(activeIdx, { notes: text.slice(0, 60) });
 
   const addUnit = () => {
-    const newUnit = makeUnit(units.length + 1);
-    const newUnits = [...units, newUnit];
-    setUnits(newUnits);
-    setActiveIdx(newUnits.length - 1);
+    const u = makeUnit(units.length + 1);
+    setUnits([...units, u]);
+    setActiveIdx(units.length);
   };
 
   const duplicateCurrent = () => {
-    const source = units[activeIdx];
-    const newUnit = {
-      ...makeUnit(units.length + 1),
-      flavors: [...source.flavors],
-      toppings: [...source.toppings],
-      notes: source.notes,
-    };
-    const newUnits = [...units, newUnit];
-    setUnits(newUnits);
-    setActiveIdx(newUnits.length - 1);
+    const src = units[activeIdx];
+    const u = { ...makeUnit(units.length + 1), flavors: [...src.flavors], toppings: [...src.toppings], notes: src.notes };
+    setUnits([...units, u]);
+    setActiveIdx(units.length);
   };
 
   const removeUnit = (idx) => {
     if (units.length <= 1) return;
-    const newUnits = units.filter((_, i) => i !== idx).map((u, i) => ({ ...u, number: i + 1 }));
-    setUnits(newUnits);
-    setActiveIdx(Math.min(activeIdx, newUnits.length - 1));
+    const next = units.filter((_, i) => i !== idx).map((u, i) => ({ ...u, number: i + 1 }));
+    setUnits(next);
+    setActiveIdx(Math.min(activeIdx, next.length - 1));
   };
 
-  const goNext = () => {
-    if (activeIdx < units.length - 1) {
-      setActiveIdx(activeIdx + 1);
-    } else {
-      addUnit();
-    }
+  const getToppingExtra = (unit) => {
+    const selected = unit.toppings.length;
+    const paidCount = Math.max(0, selected - includedToppings);
+    let extra = 0;
+    const paidToppings = unit.toppings.slice(includedToppings);
+    paidToppings.forEach(tName => {
+      const t = product.toppings?.find(tp => tp.name === tName);
+      if (t && t.price > 0) extra += t.price;
+    });
+    return extra;
   };
 
   const calcTotal = () => {
     const base = product.sizes[selectedSize]?.price || 0;
-    const toppingExtra = units.reduce((sum, u) => {
-      return sum + u.toppings.reduce((ts, tName) => {
-        const t = product.toppings?.find(tp => tp.name === tName);
-        return ts + (t && !t.isDefault ? t.price : 0);
-      }, 0);
-    }, 0);
-    return base * units.length + toppingExtra;
+    const toppingExtras = units.reduce((sum, u) => sum + getToppingExtra(u), 0);
+    return base * units.length + toppingExtras;
   };
 
   const handleCobrar = () => {
@@ -133,10 +124,8 @@ export default function OrderBuilderScreen({ route, navigation }) {
     <SafeAreaView style={[styles.container, { backgroundColor: theme.bg }]}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity
-          style={[styles.backBtn, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}
-          onPress={() => navigation.goBack()}
-        >
+        <TouchableOpacity style={[styles.backBtn, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}
+          onPress={() => navigation.goBack()}>
           <Text style={[styles.backText, { color: theme.text }]}>‹</Text>
         </TouchableOpacity>
         <Text style={[styles.headerTitle, { color: theme.text }]}>{product.name}</Text>
@@ -147,110 +136,87 @@ export default function OrderBuilderScreen({ route, navigation }) {
 
       {/* Size */}
       {product.sizes.length > 1 && (
-        <ScrollView horizontal showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.sizeBar}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.sizeBar}>
           {product.sizes.map((s, i) => (
             <TouchableOpacity key={s.name}
-              style={[styles.sizeChip,
-                { backgroundColor: theme.card, borderColor: theme.cardBorder },
+              style={[styles.sizeChip, { backgroundColor: theme.card, borderColor: theme.cardBorder },
                 selectedSize === i && { backgroundColor: theme.accent, borderColor: theme.accent }]}
               onPress={() => setSelectedSize(i)}
             >
-              <Text style={[styles.sizeChipText,
-                { color: theme.textSecondary },
-                selectedSize === i && { color: theme.accentText }]}>
-                {s.name} · ${s.price.toFixed(2)}
-              </Text>
+              <Text style={[styles.sizeText, { color: theme.textSecondary },
+                selectedSize === i && { color: theme.accentText }]}>{s.name} · ${s.price.toFixed(2)}</Text>
             </TouchableOpacity>
           ))}
         </ScrollView>
       )}
 
       {/* Unit tabs */}
-      <View style={styles.unitTabsWrap}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false}
-          ref={scrollRef} contentContainerStyle={styles.unitTabs}>
+      <View style={styles.unitWrap}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} ref={scrollRef} contentContainerStyle={styles.unitRow}>
           {units.map((u, i) => {
-            const isActive = i === activeIdx;
-            const dots = u.flavors.map(fn => {
-              const f = product.flavors?.find(fl => fl.name === fn);
-              return f?.color || '#888';
-            });
+            const isAct = i === activeIdx;
+            const dots = u.flavors.map(fn => product.flavors?.find(fl => fl.name === fn)?.color || '#888');
             return (
               <TouchableOpacity key={u.id}
-                style={[styles.unitTab,
-                  { backgroundColor: theme.card, borderColor: theme.cardBorder },
-                  isActive && { borderColor: theme.accent, borderWidth: 2.5 }]}
+                style={[styles.unitTab, { backgroundColor: theme.card, borderColor: theme.cardBorder },
+                  isAct && { borderColor: theme.accent, borderWidth: 2.5 }]}
                 onPress={() => setActiveIdx(i)}
+                onLongPress={() => {
+                  if (units.length > 1) {
+                    Alert.alert(`#${u.number}`, 'Eliminar esta unidad?', [
+                      { text: 'No', style: 'cancel' },
+                      { text: 'Sí', style: 'destructive', onPress: () => removeUnit(i) },
+                    ]);
+                  }
+                }}
               >
-                <View style={styles.unitTabHeader}>
-                  <Text style={[styles.unitNum, { color: isActive ? theme.text : theme.textMuted }]}>
-                    #{u.number}
-                  </Text>
-                  {units.length > 1 && (
-                    <TouchableOpacity style={styles.unitRemove} onPress={() => removeUnit(i)}>
-                      <Text style={{ color: theme.danger, fontSize: 11, fontWeight: '800' }}>✕</Text>
-                    </TouchableOpacity>
-                  )}
-                </View>
+                <Text style={[styles.unitNum, { color: isAct ? theme.text : theme.textMuted }]}>#{u.number}</Text>
                 <View style={styles.dotRow}>
                   {dots.length > 0 ? dots.map((c, di) => (
                     <View key={di} style={[styles.dot, { backgroundColor: c }]} />
-                  )) : (
-                    <View style={[styles.dot, { backgroundColor: theme.cardBorder }]} />
-                  )}
+                  )) : <View style={[styles.dot, { backgroundColor: theme.cardBorder }]} />}
                 </View>
-                {u.notes ? (
-                  <Text style={[styles.unitNote, { color: theme.textMuted }]} numberOfLines={1}>📝</Text>
-                ) : null}
               </TouchableOpacity>
             );
           })}
-          <TouchableOpacity style={[styles.unitAddBtn, { borderColor: theme.textMuted }]} onPress={addUnit}>
-            <Text style={[styles.unitAddText, { color: theme.textMuted }]}>+</Text>
+          <TouchableOpacity style={[styles.unitAdd, { borderColor: theme.textMuted }]} onPress={addUnit}>
+            <Text style={[{ color: theme.textMuted, fontSize: 20, fontWeight: '300' }]}>+</Text>
           </TouchableOpacity>
         </ScrollView>
       </View>
 
-      {/* Builder area */}
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.builderContent}>
-        {/* Active indicator */}
-        <View style={styles.activeLabel}>
-          <Text style={[styles.activeLabelText, { color: theme.text }]}>
-            {product.name} #{active.number}
-          </Text>
-          <TouchableOpacity onPress={duplicateCurrent}
-            style={[styles.dupBtn, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
-            <Text style={[styles.dupBtnText, { color: theme.textSecondary }]}>📋 Duplicar</Text>
+      {/* Builder */}
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.builder}>
+        <View style={styles.activeLabelRow}>
+          <Text style={[styles.activeLabel, { color: theme.text }]}>{product.name} #{active.number}</Text>
+          <TouchableOpacity style={[styles.dupBtn, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}
+            onPress={duplicateCurrent}>
+            <Text style={[styles.dupText, { color: theme.textSecondary }]}>📋 Duplicar</Text>
           </TouchableOpacity>
         </View>
 
-        {/* Flavors */}
+        {/* Components */}
         {hasFlavors && (
           <View style={styles.section}>
             <View style={styles.sectionHead}>
-              <Text style={[styles.sectionTitle, { color: theme.textMuted }]}>SABORES</Text>
-              <Text style={[styles.sectionCounter, { color: theme.accent }]}>
-                {active.flavors.length}/{maxF}
-              </Text>
+              <Text style={[styles.sectionTitle, { color: theme.textMuted }]}>COMPONENTES</Text>
+              <Text style={[styles.sectionCount, { color: theme.accent }]}>{active.flavors.length}/{maxF}</Text>
             </View>
             <View style={styles.flavorGrid}>
               {product.flavors.map(f => {
                 const sel = active.flavors.includes(f.name);
-                const txtColor = getTextColor(f.color);
+                const txtC = getTextColor(f.color);
                 return (
                   <TouchableOpacity key={f.name}
                     style={[styles.flavorBtn,
                       { backgroundColor: sel ? f.color : theme.card, borderColor: sel ? f.color : theme.cardBorder }]}
                     onPress={() => toggleFlavor(f.name)}
                   >
-                    <View style={[styles.flavorDotSmall, { backgroundColor: f.color }]} />
-                    <Text style={[styles.flavorName,
-                      { color: sel ? txtColor : theme.textSecondary }]}
-                      numberOfLines={1}>
+                    <View style={[styles.flavorDot, { backgroundColor: f.color, borderWidth: sel ? 0 : 1, borderColor: 'rgba(0,0,0,0.1)' }]} />
+                    <Text style={[styles.flavorName, { color: sel ? txtC : theme.textSecondary }]} numberOfLines={1}>
                       {f.name}
                     </Text>
-                    {sel && <Text style={[styles.flavorCheck, { color: txtColor }]}>✓</Text>}
+                    {sel && <Text style={[styles.flavorCheck, { color: txtC }]}>✓</Text>}
                   </TouchableOpacity>
                 );
               })}
@@ -261,28 +227,32 @@ export default function OrderBuilderScreen({ route, navigation }) {
         {/* Toppings */}
         {hasToppings && (
           <View style={styles.section}>
-            <Text style={[styles.sectionTitle, { color: theme.textMuted }]}>TOPPINGS</Text>
+            <View style={styles.sectionHead}>
+              <Text style={[styles.sectionTitle, { color: theme.textMuted }]}>TOPPINGS</Text>
+              <Text style={[styles.sectionCount, { color: theme.textMuted }]}>
+                {includedToppings} gratis
+              </Text>
+            </View>
             <View style={styles.toppingGrid}>
-              {product.toppings.map(t => {
+              {product.toppings.map((t, tIdx) => {
                 const sel = active.toppings.includes(t.name);
+                const selIndex = active.toppings.indexOf(t.name);
+                const isPaid = sel && selIndex >= includedToppings;
                 return (
                   <TouchableOpacity key={t.name}
                     style={[styles.toppingBtn,
                       { backgroundColor: theme.card, borderColor: theme.cardBorder },
-                      sel && { backgroundColor: theme.accent, borderColor: theme.accent }]}
+                      sel && !isPaid && { backgroundColor: theme.accent, borderColor: theme.accent },
+                      isPaid && { backgroundColor: '#FF9500', borderColor: '#FF9500' }]}
                     onPress={() => toggleTopping(t.name)}
                   >
                     <Text style={[styles.toppingName,
                       { color: theme.textSecondary },
-                      sel && { color: theme.accentText }]}>
+                      sel && { color: '#FFF' }]}>
                       {t.name}
                     </Text>
-                    {t.price > 0 && !t.isDefault && (
-                      <Text style={[styles.toppingPrice,
-                        { color: theme.textMuted },
-                        sel && { color: theme.accentText }]}>
-                        +${t.price.toFixed(2)}
-                      </Text>
+                    {isPaid && t.price > 0 && (
+                      <Text style={styles.toppingExtra}>+${t.price.toFixed(2)}</Text>
                     )}
                   </TouchableOpacity>
                 );
@@ -294,39 +264,28 @@ export default function OrderBuilderScreen({ route, navigation }) {
         {/* Notes */}
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: theme.textMuted }]}>NOTA RÁPIDA</Text>
-          <View style={[styles.notesRow, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
-            <Text style={styles.notesIcon}>📝</Text>
+          <View style={[styles.notesBox, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
             <TextInput
               style={[styles.notesInput, { color: theme.text }]}
               value={active.notes}
               onChangeText={setNotes}
-              placeholder="Ej: sin hielo, sabor mango..."
+              placeholder="Ej: sin hielo, sabor especial..."
               placeholderTextColor={theme.textMuted}
               maxLength={60}
             />
             {active.notes.length > 0 && (
-              <Text style={[styles.notesCount, { color: theme.textMuted }]}>{active.notes.length}/60</Text>
+              <Text style={[styles.notesLen, { color: theme.textMuted }]}>{active.notes.length}/60</Text>
             )}
           </View>
         </View>
       </ScrollView>
 
-      {/* Bottom bar */}
+      {/* Bottom */}
       <View style={[styles.bottomBar, { backgroundColor: theme.bg, borderColor: theme.cardBorder }]}>
-        <View style={styles.bottomRow}>
-          <TouchableOpacity
-            style={[styles.nextBtn, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}
-            onPress={goNext}
-          >
-            <Text style={[styles.nextBtnText, { color: theme.text }]}>
-              {activeIdx < units.length - 1 ? `#${activeIdx + 2} →` : '+ Otra'}
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={[styles.cobrarBtn, { backgroundColor: theme.accent }]} onPress={handleCobrar}>
-            <Text style={[styles.cobrarText, { color: theme.accentText }]}>COBRAR</Text>
-            <Text style={[styles.cobrarPrice, { color: theme.accentText }]}>${calcTotal().toFixed(2)}</Text>
-          </TouchableOpacity>
-        </View>
+        <TouchableOpacity style={[styles.cobrarBtn, { backgroundColor: theme.accent }]} onPress={handleCobrar}>
+          <Text style={[styles.cobrarText, { color: theme.accentText }]}>COBRAR</Text>
+          <Text style={[styles.cobrarPrice, { color: theme.accentText }]}>${calcTotal().toFixed(2)}</Text>
+        </TouchableOpacity>
       </View>
     </SafeAreaView>
   );
@@ -345,73 +304,53 @@ const styles = StyleSheet.create({
   countText: { fontSize: 16, fontWeight: '900' },
   sizeBar: { paddingHorizontal: 16, gap: 8, paddingBottom: 10 },
   sizeChip: { paddingHorizontal: 16, paddingVertical: 10, borderRadius: 12, borderWidth: 1 },
-  sizeChipText: { fontSize: 13, fontWeight: '700' },
-  unitTabsWrap: { height: 80, marginBottom: 4 },
-  unitTabs: { paddingHorizontal: 16, gap: 8, alignItems: 'flex-start' },
-  unitTab: {
-    width: 70, height: 70, borderRadius: 16, borderWidth: 1.5,
-    padding: 8, justifyContent: 'space-between',
-  },
-  unitTabHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  unitNum: { fontSize: 13, fontWeight: '800' },
-  unitRemove: { padding: 2 },
-  dotRow: { flexDirection: 'row', gap: 4, flexWrap: 'wrap' },
-  dot: { width: 10, height: 10, borderRadius: 5 },
-  unitNote: { fontSize: 10 },
-  unitAddBtn: {
-    width: 70, height: 70, borderRadius: 16, borderWidth: 1.5, borderStyle: 'dashed',
+  sizeText: { fontSize: 13, fontWeight: '700' },
+  unitWrap: { height: 72, marginBottom: 4 },
+  unitRow: { paddingHorizontal: 16, gap: 8, alignItems: 'flex-start' },
+  unitTab: { width: 64, height: 64, borderRadius: 14, borderWidth: 1.5, padding: 8, justifyContent: 'space-between' },
+  unitNum: { fontSize: 12, fontWeight: '800' },
+  dotRow: { flexDirection: 'row', gap: 3, flexWrap: 'wrap' },
+  dot: { width: 9, height: 9, borderRadius: 5 },
+  unitAdd: {
+    width: 64, height: 64, borderRadius: 14, borderWidth: 1.5, borderStyle: 'dashed',
     alignItems: 'center', justifyContent: 'center',
   },
-  unitAddText: { fontSize: 24, fontWeight: '300' },
-  builderContent: { paddingHorizontal: 16, paddingBottom: 120 },
-  activeLabel: {
+  builder: { paddingHorizontal: 16, paddingBottom: 120 },
+  activeLabelRow: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
     marginBottom: 16, marginTop: 8,
   },
-  activeLabelText: { fontSize: 18, fontWeight: '900' },
+  activeLabel: { fontSize: 18, fontWeight: '900' },
   dupBtn: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10, borderWidth: 1 },
-  dupBtnText: { fontSize: 12, fontWeight: '700' },
+  dupText: { fontSize: 12, fontWeight: '700' },
   section: { marginBottom: 20 },
   sectionHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
   sectionTitle: { fontSize: 11, fontWeight: '800', letterSpacing: 3, marginBottom: 10 },
-  sectionCounter: { fontSize: 14, fontWeight: '900' },
+  sectionCount: { fontSize: 14, fontWeight: '900' },
   flavorGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   flavorBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 8,
     paddingHorizontal: 14, paddingVertical: 12, borderRadius: 14, borderWidth: 1.5,
     minWidth: (width - 48) / 3,
   },
-  flavorDotSmall: { width: 14, height: 14, borderRadius: 7 },
-  flavorName: { fontSize: 14, fontWeight: '700', flex: 1 },
-  flavorCheck: { fontSize: 14, fontWeight: '900' },
+  flavorDot: { width: 14, height: 14, borderRadius: 7 },
+  flavorName: { fontSize: 13, fontWeight: '700', flex: 1 },
+  flavorCheck: { fontSize: 13, fontWeight: '900' },
   toppingGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  toppingBtn: {
-    paddingHorizontal: 14, paddingVertical: 12, borderRadius: 14, borderWidth: 1,
-  },
+  toppingBtn: { paddingHorizontal: 14, paddingVertical: 12, borderRadius: 14, borderWidth: 1 },
   toppingName: { fontSize: 13, fontWeight: '700' },
-  toppingPrice: { fontSize: 11, fontWeight: '600', marginTop: 2 },
-  notesRow: {
-    flexDirection: 'row', alignItems: 'center', borderRadius: 14,
-    paddingHorizontal: 14, borderWidth: 1, gap: 8,
-  },
-  notesIcon: { fontSize: 16 },
+  toppingExtra: { color: '#FFF', fontSize: 10, fontWeight: '800', marginTop: 2 },
+  notesBox: { flexDirection: 'row', alignItems: 'center', borderRadius: 14, paddingHorizontal: 14, borderWidth: 1 },
   notesInput: { flex: 1, fontSize: 15, fontWeight: '600', paddingVertical: 14 },
-  notesCount: { fontSize: 11, fontWeight: '700' },
+  notesLen: { fontSize: 11, fontWeight: '700' },
   bottomBar: {
     position: 'absolute', bottom: 0, left: 0, right: 0,
     padding: 16, paddingBottom: 34, borderTopWidth: 1,
   },
-  bottomRow: { flexDirection: 'row', gap: 10 },
-  nextBtn: {
-    flex: 1, borderRadius: 16, paddingVertical: 18,
-    alignItems: 'center', borderWidth: 1,
-  },
-  nextBtnText: { fontSize: 16, fontWeight: '800' },
   cobrarBtn: {
-    flex: 2, borderRadius: 16, paddingVertical: 18,
-    flexDirection: 'row', justifyContent: 'space-between',
-    alignItems: 'center', paddingHorizontal: 20,
+    borderRadius: 16, paddingVertical: 18, flexDirection: 'row',
+    justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 24,
   },
   cobrarText: { fontSize: 16, fontWeight: '900', letterSpacing: 2 },
-  cobrarPrice: { fontSize: 18, fontWeight: '900' },
+  cobrarPrice: { fontSize: 20, fontWeight: '900' },
 });
