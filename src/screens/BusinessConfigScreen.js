@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   View, Text, TouchableOpacity, TextInput, StyleSheet,
-  SafeAreaView, ScrollView, Alert, Image, ActivityIndicator,
+  SafeAreaView, ScrollView, Image, ActivityIndicator,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { useTheme } from '../context/ThemeContext';
@@ -13,22 +13,24 @@ import {
 export default function BusinessConfigScreen({ navigation }) {
   const { theme } = useTheme();
 
-  // Banco
   const [bank, setBank] = useState('');
   const [holder, setHolder] = useState('');
   const [account, setAccount] = useState('');
   const [qrImage, setQrImage] = useState(null);
-
-  // WhatsApp
   const [waNumber, setWaNumber] = useState('');
-
   const [saving, setSaving] = useState(false);
   const [loaded, setLoaded] = useState(false);
+  const [saved, setSaved] = useState(false);
 
   useEffect(() => {
     (async () => {
       const bc = await loadBankConfig();
-      if (bc) { setBank(bc.bank || ''); setHolder(bc.holder || ''); setAccount(bc.account || ''); setQrImage(bc.qrImage || null); }
+      if (bc) {
+        setBank(bc.bank || '');
+        setHolder(bc.holder || '');
+        setAccount(bc.account || '');
+        setQrImage(bc.qrImage || null);
+      }
       const wa = await loadWhatsAppNumber();
       if (wa) setWaNumber(wa);
       setLoaded(true);
@@ -46,7 +48,8 @@ export default function BusinessConfigScreen({ navigation }) {
     const cleaned = waNumber.replace(/\D/g, '');
     if (cleaned) await saveWhatsAppNumber(cleaned);
     setSaving(false);
-    Alert.alert('✓ Guardado', 'Configuración actualizada');
+    setSaved(true);
+    setTimeout(() => navigation.goBack(), 800);
   };
 
   const bankComplete = bank.trim() && holder.trim() && account.trim();
@@ -56,6 +59,17 @@ export default function BusinessConfigScreen({ navigation }) {
     return (
       <SafeAreaView style={[styles.container, { backgroundColor: theme.bg }]}>
         <ActivityIndicator color={theme.text} size="large" style={{ flex: 1 }} />
+      </SafeAreaView>
+    );
+  }
+
+  if (saved) {
+    return (
+      <SafeAreaView style={[styles.container, { backgroundColor: theme.bg }]}>
+        <View style={styles.savedScreen}>
+          <View style={[styles.savedDot, { backgroundColor: theme.accent }]} />
+          <Text style={[styles.savedText, { color: theme.text }]}>Guardado</Text>
+        </View>
       </SafeAreaView>
     );
   }
@@ -75,35 +89,32 @@ export default function BusinessConfigScreen({ navigation }) {
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
 
-        {/* ── STATUS CARDS ── */}
+        {/* STATUS ROW */}
         <View style={styles.statusRow}>
-          <View style={[styles.statusCard, { backgroundColor: theme.card, borderColor: bankComplete ? '#34C759' : theme.cardBorder }]}>
-            <Text style={styles.statusIcon}>{bankComplete ? '✅' : '⚪️'}</Text>
-            <Text style={[styles.statusLabel, { color: theme.textMuted }]}>BANCO</Text>
-            <Text style={[styles.statusVal, { color: bankComplete ? '#34C759' : theme.textMuted }]}>
-              {bankComplete ? 'Listo' : 'Pendiente'}
+          <View style={[styles.statusPill, {
+            backgroundColor: theme.card,
+            borderColor: bankComplete ? theme.accent : theme.cardBorder,
+          }]}>
+            <View style={[styles.statusDot, { backgroundColor: bankComplete ? theme.accent : theme.cardBorder }]} />
+            <Text style={[styles.statusText, { color: bankComplete ? theme.text : theme.textMuted }]}>
+              Banco {bankComplete ? 'configurado' : 'pendiente'}
             </Text>
           </View>
-          <View style={[styles.statusCard, { backgroundColor: theme.card, borderColor: waComplete ? '#25D366' : theme.cardBorder }]}>
-            <Text style={styles.statusIcon}>{waComplete ? '✅' : '⚪️'}</Text>
-            <Text style={[styles.statusLabel, { color: theme.textMuted }]}>WHATSAPP</Text>
-            <Text style={[styles.statusVal, { color: waComplete ? '#25D366' : theme.textMuted }]}>
-              {waComplete ? 'Conectado' : 'Pendiente'}
+          <View style={[styles.statusPill, {
+            backgroundColor: theme.card,
+            borderColor: waComplete ? '#25D366' : theme.cardBorder,
+          }]}>
+            <View style={[styles.statusDot, { backgroundColor: waComplete ? '#25D366' : theme.cardBorder }]} />
+            <Text style={[styles.statusText, { color: waComplete ? theme.text : theme.textMuted }]}>
+              WhatsApp {waComplete ? 'conectado' : 'pendiente'}
             </Text>
           </View>
         </View>
 
-        {/* ── WHATSAPP ── */}
+        {/* WHATSAPP */}
         <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionIcon}>💬</Text>
-            <View>
-              <Text style={[styles.sectionTitle, { color: theme.text }]}>WhatsApp del negocio</Text>
-              <Text style={[styles.sectionSub, { color: theme.textMuted }]}>Recibí comprobantes y enviá tickets al cliente</Text>
-            </View>
-          </View>
-
-          <View style={[styles.inputWrap, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+          <Text style={[styles.sectionLabel, { color: theme.textMuted }]}>WHATSAPP DEL NEGOCIO</Text>
+          <View style={[styles.inputRow, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
             <Text style={[styles.prefix, { color: theme.textMuted }]}>+503</Text>
             <TextInput
               style={[styles.input, { color: theme.text }]}
@@ -115,74 +126,68 @@ export default function BusinessConfigScreen({ navigation }) {
               maxLength={12}
             />
           </View>
-
           {waComplete && (
-            <View style={[styles.benefitBox, { backgroundColor: '#25D36615', borderColor: '#25D36640' }]}>
-              <Text style={styles.benefitText}>✓  Envío de tickets por WhatsApp</Text>
-              <Text style={styles.benefitText}>✓  Datos bancarios al instante</Text>
-              <Text style={styles.benefitText}>✓  QR de pago en pantalla</Text>
-              <Text style={styles.benefitText}>✓  Aviso "Pedido listo" al cliente</Text>
+            <View style={styles.benefitList}>
+              {['Enviar tickets al cliente', 'Compartir datos de transferencia', 'Aviso de pedido listo'].map(b => (
+                <View key={b} style={styles.benefitRow}>
+                  <View style={[styles.benefitDot, { backgroundColor: '#25D366' }]} />
+                  <Text style={[styles.benefitText, { color: theme.textSecondary }]}>{b}</Text>
+                </View>
+              ))}
             </View>
           )}
         </View>
 
-        {/* ── BANCO ── */}
+        {/* BANCO */}
         <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionIcon}>🏦</Text>
-            <View>
-              <Text style={[styles.sectionTitle, { color: theme.text }]}>Datos bancarios</Text>
-              <Text style={[styles.sectionSub, { color: theme.textMuted }]}>Para cobros por transferencia</Text>
-            </View>
-          </View>
+          <Text style={[styles.sectionLabel, { color: theme.textMuted }]}>DATOS BANCARIOS</Text>
 
-          <Text style={[styles.fieldLabel, { color: theme.textMuted }]}>BANCO</Text>
-          <View style={[styles.inputWrap, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+          <View style={[styles.inputRow, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
             <TextInput
               style={[styles.inputFull, { color: theme.text }]}
               value={bank}
               onChangeText={setBank}
-              placeholder="Ej: Banco Agrícola"
+              placeholder="Banco"
               placeholderTextColor={theme.textMuted}
               maxLength={40}
             />
           </View>
 
-          <Text style={[styles.fieldLabel, { color: theme.textMuted }]}>TITULAR</Text>
-          <View style={[styles.inputWrap, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+          <View style={[styles.inputRow, { backgroundColor: theme.card, borderColor: theme.cardBorder, marginTop: 8 }]}>
             <TextInput
               style={[styles.inputFull, { color: theme.text }]}
               value={holder}
               onChangeText={setHolder}
-              placeholder="Nombre completo"
+              placeholder="Titular de la cuenta"
               placeholderTextColor={theme.textMuted}
               maxLength={60}
             />
           </View>
 
-          <Text style={[styles.fieldLabel, { color: theme.textMuted }]}>NÚMERO DE CUENTA</Text>
-          <View style={[styles.inputWrap, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+          <View style={[styles.inputRow, { backgroundColor: theme.card, borderColor: theme.cardBorder, marginTop: 8 }]}>
             <TextInput
               style={[styles.inputFull, { color: theme.text }]}
               value={account}
               onChangeText={setAccount}
-              placeholder="0000-000000-00"
+              placeholder="Número de cuenta"
               placeholderTextColor={theme.textMuted}
               keyboardType="numeric"
               maxLength={30}
             />
           </View>
+        </View>
 
-          {/* QR */}
-          <Text style={[styles.fieldLabel, { color: theme.textMuted }]}>QR DE PAGO (opcional)</Text>
+        {/* QR */}
+        <View style={styles.section}>
+          <Text style={[styles.sectionLabel, { color: theme.textMuted }]}>QR DE TRANSFERENCIA</Text>
           {qrImage ? (
-            <View style={styles.qrWrap}>
-              <Image source={{ uri: qrImage }} style={styles.qrPreview} />
+            <View style={[styles.qrCard, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+              <Image source={{ uri: qrImage }} style={styles.qrImage} />
               <TouchableOpacity
-                style={[styles.qrRemove, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}
+                style={[styles.qrRemoveBtn, { borderColor: theme.cardBorder }]}
                 onPress={() => setQrImage(null)}
               >
-                <Text style={{ color: theme.text, fontSize: 14, fontWeight: '700' }}>✕ Quitar</Text>
+                <Text style={[styles.qrRemoveText, { color: theme.textMuted }]}>Quitar imagen</Text>
               </TouchableOpacity>
             </View>
           ) : (
@@ -190,17 +195,14 @@ export default function BusinessConfigScreen({ navigation }) {
               style={[styles.qrUpload, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}
               onPress={pickQR}
             >
-              <Text style={{ fontSize: 32 }}>📷</Text>
-              <Text style={[{ color: theme.textMuted, fontSize: 13, fontWeight: '700', marginTop: 8 }]}>
-                Subir QR de transferencia
-              </Text>
+              <Text style={[styles.qrUploadLabel, { color: theme.textMuted }]}>Subir QR  ↑</Text>
+              <Text style={[styles.qrUploadSub, { color: theme.textMuted }]}>Se muestra al cliente en transferencias</Text>
             </TouchableOpacity>
           )}
         </View>
 
       </ScrollView>
 
-      {/* SAVE BUTTON */}
       <View style={[styles.bottomBar, { backgroundColor: theme.bg, borderColor: theme.cardBorder }]}>
         <TouchableOpacity
           style={[styles.saveBtn, { backgroundColor: theme.accent }]}
@@ -209,7 +211,7 @@ export default function BusinessConfigScreen({ navigation }) {
         >
           {saving
             ? <ActivityIndicator color={theme.accentText} />
-            : <Text style={[styles.saveBtnText, { color: theme.accentText }]}>GUARDAR CONFIGURACIÓN</Text>
+            : <Text style={[styles.saveBtnText, { color: theme.accentText }]}>GUARDAR</Text>
           }
         </TouchableOpacity>
       </View>
@@ -227,40 +229,43 @@ const styles = StyleSheet.create({
   backText: { fontSize: 24, fontWeight: '300', marginTop: -2 },
   headerTitle: { fontSize: 12, fontWeight: '800', letterSpacing: 2 },
   scroll: { paddingHorizontal: 16, paddingBottom: 120 },
-  statusRow: { flexDirection: 'row', gap: 10, marginTop: 16, marginBottom: 8 },
-  statusCard: {
-    flex: 1, borderRadius: 14, padding: 16, alignItems: 'center',
-    gap: 4, borderWidth: 1.5,
+  savedScreen: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 14 },
+  savedDot: { width: 12, height: 12, borderRadius: 6 },
+  savedText: { fontSize: 18, fontWeight: '700' },
+  statusRow: { flexDirection: 'row', gap: 8, marginTop: 20, marginBottom: 4 },
+  statusPill: {
+    flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8,
+    borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, borderWidth: 1,
   },
-  statusIcon: { fontSize: 22 },
-  statusLabel: { fontSize: 10, fontWeight: '800', letterSpacing: 2 },
-  statusVal: { fontSize: 13, fontWeight: '700' },
-  section: { marginTop: 24 },
-  sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 16 },
-  sectionIcon: { fontSize: 28 },
-  sectionTitle: { fontSize: 16, fontWeight: '800' },
-  sectionSub: { fontSize: 12, fontWeight: '600', marginTop: 2 },
-  fieldLabel: { fontSize: 10, fontWeight: '800', letterSpacing: 2, marginBottom: 6, marginTop: 12 },
-  inputWrap: {
+  statusDot: { width: 7, height: 7, borderRadius: 4 },
+  statusText: { fontSize: 12, fontWeight: '600' },
+  section: { marginTop: 28 },
+  sectionLabel: { fontSize: 10, fontWeight: '800', letterSpacing: 2, marginBottom: 10 },
+  inputRow: {
     flexDirection: 'row', alignItems: 'center',
     borderRadius: 14, paddingHorizontal: 16, borderWidth: 1,
   },
-  prefix: { fontSize: 16, fontWeight: '700', marginRight: 8 },
-  input: { flex: 1, fontSize: 18, fontWeight: '700', paddingVertical: 16 },
-  inputFull: { flex: 1, fontSize: 16, fontWeight: '700', paddingVertical: 16 },
-  benefitBox: { borderRadius: 14, padding: 16, marginTop: 12, borderWidth: 1, gap: 6 },
-  benefitText: { color: '#25D366', fontSize: 13, fontWeight: '700' },
+  prefix: { fontSize: 15, fontWeight: '600', marginRight: 8 },
+  input: { flex: 1, fontSize: 17, fontWeight: '600', paddingVertical: 16 },
+  inputFull: { flex: 1, fontSize: 15, fontWeight: '600', paddingVertical: 16 },
+  benefitList: { marginTop: 12, gap: 8 },
+  benefitRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  benefitDot: { width: 6, height: 6, borderRadius: 3 },
+  benefitText: { fontSize: 13, fontWeight: '500' },
   qrUpload: {
-    borderRadius: 16, paddingVertical: 32, alignItems: 'center',
-    borderWidth: 1, borderStyle: 'dashed', marginTop: 8,
+    borderRadius: 14, paddingVertical: 28, paddingHorizontal: 20,
+    borderWidth: 1, borderStyle: 'dashed',
   },
-  qrWrap: { marginTop: 8, alignItems: 'center', gap: 12 },
-  qrPreview: { width: 180, height: 180, borderRadius: 12 },
-  qrRemove: { paddingHorizontal: 20, paddingVertical: 10, borderRadius: 10, borderWidth: 1 },
+  qrUploadLabel: { fontSize: 14, fontWeight: '700', marginBottom: 4 },
+  qrUploadSub: { fontSize: 12, fontWeight: '500' },
+  qrCard: { borderRadius: 14, padding: 20, alignItems: 'center', gap: 16, borderWidth: 1 },
+  qrImage: { width: 160, height: 160, borderRadius: 10 },
+  qrRemoveBtn: { paddingHorizontal: 18, paddingVertical: 8, borderRadius: 8, borderWidth: 1 },
+  qrRemoveText: { fontSize: 13, fontWeight: '600' },
   bottomBar: {
     position: 'absolute', bottom: 0, left: 0, right: 0,
     padding: 16, paddingBottom: 34, borderTopWidth: 1,
   },
   saveBtn: { borderRadius: 16, paddingVertical: 18, alignItems: 'center' },
-  saveBtnText: { fontSize: 15, fontWeight: '900', letterSpacing: 2 },
+  saveBtnText: { fontSize: 15, fontWeight: '900', letterSpacing: 3 },
 });

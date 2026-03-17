@@ -9,7 +9,10 @@ import { useApp } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { printTicket, shareTicket } from '../utils/ticketPrinter';
-import { loadBankConfig, loadWhatsAppNumber, buildTransferMessage, buildTicketMessage } from '../utils/businessConfig';
+import {
+  loadBankConfig, loadWhatsAppNumber,
+  buildTransferMessage, buildTicketMessage,
+} from '../utils/businessConfig';
 
 export default function PaymentScreen({ route, navigation }) {
   const { order } = route.params;
@@ -28,7 +31,7 @@ export default function PaymentScreen({ route, navigation }) {
   const [waNumber, setWaNumber] = useState(null);
   const [showPhoneModal, setShowPhoneModal] = useState(false);
   const [clientPhone, setClientPhone] = useState('');
-  const [waPendingAction, setWaPendingAction] = useState(null); // 'ticket' | 'transfer'
+  const [waPendingAction, setWaPendingAction] = useState(null);
 
   const change = cashGiven ? parseFloat(cashGiven) - order.total : 0;
   const quickAmounts = [1, 2, 5, 10, 20];
@@ -42,29 +45,30 @@ export default function PaymentScreen({ route, navigation }) {
     })();
   }, []);
 
-  const takePhoto = async () => {
+  const takeVoucherPhoto = async () => {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
     if (status !== 'granted') { Alert.alert('', 'Necesitamos la cámara'); return; }
     const result = await ImagePicker.launchCameraAsync({ quality: 0.7 });
     if (!result.canceled) setVoucherImage(result.assets[0].uri);
   };
 
-  const pickFromGallery = async () => {
+  const pickVoucherFromGallery = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({ quality: 0.7 });
     if (!result.canceled) setVoucherImage(result.assets[0].uri);
   };
 
   const handleComplete = async () => {
-    if (paymentMethod === 'card' && !voucherImage) {
-      Alert.alert('', 'Tomá foto del voucher o subilo de la galería'); return;
-    }
     const saleData = {
-      productId: order.product.id, productName: order.product.name,
-      size: order.size.name, toppings: order.toppings,
-      quantity: order.quantity, total: order.total, paymentMethod,
+      productId: order.product.id,
+      productName: order.product.name,
+      size: order.size.name,
+      toppings: order.toppings,
+      quantity: order.quantity,
+      total: order.total,
+      paymentMethod,
       cashGiven: paymentMethod === 'cash' ? parseFloat(cashGiven) : null,
       change: paymentMethod === 'cash' ? change : null,
-      voucherImage: paymentMethod === 'card' ? voucherImage : null,
+      voucherImage: paymentMethod === 'transfer' ? voucherImage : null,
       workerId: currentWorker?.id || null,
       workerName: currentWorker?.name || 'Sin asignar',
     };
@@ -73,7 +77,6 @@ export default function PaymentScreen({ route, navigation }) {
     setShowSuccess(true);
   };
 
-  // Abre modal para pedir teléfono del cliente y luego manda WhatsApp
   const handleWhatsApp = (action) => {
     setWaPendingAction(action);
     setClientPhone('');
@@ -86,12 +89,16 @@ export default function PaymentScreen({ route, navigation }) {
     const fullNumber = `503${cleaned}`;
     let message = '';
     if (waPendingAction === 'transfer' && bankConfig) {
-      message = buildTransferMessage({ ...order, id: completedSale?.id || 'XXXX', productName: order.product.name }, bankConfig);
+      message = buildTransferMessage(
+        { ...order, id: completedSale?.id || 'XXXX', productName: order.product.name },
+        bankConfig
+      );
     } else {
-      message = buildTicketMessage(completedSale || { ...order, productName: order.product.name, id: 'XXXX' });
+      message = buildTicketMessage(
+        completedSale || { ...order, productName: order.product.name, id: 'XXXX' }
+      );
     }
-    const url = `https://wa.me/${fullNumber}?text=${message}`;
-    Linking.openURL(url);
+    Linking.openURL(`https://wa.me/${fullNumber}?text=${message}`);
     setShowPhoneModal(false);
   };
 
@@ -118,7 +125,7 @@ export default function PaymentScreen({ route, navigation }) {
 
   const canComplete =
     (paymentMethod === 'cash' && cashGiven !== '' && change >= 0) ||
-    (paymentMethod === 'card' && voucherImage);
+    (paymentMethod === 'transfer');
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.bg }]}>
@@ -134,6 +141,8 @@ export default function PaymentScreen({ route, navigation }) {
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
+
+        {/* TOTAL */}
         <View style={[styles.totalSection, { borderColor: theme.cardBorder }]}>
           <Text style={[styles.totalLabel, { color: theme.textMuted }]}>TOTAL</Text>
           <Text style={[styles.totalAmount, { color: theme.text }]}>${order.total.toFixed(2)}</Text>
@@ -142,6 +151,7 @@ export default function PaymentScreen({ route, navigation }) {
           </Text>
         </View>
 
+        {/* MÉTODOS */}
         <View style={styles.methodSection}>
           <TouchableOpacity
             style={[styles.methodBtn, { backgroundColor: theme.card, borderColor: theme.cardBorder },
@@ -152,17 +162,19 @@ export default function PaymentScreen({ route, navigation }) {
             <Text style={[styles.methodText, { color: theme.textSecondary },
               paymentMethod === 'cash' && { color: theme.accentText }]}>Efectivo</Text>
           </TouchableOpacity>
+
           <TouchableOpacity
             style={[styles.methodBtn, { backgroundColor: theme.card, borderColor: theme.cardBorder },
-              paymentMethod === 'card' && { backgroundColor: theme.accent, borderColor: theme.accent }]}
-            onPress={() => { setPaymentMethod('card'); setCashGiven(''); }}
+              paymentMethod === 'transfer' && { backgroundColor: theme.accent, borderColor: theme.accent }]}
+            onPress={() => { setPaymentMethod('transfer'); setCashGiven(''); }}
           >
-            <Text style={styles.methodEmoji}>💳</Text>
+            <Text style={styles.methodEmoji}>🏦</Text>
             <Text style={[styles.methodText, { color: theme.textSecondary },
-              paymentMethod === 'card' && { color: theme.accentText }]}>Tarjeta</Text>
+              paymentMethod === 'transfer' && { color: theme.accentText }]}>Transferencia</Text>
           </TouchableOpacity>
         </View>
 
+        {/* EFECTIVO */}
         {paymentMethod === 'cash' && (
           <View style={styles.cashSection}>
             <View style={styles.quickGrid}>
@@ -208,8 +220,51 @@ export default function PaymentScreen({ route, navigation }) {
           </View>
         )}
 
-        {paymentMethod === 'card' && (
-          <View style={styles.cardSection}>
+        {/* TRANSFERENCIA */}
+        {paymentMethod === 'transfer' && (
+          <View style={styles.transferSection}>
+
+            {/* Datos bancarios si hay config */}
+            {bankConfig ? (
+              <View style={[styles.bankCard, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+                <Text style={[styles.bankCardLabel, { color: theme.textMuted }]}>DATOS PARA TRANSFERIR</Text>
+                <View style={styles.bankRow}>
+                  <Text style={[styles.bankKey, { color: theme.textMuted }]}>Banco</Text>
+                  <Text style={[styles.bankVal, { color: theme.text }]}>{bankConfig.bank}</Text>
+                </View>
+                <View style={[styles.divider, { backgroundColor: theme.cardBorder }]} />
+                <View style={styles.bankRow}>
+                  <Text style={[styles.bankKey, { color: theme.textMuted }]}>Titular</Text>
+                  <Text style={[styles.bankVal, { color: theme.text }]}>{bankConfig.holder}</Text>
+                </View>
+                <View style={[styles.divider, { backgroundColor: theme.cardBorder }]} />
+                <View style={styles.bankRow}>
+                  <Text style={[styles.bankKey, { color: theme.textMuted }]}>Cuenta</Text>
+                  <Text style={[styles.bankVal, { color: theme.text }]}>{bankConfig.account}</Text>
+                </View>
+
+                {/* QR si hay */}
+                {bankConfig.qrImage && (
+                  <View style={styles.qrSection}>
+                    <View style={[styles.divider, { backgroundColor: theme.cardBorder }]} />
+                    <Text style={[styles.bankKey, { color: theme.textMuted, marginTop: 12, marginBottom: 10 }]}>QR DE PAGO</Text>
+                    <Image source={{ uri: bankConfig.qrImage }} style={styles.qrDisplay} />
+                  </View>
+                )}
+              </View>
+            ) : (
+              <View style={[styles.noBankCard, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+                <Text style={[styles.noBankText, { color: theme.textMuted }]}>
+                  Sin datos bancarios configurados
+                </Text>
+                <Text style={[styles.noBankSub, { color: theme.textMuted }]}>
+                  Configurá los datos en Perfil → Configuración de cobro
+                </Text>
+              </View>
+            )}
+
+            {/* Comprobante opcional */}
+            <Text style={[styles.voucherLabel, { color: theme.textMuted }]}>COMPROBANTE (opcional)</Text>
             {voucherImage ? (
               <View style={styles.voucherWrap}>
                 <Image source={{ uri: voucherImage }} style={styles.voucherImg} />
@@ -224,14 +279,14 @@ export default function PaymentScreen({ route, navigation }) {
               <View style={styles.voucherBtns}>
                 <TouchableOpacity
                   style={[styles.voucherBtn, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}
-                  onPress={takePhoto}
+                  onPress={takeVoucherPhoto}
                 >
                   <Text style={styles.voucherIcon}>📸</Text>
-                  <Text style={[styles.voucherText, { color: theme.textSecondary }]}>Tomar foto</Text>
+                  <Text style={[styles.voucherText, { color: theme.textSecondary }]}>Foto</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={[styles.voucherBtn, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}
-                  onPress={pickFromGallery}
+                  onPress={pickVoucherFromGallery}
                 >
                   <Text style={styles.voucherIcon}>🖼️</Text>
                   <Text style={[styles.voucherText, { color: theme.textSecondary }]}>Galería</Text>
@@ -240,20 +295,23 @@ export default function PaymentScreen({ route, navigation }) {
             )}
           </View>
         )}
+
       </ScrollView>
 
       {paymentMethod && (
         <View style={[styles.bottomBar, { backgroundColor: theme.bg, borderColor: theme.cardBorder }]}>
           <TouchableOpacity
-            style={[styles.doneBtn, { backgroundColor: theme.accent }, !canComplete && { opacity: 0.3 }]}
-            onPress={handleComplete} disabled={!canComplete}
+            style={[styles.doneBtn, { backgroundColor: theme.accent },
+              !canComplete && { opacity: 0.3 }]}
+            onPress={handleComplete}
+            disabled={!canComplete}
           >
             <Text style={[styles.doneText, { color: theme.accentText }]}>✓  LISTO</Text>
           </TouchableOpacity>
         </View>
       )}
 
-      {/* ── SUCCESS MODAL ── */}
+      {/* SUCCESS MODAL */}
       <Modal visible={showSuccess} transparent animationType="fade">
         <View style={[styles.successOverlay, { backgroundColor: theme.bg }]}>
           <View style={[styles.successCircle, { borderColor: theme.accent }]}>
@@ -267,15 +325,14 @@ export default function PaymentScreen({ route, navigation }) {
               <ActivityIndicator color={theme.text} size="large" style={{ marginTop: 30 }} />
             ) : (
               <>
-                {/* WhatsApp — siempre visible si hay número configurado */}
                 {waNumber && (
                   <TouchableOpacity
-                    style={[styles.waBtn]}
+                    style={styles.waBtn}
                     onPress={() => handleWhatsApp(paymentMethod === 'transfer' ? 'transfer' : 'ticket')}
                   >
                     <Text style={styles.waBtnIcon}>💬</Text>
                     <Text style={styles.waBtnText}>
-                      {paymentMethod === 'transfer' ? 'Enviar datos de pago' : 'Enviar ticket por WhatsApp'}
+                      {paymentMethod === 'transfer' ? 'Enviar datos al cliente' : 'Enviar ticket por WhatsApp'}
                     </Text>
                   </TouchableOpacity>
                 )}
@@ -305,11 +362,11 @@ export default function PaymentScreen({ route, navigation }) {
         </View>
       </Modal>
 
-      {/* ── PHONE MODAL ── */}
+      {/* PHONE MODAL */}
       <Modal visible={showPhoneModal} transparent animationType="slide">
         <View style={[styles.phoneOverlay, { backgroundColor: theme.overlay }]}>
           <View style={[styles.phoneModal, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
-            <Text style={[styles.phoneTitle, { color: theme.text }]}>💬 ENVIAR POR WHATSAPP</Text>
+            <Text style={[styles.phoneTitle, { color: theme.text }]}>ENVIAR POR WHATSAPP</Text>
             <Text style={[styles.phoneSub, { color: theme.textMuted }]}>Número del cliente</Text>
 
             <View style={[styles.phoneInputRow, { backgroundColor: theme.input, borderColor: theme.inputBorder }]}>
@@ -327,16 +384,13 @@ export default function PaymentScreen({ route, navigation }) {
             </View>
 
             <TouchableOpacity
-              style={[styles.sendBtn, { backgroundColor: '#25D366' }]}
+              style={styles.sendBtn}
               onPress={sendWhatsApp}
             >
-              <Text style={[styles.sendBtnText, { color: '#fff' }]}>ABRIR WHATSAPP →</Text>
+              <Text style={styles.sendBtnText}>ABRIR WHATSAPP →</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity
-              style={styles.cancelBtn}
-              onPress={() => setShowPhoneModal(false)}
-            >
+            <TouchableOpacity style={styles.cancelBtn} onPress={() => setShowPhoneModal(false)}>
               <Text style={[styles.cancelBtnText, { color: theme.textMuted }]}>Cancelar</Text>
             </TouchableOpacity>
           </View>
@@ -374,16 +428,28 @@ const styles = StyleSheet.create({
   changeBox: { marginTop: 14, borderRadius: 14, paddingVertical: 22, alignItems: 'center' },
   changeLabel: { fontSize: 11, fontWeight: '800', letterSpacing: 3 },
   changeAmount: { fontSize: 38, fontWeight: '900', marginTop: 4 },
-  cardSection: { paddingHorizontal: 16, marginTop: 20 },
+  transferSection: { paddingHorizontal: 16, marginTop: 20, gap: 16 },
+  bankCard: { borderRadius: 16, padding: 20, borderWidth: 1 },
+  bankCardLabel: { fontSize: 10, fontWeight: '800', letterSpacing: 2, marginBottom: 16 },
+  bankRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 10 },
+  bankKey: { fontSize: 12, fontWeight: '600' },
+  bankVal: { fontSize: 15, fontWeight: '700' },
+  divider: { height: 1 },
+  qrSection: { alignItems: 'center' },
+  qrDisplay: { width: 160, height: 160, borderRadius: 10 },
+  noBankCard: { borderRadius: 16, padding: 20, borderWidth: 1, alignItems: 'center', gap: 6 },
+  noBankText: { fontSize: 14, fontWeight: '700' },
+  noBankSub: { fontSize: 12, fontWeight: '500', textAlign: 'center' },
+  voucherLabel: { fontSize: 10, fontWeight: '800', letterSpacing: 2 },
   voucherBtns: { flexDirection: 'row', gap: 10 },
-  voucherBtn: { flex: 1, borderRadius: 16, paddingVertical: 36, alignItems: 'center', gap: 10, borderWidth: 1 },
-  voucherIcon: { fontSize: 36 },
-  voucherText: { fontSize: 12, fontWeight: '700', letterSpacing: 1 },
+  voucherBtn: { flex: 1, borderRadius: 16, paddingVertical: 28, alignItems: 'center', gap: 8, borderWidth: 1 },
+  voucherIcon: { fontSize: 28 },
+  voucherText: { fontSize: 12, fontWeight: '700' },
   voucherWrap: { position: 'relative' },
-  voucherImg: { width: '100%', height: 200, borderRadius: 14, resizeMode: 'cover' },
+  voucherImg: { width: '100%', height: 180, borderRadius: 14, resizeMode: 'cover' },
   voucherRemove: {
-    position: 'absolute', top: 10, right: 10, width: 36, height: 36, borderRadius: 18,
-    alignItems: 'center', justifyContent: 'center', borderWidth: 1,
+    position: 'absolute', top: 10, right: 10, width: 36, height: 36,
+    borderRadius: 18, alignItems: 'center', justifyContent: 'center', borderWidth: 1,
   },
   voucherRemoveText: { fontSize: 16, fontWeight: '600' },
   bottomBar: { position: 'absolute', bottom: 0, left: 0, right: 0, padding: 16, paddingBottom: 34, borderTopWidth: 1 },
@@ -397,11 +463,10 @@ const styles = StyleSheet.create({
   printSection: { width: '100%', marginTop: 30, gap: 12 },
   waBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    borderRadius: 16, paddingVertical: 18, gap: 10,
-    backgroundColor: '#25D366',
+    borderRadius: 16, paddingVertical: 18, gap: 10, backgroundColor: '#25D366',
   },
-  waBtnIcon: { fontSize: 22 },
-  waBtnText: { fontSize: 15, fontWeight: '900', letterSpacing: 1, color: '#fff' },
+  waBtnIcon: { fontSize: 20 },
+  waBtnText: { fontSize: 14, fontWeight: '900', letterSpacing: 1, color: '#fff' },
   printBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', borderRadius: 16, paddingVertical: 18, gap: 10 },
   printIcon: { fontSize: 22 },
   printBtnText: { fontSize: 16, fontWeight: '900', letterSpacing: 2 },
@@ -417,8 +482,8 @@ const styles = StyleSheet.create({
   phoneInputRow: { flexDirection: 'row', alignItems: 'center', borderRadius: 14, paddingHorizontal: 16, borderWidth: 1, marginBottom: 16 },
   phonePrefix: { fontSize: 18, fontWeight: '700', marginRight: 10 },
   phoneInput: { flex: 1, fontSize: 24, fontWeight: '700', paddingVertical: 16 },
-  sendBtn: { borderRadius: 16, paddingVertical: 18, alignItems: 'center', marginBottom: 10 },
-  sendBtnText: { fontSize: 15, fontWeight: '900', letterSpacing: 2 },
+  sendBtn: { borderRadius: 16, paddingVertical: 18, alignItems: 'center', marginBottom: 10, backgroundColor: '#25D366' },
+  sendBtnText: { fontSize: 15, fontWeight: '900', letterSpacing: 2, color: '#fff' },
   cancelBtn: { paddingVertical: 14, alignItems: 'center' },
   cancelBtnText: { fontSize: 14, fontWeight: '600' },
 });
