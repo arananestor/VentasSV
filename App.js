@@ -18,6 +18,7 @@ import SalesScreen from './src/screens/SalesScreen';
 import SaleDetailScreen from './src/screens/SaleDetailScreen';
 import ProfileScreen from './src/screens/ProfileScreen';
 import ManageTabsScreen from './src/screens/ManageTabsScreen';
+import BusinessConfigScreen from './src/screens/BusinessConfigScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -59,6 +60,7 @@ function AppNavigator() {
           <Stack.Screen name="SaleDetail" component={SaleDetailScreen} />
           <Stack.Screen name="Profile" component={ProfileScreen} />
           <Stack.Screen name="ManageTabs" component={ManageTabsScreen} />
+          <Stack.Screen name="BusinessConfig" component={BusinessConfigScreen} />
         </>
       )}
     </Stack.Navigator>

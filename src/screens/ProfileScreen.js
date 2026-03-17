@@ -130,6 +130,21 @@ export default function ProfileScreen({ navigation }) {
           />
         </View>
 
+        {/* configuración de cobro - solo admin */}
+        {isAdminMode && (
+            <TouchableOpacity
+            style={[styles.optionBtn, {backgroundColor: theme.card, borderColor: theme.cardBorder }]}
+            onPress={() => navigation.navigate('BusinessConfig')}
+            >
+                <Text style={styles.optionIcon}>⚙️</Text>
+                <View style={styles.optionInfo}>
+                    <Text style={[styles.optionTitle, {color: theme.text }]}>configuración de cobro</Text>
+                    <Text style={[ styles.optionSub, {color: theme.textMuted }]}>WhatsApp, banco, transferencias</Text> 
+                </View>
+                <Text style={[styles.optionSub, { color: theme.textMuted }]}>›</Text>
+            </TouchableOpacity>
+        )}
+
         {/* Switch Worker */}
         <TouchableOpacity
           style={[styles.optionBtn, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}
