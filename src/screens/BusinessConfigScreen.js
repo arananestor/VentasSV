@@ -67,7 +67,7 @@ export default function BusinessConfigScreen({ navigation }) {
     return (
       <SafeAreaView style={[styles.container, { backgroundColor: theme.bg }]}>
         <View style={styles.savedScreen}>
-          <View style={[styles.savedDot, { backgroundColor: theme.accent }]} />
+          <View style={[styles.savedDot, { backgroundColor: theme.success }]} />
           <Text style={[styles.savedText, { color: theme.text }]}>Guardado</Text>
         </View>
       </SafeAreaView>
@@ -93,18 +93,22 @@ export default function BusinessConfigScreen({ navigation }) {
         <View style={styles.statusRow}>
           <View style={[styles.statusPill, {
             backgroundColor: theme.card,
-            borderColor: bankComplete ? theme.accent : theme.cardBorder,
+            borderColor: bankComplete ? theme.success : theme.cardBorder,
           }]}>
-            <View style={[styles.statusDot, { backgroundColor: bankComplete ? theme.accent : theme.cardBorder }]} />
+            <View style={[styles.statusDot, {
+              backgroundColor: bankComplete ? theme.success : theme.cardBorder,
+            }]} />
             <Text style={[styles.statusText, { color: bankComplete ? theme.text : theme.textMuted }]}>
               Banco {bankComplete ? 'configurado' : 'pendiente'}
             </Text>
           </View>
           <View style={[styles.statusPill, {
             backgroundColor: theme.card,
-            borderColor: waComplete ? '#25D366' : theme.cardBorder,
+            borderColor: waComplete ? theme.success : theme.cardBorder,
           }]}>
-            <View style={[styles.statusDot, { backgroundColor: waComplete ? '#25D366' : theme.cardBorder }]} />
+            <View style={[styles.statusDot, {
+              backgroundColor: waComplete ? theme.success : theme.cardBorder,
+            }]} />
             <Text style={[styles.statusText, { color: waComplete ? theme.text : theme.textMuted }]}>
               WhatsApp {waComplete ? 'conectado' : 'pendiente'}
             </Text>
@@ -130,7 +134,7 @@ export default function BusinessConfigScreen({ navigation }) {
             <View style={styles.benefitList}>
               {['Enviar tickets al cliente', 'Compartir datos de transferencia', 'Aviso de pedido listo'].map(b => (
                 <View key={b} style={styles.benefitRow}>
-                  <View style={[styles.benefitDot, { backgroundColor: '#25D366' }]} />
+                  <View style={[styles.benefitDot, { backgroundColor: theme.success }]} />
                   <Text style={[styles.benefitText, { color: theme.textSecondary }]}>{b}</Text>
                 </View>
               ))}
@@ -196,7 +200,9 @@ export default function BusinessConfigScreen({ navigation }) {
               onPress={pickQR}
             >
               <Text style={[styles.qrUploadLabel, { color: theme.textMuted }]}>Subir QR  ↑</Text>
-              <Text style={[styles.qrUploadSub, { color: theme.textMuted }]}>Se muestra al cliente en transferencias</Text>
+              <Text style={[styles.qrUploadSub, { color: theme.textMuted }]}>
+                Se muestra al cliente en transferencias
+              </Text>
             </TouchableOpacity>
           )}
         </View>

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import {
   View, Text, TouchableOpacity, TextInput, StyleSheet,
   SafeAreaView, Modal, Image, Alert, ScrollView,
-  ActivityIndicator, Linking,
+  ActivityIndicator, Linking, Dimensions,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { useApp } from '../context/AppContext';
@@ -13,6 +13,8 @@ import {
   loadBankConfig, loadWhatsAppNumber,
   buildTransferMessage, buildTicketMessage,
 } from '../utils/businessConfig';
+
+const { height } = Dimensions.get('window');
 
 export default function PaymentScreen({ route, navigation }) {
   const { order } = route.params;
@@ -127,6 +129,123 @@ export default function PaymentScreen({ route, navigation }) {
     (paymentMethod === 'cash' && cashGiven !== '' && change >= 0) ||
     (paymentMethod === 'transfer');
 
+  // ── SUCCESS SCREEN ──────────────────────────────────────
+  if (showSuccess) {
+    return (
+      <SafeAreaView style={[styles.container, { backgroundColor: theme.bg }]}>
+
+        {/* TOP — confirmación */}
+        <View style={styles.successTop}>
+          <View style={[styles.successDot, { backgroundColor: theme.success }]} />
+          <Text style={[styles.successLabel, { color: theme.textMuted }]}>VENTA REGISTRADA</Text>
+          <Text style={[styles.successAmount, { color: theme.text }]}>
+            ${order.total.toFixed(2)}
+          </Text>
+          <Text style={[styles.successDetail, { color: theme.textMuted }]}>
+            {order.quantity}x {order.size.name} · {order.product.name}
+          </Text>
+          <Text style={[styles.successWorker, { color: theme.textMuted }]}>
+            {currentWorker?.name || '—'}
+          </Text>
+        </View>
+
+        {/* MIDDLE — acciones primarias */}
+        {isPrinting ? (
+          <View style={styles.loadingWrap}>
+            <ActivityIndicator color={theme.text} size="large" />
+          </View>
+        ) : (
+          <View style={styles.successActions}>
+
+            {/* Fila principal — WhatsApp + Imprimir */}
+            <View style={styles.primaryRow}>
+              {waNumber ? (
+                <TouchableOpacity
+                  style={[styles.primaryBtn, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}
+                  onPress={() => handleWhatsApp(paymentMethod === 'transfer' ? 'transfer' : 'ticket')}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.primaryBtnEmoji}>💬</Text>
+                  <Text style={[styles.primaryBtnLabel, { color: theme.text }]}>WhatsApp</Text>
+                  <Text style={[styles.primaryBtnSub, { color: theme.textMuted }]}>
+                    {paymentMethod === 'transfer' ? 'Datos de pago' : 'Ticket al cliente'}
+                  </Text>
+                </TouchableOpacity>
+              ) : null}
+
+              <TouchableOpacity
+                style={[
+                  styles.primaryBtn,
+                  { backgroundColor: theme.accent },
+                  !waNumber && { flex: 1 },
+                ]}
+                onPress={handlePrint}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.primaryBtnEmoji}>🖨️</Text>
+                <Text style={[styles.primaryBtnLabel, { color: theme.accentText }]}>Imprimir</Text>
+                <Text style={[styles.primaryBtnSub, { color: theme.mode === 'dark' ? '#666' : '#999' }]}>
+                  Ticket físico
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Secundario — Compartir PDF */}
+            <TouchableOpacity
+              style={[styles.secondaryBtn, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}
+              onPress={handleShare}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.secondaryBtnText, { color: theme.textSecondary }]}>
+                📤  Compartir PDF
+              </Text>
+            </TouchableOpacity>
+
+          </View>
+        )}
+
+        {/* BOTTOM — continuar */}
+        <TouchableOpacity style={styles.doneLink} onPress={handleDone}>
+          <Text style={[styles.doneLinkText, { color: theme.textMuted }]}>Continuar</Text>
+        </TouchableOpacity>
+
+        {/* PHONE MODAL */}
+        <Modal visible={showPhoneModal} transparent animationType="slide">
+          <View style={[styles.phoneOverlay, { backgroundColor: theme.overlay }]}>
+            <View style={[styles.phoneModal, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+              <Text style={[styles.phoneTitle, { color: theme.text }]}>ENVIAR POR WHATSAPP</Text>
+              <Text style={[styles.phoneSub, { color: theme.textMuted }]}>Número del cliente</Text>
+              <View style={[styles.phoneInputRow, { backgroundColor: theme.input, borderColor: theme.inputBorder }]}>
+                <Text style={[styles.phonePrefix, { color: theme.textMuted }]}>+503</Text>
+                <TextInput
+                  style={[styles.phoneInput, { color: theme.text }]}
+                  value={clientPhone}
+                  onChangeText={setClientPhone}
+                  placeholder="7000-0000"
+                  placeholderTextColor={theme.textMuted}
+                  keyboardType="phone-pad"
+                  maxLength={12}
+                  autoFocus
+                />
+              </View>
+              <TouchableOpacity
+                style={[styles.sendBtn, { backgroundColor: theme.accent }]}
+                onPress={sendWhatsApp}
+              >
+                <Text style={[styles.sendBtnText, { color: theme.accentText }]}>ABRIR WHATSAPP →</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.cancelBtn} onPress={() => setShowPhoneModal(false)}>
+                <Text style={[styles.cancelBtnText, { color: theme.textMuted }]}>Cancelar</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
+
+      </SafeAreaView>
+    );
+  }
+
+  // ── COBRO SCREEN ────────────────────────────────────────
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.bg }]}>
       <View style={styles.header}>
@@ -142,7 +261,6 @@ export default function PaymentScreen({ route, navigation }) {
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
 
-        {/* TOTAL */}
         <View style={[styles.totalSection, { borderColor: theme.cardBorder }]}>
           <Text style={[styles.totalLabel, { color: theme.textMuted }]}>TOTAL</Text>
           <Text style={[styles.totalAmount, { color: theme.text }]}>${order.total.toFixed(2)}</Text>
@@ -151,7 +269,6 @@ export default function PaymentScreen({ route, navigation }) {
           </Text>
         </View>
 
-        {/* MÉTODOS */}
         <View style={styles.methodSection}>
           <TouchableOpacity
             style={[styles.methodBtn, { backgroundColor: theme.card, borderColor: theme.cardBorder },
@@ -214,7 +331,9 @@ export default function PaymentScreen({ route, navigation }) {
                 <Text style={[styles.changeLabel, { color: theme.accentText }]}>
                   {change > 0 ? 'VUELTO' : change === 0 ? '¡JUSTO!' : 'FALTA'}
                 </Text>
-                <Text style={[styles.changeAmount, { color: theme.accentText }]}>${Math.abs(change).toFixed(2)}</Text>
+                <Text style={[styles.changeAmount, { color: theme.accentText }]}>
+                  ${Math.abs(change).toFixed(2)}
+                </Text>
               </View>
             )}
           </View>
@@ -223,8 +342,6 @@ export default function PaymentScreen({ route, navigation }) {
         {/* TRANSFERENCIA */}
         {paymentMethod === 'transfer' && (
           <View style={styles.transferSection}>
-
-            {/* Datos bancarios si hay config */}
             {bankConfig ? (
               <View style={[styles.bankCard, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
                 <Text style={[styles.bankCardLabel, { color: theme.textMuted }]}>DATOS PARA TRANSFERIR</Text>
@@ -242,12 +359,10 @@ export default function PaymentScreen({ route, navigation }) {
                   <Text style={[styles.bankKey, { color: theme.textMuted }]}>Cuenta</Text>
                   <Text style={[styles.bankVal, { color: theme.text }]}>{bankConfig.account}</Text>
                 </View>
-
-                {/* QR si hay */}
                 {bankConfig.qrImage && (
                   <View style={styles.qrSection}>
-                    <View style={[styles.divider, { backgroundColor: theme.cardBorder }]} />
-                    <Text style={[styles.bankKey, { color: theme.textMuted, marginTop: 12, marginBottom: 10 }]}>QR DE PAGO</Text>
+                    <View style={[styles.divider, { backgroundColor: theme.cardBorder, marginBottom: 16 }]} />
+                    <Text style={[styles.bankKey, { color: theme.textMuted, marginBottom: 12 }]}>QR DE PAGO</Text>
                     <Image source={{ uri: bankConfig.qrImage }} style={styles.qrDisplay} />
                   </View>
                 )}
@@ -258,12 +373,11 @@ export default function PaymentScreen({ route, navigation }) {
                   Sin datos bancarios configurados
                 </Text>
                 <Text style={[styles.noBankSub, { color: theme.textMuted }]}>
-                  Configurá los datos en Perfil → Configuración de cobro
+                  Perfil → Configuración de cobro
                 </Text>
               </View>
             )}
 
-            {/* Comprobante opcional */}
             <Text style={[styles.voucherLabel, { color: theme.textMuted }]}>COMPROBANTE (opcional)</Text>
             {voucherImage ? (
               <View style={styles.voucherWrap}>
@@ -301,8 +415,7 @@ export default function PaymentScreen({ route, navigation }) {
       {paymentMethod && (
         <View style={[styles.bottomBar, { backgroundColor: theme.bg, borderColor: theme.cardBorder }]}>
           <TouchableOpacity
-            style={[styles.doneBtn, { backgroundColor: theme.accent },
-              !canComplete && { opacity: 0.3 }]}
+            style={[styles.doneBtn, { backgroundColor: theme.accent }, !canComplete && { opacity: 0.3 }]}
             onPress={handleComplete}
             disabled={!canComplete}
           >
@@ -310,98 +423,14 @@ export default function PaymentScreen({ route, navigation }) {
           </TouchableOpacity>
         </View>
       )}
-
-      {/* SUCCESS MODAL */}
-      <Modal visible={showSuccess} transparent animationType="fade">
-        <View style={[styles.successOverlay, { backgroundColor: theme.bg }]}>
-          <View style={[styles.successCircle, { borderColor: theme.accent }]}>
-            <Text style={[styles.successCheck, { color: theme.accent }]}>✓</Text>
-          </View>
-          <Text style={[styles.successTitle, { color: theme.text }]}>REGISTRADA</Text>
-          <Text style={[styles.successAmount, { color: theme.textMuted }]}>${order.total.toFixed(2)}</Text>
-
-          <View style={styles.printSection}>
-            {isPrinting ? (
-              <ActivityIndicator color={theme.text} size="large" style={{ marginTop: 30 }} />
-            ) : (
-              <>
-                {waNumber && (
-                  <TouchableOpacity
-                    style={styles.waBtn}
-                    onPress={() => handleWhatsApp(paymentMethod === 'transfer' ? 'transfer' : 'ticket')}
-                  >
-                    <Text style={styles.waBtnIcon}>💬</Text>
-                    <Text style={styles.waBtnText}>
-                      {paymentMethod === 'transfer' ? 'Enviar datos al cliente' : 'Enviar ticket por WhatsApp'}
-                    </Text>
-                  </TouchableOpacity>
-                )}
-
-                <TouchableOpacity
-                  style={[styles.printBtn, { backgroundColor: theme.accent }]}
-                  onPress={handlePrint}
-                >
-                  <Text style={styles.printIcon}>🖨️</Text>
-                  <Text style={[styles.printBtnText, { color: theme.accentText }]}>IMPRIMIR TICKET</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={[styles.shareBtn, { borderColor: theme.cardBorder }]}
-                  onPress={handleShare}
-                >
-                  <Text style={styles.shareIcon}>📤</Text>
-                  <Text style={[styles.shareBtnText, { color: theme.textSecondary }]}>Compartir PDF</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity style={styles.skipBtn} onPress={handleDone}>
-                  <Text style={[styles.skipText, { color: theme.textMuted }]}>Continuar sin ticket</Text>
-                </TouchableOpacity>
-              </>
-            )}
-          </View>
-        </View>
-      </Modal>
-
-      {/* PHONE MODAL */}
-      <Modal visible={showPhoneModal} transparent animationType="slide">
-        <View style={[styles.phoneOverlay, { backgroundColor: theme.overlay }]}>
-          <View style={[styles.phoneModal, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
-            <Text style={[styles.phoneTitle, { color: theme.text }]}>ENVIAR POR WHATSAPP</Text>
-            <Text style={[styles.phoneSub, { color: theme.textMuted }]}>Número del cliente</Text>
-
-            <View style={[styles.phoneInputRow, { backgroundColor: theme.input, borderColor: theme.inputBorder }]}>
-              <Text style={[styles.phonePrefix, { color: theme.textMuted }]}>+503</Text>
-              <TextInput
-                style={[styles.phoneInput, { color: theme.text }]}
-                value={clientPhone}
-                onChangeText={setClientPhone}
-                placeholder="7000-0000"
-                placeholderTextColor={theme.textMuted}
-                keyboardType="phone-pad"
-                maxLength={12}
-                autoFocus
-              />
-            </View>
-
-            <TouchableOpacity
-              style={styles.sendBtn}
-              onPress={sendWhatsApp}
-            >
-              <Text style={styles.sendBtnText}>ABRIR WHATSAPP →</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity style={styles.cancelBtn} onPress={() => setShowPhoneModal(false)}>
-              <Text style={[styles.cancelBtnText, { color: theme.textMuted }]}>Cancelar</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
+
+  // ── COBRO ──
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 16, paddingVertical: 12,
@@ -435,7 +464,7 @@ const styles = StyleSheet.create({
   bankKey: { fontSize: 12, fontWeight: '600' },
   bankVal: { fontSize: 15, fontWeight: '700' },
   divider: { height: 1 },
-  qrSection: { alignItems: 'center' },
+  qrSection: { alignItems: 'center', marginTop: 4 },
   qrDisplay: { width: 160, height: 160, borderRadius: 10 },
   noBankCard: { borderRadius: 16, padding: 20, borderWidth: 1, alignItems: 'center', gap: 6 },
   noBankText: { fontSize: 14, fontWeight: '700' },
@@ -455,26 +484,57 @@ const styles = StyleSheet.create({
   bottomBar: { position: 'absolute', bottom: 0, left: 0, right: 0, padding: 16, paddingBottom: 34, borderTopWidth: 1 },
   doneBtn: { borderRadius: 16, paddingVertical: 18, alignItems: 'center' },
   doneText: { fontSize: 18, fontWeight: '900', letterSpacing: 3 },
-  successOverlay: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 24 },
-  successCircle: { width: 100, height: 100, borderRadius: 50, borderWidth: 3, alignItems: 'center', justifyContent: 'center', marginBottom: 24 },
-  successCheck: { fontSize: 48 },
-  successTitle: { fontSize: 22, fontWeight: '900', letterSpacing: 6 },
-  successAmount: { fontSize: 36, fontWeight: '900', marginTop: 8 },
-  printSection: { width: '100%', marginTop: 30, gap: 12 },
-  waBtn: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    borderRadius: 16, paddingVertical: 18, gap: 10, backgroundColor: '#25D366',
+
+  // ── SUCCESS ──
+  successTop: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 32,
   },
-  waBtnIcon: { fontSize: 20 },
-  waBtnText: { fontSize: 14, fontWeight: '900', letterSpacing: 1, color: '#fff' },
-  printBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', borderRadius: 16, paddingVertical: 18, gap: 10 },
-  printIcon: { fontSize: 22 },
-  printBtnText: { fontSize: 16, fontWeight: '900', letterSpacing: 2 },
-  shareBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', borderRadius: 16, paddingVertical: 16, gap: 10, borderWidth: 1 },
-  shareIcon: { fontSize: 20 },
-  shareBtnText: { fontSize: 14, fontWeight: '700' },
-  skipBtn: { paddingVertical: 14, alignItems: 'center' },
-  skipText: { fontSize: 14, fontWeight: '600' },
+  successDot: {
+    width: 10, height: 10, borderRadius: 5, marginBottom: 20,
+  },
+  successLabel: {
+    fontSize: 11, fontWeight: '800', letterSpacing: 3, marginBottom: 16,
+  },
+  successAmount: {
+    fontSize: 72, fontWeight: '900', letterSpacing: -2,
+  },
+  successDetail: {
+    fontSize: 14, fontWeight: '600', marginTop: 10,
+  },
+  successWorker: {
+    fontSize: 12, fontWeight: '600', marginTop: 6,
+  },
+  loadingWrap: {
+    height: 180, alignItems: 'center', justifyContent: 'center',
+  },
+  successActions: {
+    paddingHorizontal: 16, paddingBottom: 8, gap: 10,
+  },
+  primaryRow: {
+    flexDirection: 'row', gap: 10,
+  },
+  primaryBtn: {
+    flex: 1, borderRadius: 18, paddingVertical: 22,
+    alignItems: 'center', justifyContent: 'center',
+    gap: 4, borderWidth: 1,
+  },
+  primaryBtnEmoji: { fontSize: 26 },
+  primaryBtnLabel: { fontSize: 14, fontWeight: '800', marginTop: 2 },
+  primaryBtnSub: { fontSize: 11, fontWeight: '500' },
+  secondaryBtn: {
+    borderRadius: 14, paddingVertical: 16,
+    alignItems: 'center', borderWidth: 1,
+  },
+  secondaryBtnText: { fontSize: 14, fontWeight: '700' },
+  doneLink: {
+    paddingVertical: 24, alignItems: 'center',
+  },
+  doneLinkText: { fontSize: 14, fontWeight: '600' },
+
+  // ── PHONE MODAL ──
   phoneOverlay: { flex: 1, justifyContent: 'flex-end' },
   phoneModal: { borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 28, paddingBottom: 48, borderWidth: 1 },
   phoneTitle: { fontSize: 16, fontWeight: '900', letterSpacing: 2, textAlign: 'center', marginBottom: 6 },
@@ -482,8 +542,8 @@ const styles = StyleSheet.create({
   phoneInputRow: { flexDirection: 'row', alignItems: 'center', borderRadius: 14, paddingHorizontal: 16, borderWidth: 1, marginBottom: 16 },
   phonePrefix: { fontSize: 18, fontWeight: '700', marginRight: 10 },
   phoneInput: { flex: 1, fontSize: 24, fontWeight: '700', paddingVertical: 16 },
-  sendBtn: { borderRadius: 16, paddingVertical: 18, alignItems: 'center', marginBottom: 10, backgroundColor: '#25D366' },
-  sendBtnText: { fontSize: 15, fontWeight: '900', letterSpacing: 2, color: '#fff' },
+  sendBtn: { borderRadius: 16, paddingVertical: 18, alignItems: 'center', marginBottom: 10 },
+  sendBtnText: { fontSize: 15, fontWeight: '900', letterSpacing: 2 },
   cancelBtn: { paddingVertical: 14, alignItems: 'center' },
   cancelBtnText: { fontSize: 14, fontWeight: '600' },
 });
