@@ -3,12 +3,15 @@ import {
   View, Text, ScrollView, StyleSheet, SafeAreaView,
   TouchableOpacity, Modal, TextInput, Alert, Linking,
 } from 'react-native';
+import { Feather } from '@expo/vector-icons';
 import { useApp } from '../context/AppContext';
 import { useTheme } from '../context/ThemeContext';
 import {
   loadWhatsAppNumber, loadBankConfig,
   buildTransferMessage, buildTicketMessage,
 } from '../utils/businessConfig';
+
+const WA_COLOR = '#25D366';
 
 export default function SalesScreen({ navigation }) {
   const { getTodaySales } = useApp();
@@ -41,11 +44,10 @@ export default function SalesScreen({ navigation }) {
   const sendWhatsApp = () => {
     const cleaned = clientPhone.replace(/\D/g, '');
     if (cleaned.length < 8) { Alert.alert('', 'Ingresá un número válido'); return; }
-    const fullNumber = `503${cleaned}`;
     const message = pendingSale.paymentMethod === 'transfer' && bankConfig
       ? buildTransferMessage(pendingSale, bankConfig)
       : buildTicketMessage(pendingSale);
-    Linking.openURL(`https://wa.me/${fullNumber}?text=${message}`);
+    Linking.openURL(`https://wa.me/503${cleaned}?text=${message}`);
     setShowPhoneModal(false);
   };
 
@@ -58,19 +60,18 @@ export default function SalesScreen({ navigation }) {
           style={[styles.backBtn, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}
           onPress={() => navigation.goBack()}
         >
-          <Text style={[styles.backText, { color: theme.text }]}>‹</Text>
+          <Feather name="chevron-left" size={22} color={theme.text} />
         </TouchableOpacity>
         <Text style={[styles.headerTitle, { color: theme.text }]}>VENTAS HOY</Text>
         <View style={{ width: 44 }} />
       </View>
 
-      {/* RESUMEN */}
       <View style={styles.summaryRow}>
         <View style={[styles.summaryMain, { backgroundColor: theme.accent }]}>
           <Text style={[styles.summaryLabel, { color: theme.accentText, opacity: 0.5 }]}>TOTAL</Text>
           <Text style={[styles.summaryAmount, { color: theme.accentText }]}>${total.toFixed(2)}</Text>
           <Text style={[styles.summaryCount, { color: theme.accentText, opacity: 0.5 }]}>
-            {sales.length} ventas
+            {sales.length} {sales.length === 1 ? 'venta' : 'ventas'}
           </Text>
         </View>
         <View style={styles.summaryCol}>
@@ -96,7 +97,7 @@ export default function SalesScreen({ navigation }) {
             <View style={styles.saleLeft}>
               <View style={[styles.saleIndex, { backgroundColor: theme.card }]}>
                 <Text style={[styles.saleIndexText, { color: theme.textMuted }]}>
-                  #{sales.length - i}
+                  {sales.length - i}
                 </Text>
               </View>
               <View>
@@ -111,26 +112,26 @@ export default function SalesScreen({ navigation }) {
               <Text style={[styles.saleAmount, { color: theme.text }]}>${sale.total.toFixed(2)}</Text>
               {waNumber && (
                 <TouchableOpacity
-                  style={[styles.waQuick, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}
-                  onPress={() => handleWaTap(sale)}
+                  style={[styles.waBtn, { borderColor: WA_COLOR }]}
+                  onPress={(e) => { e.stopPropagation?.(); handleWaTap(sale); }}
                   hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                 >
-                  <Text style={styles.waQuickText}>WA</Text>
+                  <Feather name="message-circle" size={15} color={WA_COLOR} />
                 </TouchableOpacity>
               )}
-              <Text style={[styles.chevron, { color: theme.textMuted }]}>›</Text>
+              <Feather name="chevron-right" size={18} color={theme.textMuted} />
             </View>
           </TouchableOpacity>
         ))}
 
         {sales.length === 0 && (
           <View style={styles.empty}>
+            <Feather name="inbox" size={32} color={theme.textMuted} style={{ marginBottom: 12 }} />
             <Text style={[styles.emptyText, { color: theme.textMuted }]}>Sin ventas aún</Text>
           </View>
         )}
       </ScrollView>
 
-      {/* PHONE MODAL */}
       <Modal visible={showPhoneModal} transparent animationType="slide">
         <View style={[styles.phoneOverlay, { backgroundColor: theme.overlay }]}>
           <View style={[styles.phoneModal, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
@@ -161,7 +162,6 @@ export default function SalesScreen({ navigation }) {
           </View>
         </View>
       </Modal>
-
     </SafeAreaView>
   );
 }
@@ -173,7 +173,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16, paddingVertical: 12,
   },
   backBtn: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', borderWidth: 1 },
-  backText: { fontSize: 24, fontWeight: '300', marginTop: -2 },
   headerTitle: { fontSize: 14, fontWeight: '800', letterSpacing: 3 },
   summaryRow: { flexDirection: 'row', paddingHorizontal: 16, gap: 10, marginTop: 8, marginBottom: 20 },
   summaryMain: { flex: 1, borderRadius: 18, padding: 20 },
@@ -194,17 +193,12 @@ const styles = StyleSheet.create({
   },
   saleLeft: { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 },
   saleIndex: { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
-  saleIndexText: { fontSize: 11, fontWeight: '800' },
+  saleIndexText: { fontSize: 12, fontWeight: '800' },
   saleName: { fontSize: 15, fontWeight: '700' },
   saleDetail: { fontSize: 12, fontWeight: '500', marginTop: 2 },
   saleRight: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   saleAmount: { fontSize: 16, fontWeight: '900' },
-  waQuick: {
-    paddingHorizontal: 10, paddingVertical: 6,
-    borderRadius: 8, borderWidth: 1,
-  },
-  waQuickText: { fontSize: 10, fontWeight: '900', color: '#25D366' },
-  chevron: { fontSize: 20, fontWeight: '300' },
+  waBtn: { width: 32, height: 32, borderRadius: 8, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
   empty: { alignItems: 'center', marginTop: 60 },
   emptyText: { fontSize: 15, fontWeight: '700' },
   phoneOverlay: { flex: 1, justifyContent: 'flex-end' },

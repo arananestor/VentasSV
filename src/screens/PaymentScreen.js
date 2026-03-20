@@ -2,15 +2,18 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
   View, Text, TouchableOpacity, TextInput, StyleSheet,
   SafeAreaView, Image, Alert, ScrollView, Animated,
-  ActivityIndicator, Linking,
+  ActivityIndicator,
 } from 'react-native';
+import { Feather } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { useApp } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
-import {
-  loadBankConfig, loadWhatsAppNumber,
-} from '../utils/businessConfig';
+import { printTicket, shareTicket } from '../utils/ticketPrinter';
+import { loadBankConfig, loadWhatsAppNumber } from '../utils/businessConfig';
+
+const SHARE_COLOR = '#0A84FF';
+const WA_COLOR = '#25D366';
 
 export default function PaymentScreen({ route, navigation }) {
   const { order } = route.params;
@@ -24,32 +27,40 @@ export default function PaymentScreen({ route, navigation }) {
   const [bankConfig, setBankConfig] = useState(null);
   const [waNumber, setWaNumber] = useState(null);
   const [completing, setCompleting] = useState(false);
+  const [completedSale, setCompletedSale] = useState(null);
+  const [snackVisible, setSnackVisible] = useState(false);
 
-  const snackAnim = useRef(new Animated.Value(80)).current;
+  const snackAnim = useRef(new Animated.Value(120)).current;
   const snackOpacity = useRef(new Animated.Value(0)).current;
+  const dismissTimer = useRef(null);
 
   const change = cashGiven ? parseFloat(cashGiven) - order.total : 0;
-  const quickAmounts = [1, 2, 5, 10, 20];
+  const nextBill = [1, 2, 5, 10, 20, 50, 100].find(b => b > order.total) || 20;
 
   useEffect(() => {
     (async () => {
       setBankConfig(await loadBankConfig());
       setWaNumber(await loadWhatsAppNumber());
     })();
+    return () => { if (dismissTimer.current) clearTimeout(dismissTimer.current); };
   }, []);
 
-  const showSnack = () => {
+  const showSnack = (sale) => {
+    setCompletedSale(sale);
+    setSnackVisible(true);
     Animated.parallel([
-      Animated.spring(snackAnim, { toValue: 0, useNativeDriver: true, tension: 80 }),
-      Animated.timing(snackOpacity, { toValue: 1, duration: 200, useNativeDriver: true }),
+      Animated.spring(snackAnim, { toValue: 0, useNativeDriver: true, tension: 70, friction: 10 }),
+      Animated.timing(snackOpacity, { toValue: 1, duration: 180, useNativeDriver: true }),
     ]).start();
+    dismissTimer.current = setTimeout(() => dismissSnack(), 5000);
+  };
 
-    setTimeout(() => {
-      Animated.parallel([
-        Animated.timing(snackAnim, { toValue: 80, duration: 250, useNativeDriver: true }),
-        Animated.timing(snackOpacity, { toValue: 0, duration: 250, useNativeDriver: true }),
-      ]).start(() => navigation.popToTop());
-    }, 1500);
+  const dismissSnack = () => {
+    if (dismissTimer.current) clearTimeout(dismissTimer.current);
+    Animated.parallel([
+      Animated.timing(snackAnim, { toValue: 120, duration: 220, useNativeDriver: true }),
+      Animated.timing(snackOpacity, { toValue: 0, duration: 220, useNativeDriver: true }),
+    ]).start(() => { setSnackVisible(false); navigation.popToTop(); });
   };
 
   const handleComplete = async () => {
@@ -68,9 +79,23 @@ export default function PaymentScreen({ route, navigation }) {
       workerId: currentWorker?.id || null,
       workerName: currentWorker?.name || 'Sin asignar',
     };
-    await addSale(saleData);
+    const sale = await addSale(saleData);
     setCompleting(false);
-    showSnack();
+    showSnack(sale);
+  };
+
+  const handlePrint = async () => {
+    if (!completedSale) return;
+    if (dismissTimer.current) clearTimeout(dismissTimer.current);
+    await printTicket(completedSale);
+    dismissSnack();
+  };
+
+  const handleShare = async () => {
+    if (!completedSale) return;
+    if (dismissTimer.current) clearTimeout(dismissTimer.current);
+    await shareTicket(completedSale);
+    dismissSnack();
   };
 
   const takeVoucherPhoto = async () => {
@@ -97,7 +122,7 @@ export default function PaymentScreen({ route, navigation }) {
           style={[styles.backBtn, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}
           onPress={() => navigation.goBack()}
         >
-          <Text style={[styles.backText, { color: theme.text }]}>‹</Text>
+          <Feather name="chevron-left" size={22} color={theme.text} />
         </TouchableOpacity>
         <Text style={[styles.headerTitle, { color: theme.text }]}>COBRAR</Text>
         <View style={{ width: 44 }} />
@@ -119,6 +144,8 @@ export default function PaymentScreen({ route, navigation }) {
               paymentMethod === 'cash' && { backgroundColor: theme.accent, borderColor: theme.accent }]}
             onPress={() => { setPaymentMethod('cash'); setVoucherImage(null); }}
           >
+            <Feather name="dollar-sign" size={20}
+              color={paymentMethod === 'cash' ? theme.accentText : theme.textSecondary} />
             <Text style={[styles.methodText, { color: theme.textSecondary },
               paymentMethod === 'cash' && { color: theme.accentText }]}>Efectivo</Text>
           </TouchableOpacity>
@@ -128,6 +155,8 @@ export default function PaymentScreen({ route, navigation }) {
               paymentMethod === 'transfer' && { backgroundColor: theme.accent, borderColor: theme.accent }]}
             onPress={() => { setPaymentMethod('transfer'); setCashGiven(''); }}
           >
+            <Feather name="send" size={20}
+              color={paymentMethod === 'transfer' ? theme.accentText : theme.textSecondary} />
             <Text style={[styles.methodText, { color: theme.textSecondary },
               paymentMethod === 'transfer' && { color: theme.accentText }]}>Transferencia</Text>
           </TouchableOpacity>
@@ -135,33 +164,44 @@ export default function PaymentScreen({ route, navigation }) {
 
         {paymentMethod === 'cash' && (
           <View style={styles.cashSection}>
-            <View style={styles.quickGrid}>
-              {quickAmounts.map(a => (
-                <TouchableOpacity key={a}
-                  style={[styles.quickBtn, { backgroundColor: theme.card, borderColor: theme.cardBorder },
-                    parseFloat(cashGiven) === a && { backgroundColor: theme.accent, borderColor: theme.accent }]}
-                  onPress={() => setCashGiven(a.toString())}
-                >
-                  <Text style={[styles.quickBtnText, { color: theme.textSecondary },
-                    parseFloat(cashGiven) === a && { color: theme.accentText }]}>${a}</Text>
-                </TouchableOpacity>
-              ))}
+            <View style={styles.smartRow}>
               <TouchableOpacity
-                style={[styles.quickBtn, { backgroundColor: theme.card, borderColor: theme.cardBorder },
+                style={[styles.smartBtn, { backgroundColor: theme.card, borderColor: theme.cardBorder },
                   parseFloat(cashGiven) === order.total && { backgroundColor: theme.accent, borderColor: theme.accent }]}
                 onPress={() => setCashGiven(order.total.toString())}
               >
-                <Text style={[styles.quickBtnText, { color: theme.textSecondary, fontSize: 11 },
+                <Text style={[styles.smartBtnSub, { color: theme.textMuted },
                   parseFloat(cashGiven) === order.total && { color: theme.accentText }]}>EXACTO</Text>
+                <Text style={[styles.smartBtnAmount, { color: theme.text },
+                  parseFloat(cashGiven) === order.total && { color: theme.accentText }]}>
+                  ${order.total.toFixed(2)}
+                </Text>
               </TouchableOpacity>
+
+              {nextBill > order.total && (
+                <TouchableOpacity
+                  style={[styles.smartBtn, { backgroundColor: theme.card, borderColor: theme.cardBorder },
+                    parseFloat(cashGiven) === nextBill && { backgroundColor: theme.accent, borderColor: theme.accent }]}
+                  onPress={() => setCashGiven(nextBill.toString())}
+                >
+                  <Text style={[styles.smartBtnSub, { color: theme.textMuted },
+                    parseFloat(cashGiven) === nextBill && { color: theme.accentText }]}>CON</Text>
+                  <Text style={[styles.smartBtnAmount, { color: theme.text },
+                    parseFloat(cashGiven) === nextBill && { color: theme.accentText }]}>
+                    ${nextBill}.00
+                  </Text>
+                </TouchableOpacity>
+              )}
             </View>
 
             <View style={[styles.inputRow, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
-              <Text style={[styles.inputDollar, { color: theme.text }]}>$</Text>
+              <Text style={[styles.inputDollar, { color: theme.textMuted }]}>$</Text>
               <TextInput
                 style={[styles.cashInput, { color: theme.text }]}
-                value={cashGiven} onChangeText={setCashGiven}
-                keyboardType="numeric" placeholder="0.00"
+                value={cashGiven}
+                onChangeText={setCashGiven}
+                keyboardType="numeric"
+                placeholder="Otro monto"
                 placeholderTextColor={theme.textMuted}
               />
             </View>
@@ -170,7 +210,7 @@ export default function PaymentScreen({ route, navigation }) {
               <View style={[styles.changeBox,
                 change >= 0 ? { backgroundColor: theme.accent } : { backgroundColor: theme.danger }]}>
                 <Text style={[styles.changeLabel, { color: theme.accentText }]}>
-                  {change > 0 ? 'VUELTO' : change === 0 ? '¡JUSTO!' : 'FALTA'}
+                  {change > 0 ? 'VUELTO' : change === 0 ? 'EXACTO' : 'FALTA'}
                 </Text>
                 <Text style={[styles.changeAmount, { color: theme.accentText }]}>
                   ${Math.abs(change).toFixed(2)}
@@ -185,20 +225,19 @@ export default function PaymentScreen({ route, navigation }) {
             {bankConfig ? (
               <View style={[styles.bankCard, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
                 <Text style={[styles.bankCardLabel, { color: theme.textMuted }]}>DATOS PARA TRANSFERIR</Text>
-                <View style={styles.bankRow}>
-                  <Text style={[styles.bankKey, { color: theme.textMuted }]}>Banco</Text>
-                  <Text style={[styles.bankVal, { color: theme.text }]}>{bankConfig.bank}</Text>
-                </View>
-                <View style={[styles.divider, { backgroundColor: theme.cardBorder }]} />
-                <View style={styles.bankRow}>
-                  <Text style={[styles.bankKey, { color: theme.textMuted }]}>Titular</Text>
-                  <Text style={[styles.bankVal, { color: theme.text }]}>{bankConfig.holder}</Text>
-                </View>
-                <View style={[styles.divider, { backgroundColor: theme.cardBorder }]} />
-                <View style={styles.bankRow}>
-                  <Text style={[styles.bankKey, { color: theme.textMuted }]}>Cuenta</Text>
-                  <Text style={[styles.bankVal, { color: theme.text }]}>{bankConfig.account}</Text>
-                </View>
+                {[
+                  { k: 'Banco', v: bankConfig.bank },
+                  { k: 'Titular', v: bankConfig.holder },
+                  { k: 'Cuenta', v: bankConfig.account },
+                ].map((r, i, arr) => (
+                  <View key={r.k}>
+                    <View style={styles.bankRow}>
+                      <Text style={[styles.bankKey, { color: theme.textMuted }]}>{r.k}</Text>
+                      <Text style={[styles.bankVal, { color: theme.text }]}>{r.v}</Text>
+                    </View>
+                    {i < arr.length - 1 && <View style={[styles.divider, { backgroundColor: theme.cardBorder }]} />}
+                  </View>
+                ))}
                 {bankConfig.qrImage && (
                   <View style={styles.qrSection}>
                     <View style={[styles.divider, { backgroundColor: theme.cardBorder, marginBottom: 16 }]} />
@@ -209,6 +248,7 @@ export default function PaymentScreen({ route, navigation }) {
               </View>
             ) : (
               <View style={[styles.noBankCard, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+                <Feather name="alert-circle" size={22} color={theme.textMuted} />
                 <Text style={[styles.noBankText, { color: theme.textMuted }]}>Sin datos bancarios</Text>
                 <Text style={[styles.noBankSub, { color: theme.textMuted }]}>
                   Perfil → Configuración de cobro
@@ -224,7 +264,7 @@ export default function PaymentScreen({ route, navigation }) {
                   style={[styles.voucherRemove, { backgroundColor: theme.bg, borderColor: theme.cardBorder }]}
                   onPress={() => setVoucherImage(null)}
                 >
-                  <Text style={[styles.voucherRemoveText, { color: theme.text }]}>✕</Text>
+                  <Feather name="x" size={16} color={theme.text} />
                 </TouchableOpacity>
               </View>
             ) : (
@@ -233,19 +273,20 @@ export default function PaymentScreen({ route, navigation }) {
                   style={[styles.voucherBtn, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}
                   onPress={takeVoucherPhoto}
                 >
+                  <Feather name="camera" size={20} color={theme.textSecondary} />
                   <Text style={[styles.voucherText, { color: theme.textSecondary }]}>Foto</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={[styles.voucherBtn, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}
                   onPress={pickVoucherFromGallery}
                 >
+                  <Feather name="image" size={20} color={theme.textSecondary} />
                   <Text style={[styles.voucherText, { color: theme.textSecondary }]}>Galería</Text>
                 </TouchableOpacity>
               </View>
             )}
           </View>
         )}
-
       </ScrollView>
 
       {paymentMethod && (
@@ -268,12 +309,37 @@ export default function PaymentScreen({ route, navigation }) {
       <Animated.View
         style={[
           styles.snack,
-          { backgroundColor: theme.success },
+          { backgroundColor: theme.card, borderColor: theme.cardBorder },
           { transform: [{ translateY: snackAnim }], opacity: snackOpacity },
         ]}
-        pointerEvents="none"
       >
-        <Text style={styles.snackText}>Venta registrada · ${order.total.toFixed(2)}</Text>
+        <View style={styles.snackLeft}>
+          <View style={[styles.snackDot, { backgroundColor: theme.success }]} />
+          <View>
+            <Text style={[styles.snackTitle, { color: theme.text }]}>Venta registrada</Text>
+            <Text style={[styles.snackSub, { color: theme.textMuted }]}>${order.total.toFixed(2)}</Text>
+          </View>
+        </View>
+        <View style={styles.snackActions}>
+          {/* Imprimir — sólido accent */}
+          <TouchableOpacity
+            style={[styles.snackBtn, { backgroundColor: theme.accent }]}
+            onPress={handlePrint}
+          >
+            <Feather name="printer" size={15} color={theme.accentText} />
+          </TouchableOpacity>
+          {/* Compartir — outline azul */}
+          <TouchableOpacity
+            style={[styles.snackBtn, { backgroundColor: 'transparent', borderWidth: 1.5, borderColor: SHARE_COLOR }]}
+            onPress={handleShare}
+          >
+            <Feather name="share-2" size={15} color={SHARE_COLOR} />
+          </TouchableOpacity>
+          {/* Cerrar */}
+          <TouchableOpacity style={styles.snackClose} onPress={dismissSnack}>
+            <Feather name="x" size={16} color={theme.textMuted} />
+          </TouchableOpacity>
+        </View>
       </Animated.View>
 
     </SafeAreaView>
@@ -287,7 +353,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16, paddingVertical: 12,
   },
   backBtn: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', borderWidth: 1 },
-  backText: { fontSize: 24, fontWeight: '300', marginTop: -2 },
   headerTitle: { fontSize: 14, fontWeight: '800', letterSpacing: 3 },
   scroll: { paddingBottom: 120 },
   totalSection: { alignItems: 'center', paddingVertical: 30, marginHorizontal: 16, borderBottomWidth: 1 },
@@ -295,18 +360,19 @@ const styles = StyleSheet.create({
   totalAmount: { fontSize: 56, fontWeight: '900', marginTop: 6 },
   totalDetail: { fontSize: 13, fontWeight: '600', marginTop: 6 },
   methodSection: { flexDirection: 'row', gap: 10, paddingHorizontal: 16, marginTop: 24 },
-  methodBtn: { flex: 1, borderRadius: 14, paddingVertical: 18, alignItems: 'center', borderWidth: 1 },
-  methodText: { fontSize: 14, fontWeight: '800', letterSpacing: 1 },
-  cashSection: { paddingHorizontal: 16, marginTop: 20 },
-  quickGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  quickBtn: { width: '31%', borderRadius: 12, paddingVertical: 16, alignItems: 'center', borderWidth: 1 },
-  quickBtnText: { fontSize: 16, fontWeight: '800' },
-  inputRow: { flexDirection: 'row', alignItems: 'center', borderRadius: 14, paddingHorizontal: 18, marginTop: 14, borderWidth: 1 },
-  inputDollar: { fontSize: 28, fontWeight: '900' },
-  cashInput: { flex: 1, fontSize: 34, fontWeight: '900', paddingVertical: 16, paddingLeft: 8 },
-  changeBox: { marginTop: 14, borderRadius: 14, paddingVertical: 22, alignItems: 'center' },
+  methodBtn: { flex: 1, borderRadius: 14, paddingVertical: 20, alignItems: 'center', gap: 8, borderWidth: 1 },
+  methodText: { fontSize: 13, fontWeight: '800', letterSpacing: 1 },
+  cashSection: { paddingHorizontal: 16, marginTop: 20, gap: 12 },
+  smartRow: { flexDirection: 'row', gap: 10 },
+  smartBtn: { flex: 1, borderRadius: 14, paddingVertical: 20, alignItems: 'center', borderWidth: 1, gap: 2 },
+  smartBtnSub: { fontSize: 10, fontWeight: '800', letterSpacing: 2 },
+  smartBtnAmount: { fontSize: 22, fontWeight: '900' },
+  inputRow: { flexDirection: 'row', alignItems: 'center', borderRadius: 14, paddingHorizontal: 18, borderWidth: 1 },
+  inputDollar: { fontSize: 22, fontWeight: '700', marginRight: 4 },
+  cashInput: { flex: 1, fontSize: 28, fontWeight: '800', paddingVertical: 16 },
+  changeBox: { borderRadius: 14, paddingVertical: 20, alignItems: 'center' },
   changeLabel: { fontSize: 11, fontWeight: '800', letterSpacing: 3 },
-  changeAmount: { fontSize: 38, fontWeight: '900', marginTop: 4 },
+  changeAmount: { fontSize: 36, fontWeight: '900', marginTop: 4 },
   transferSection: { paddingHorizontal: 16, marginTop: 20, gap: 16 },
   bankCard: { borderRadius: 16, padding: 20, borderWidth: 1 },
   bankCardLabel: { fontSize: 10, fontWeight: '800', letterSpacing: 2, marginBottom: 16 },
@@ -316,27 +382,33 @@ const styles = StyleSheet.create({
   divider: { height: 1 },
   qrSection: { alignItems: 'center', marginTop: 4 },
   qrDisplay: { width: 160, height: 160, borderRadius: 10 },
-  noBankCard: { borderRadius: 16, padding: 20, borderWidth: 1, alignItems: 'center', gap: 6 },
+  noBankCard: { borderRadius: 16, padding: 24, borderWidth: 1, alignItems: 'center', gap: 8 },
   noBankText: { fontSize: 14, fontWeight: '700' },
   noBankSub: { fontSize: 12, fontWeight: '500', textAlign: 'center' },
   voucherLabel: { fontSize: 10, fontWeight: '800', letterSpacing: 2 },
   voucherBtns: { flexDirection: 'row', gap: 10 },
-  voucherBtn: { flex: 1, borderRadius: 14, paddingVertical: 22, alignItems: 'center', borderWidth: 1 },
-  voucherText: { fontSize: 13, fontWeight: '700' },
+  voucherBtn: { flex: 1, borderRadius: 14, paddingVertical: 24, alignItems: 'center', gap: 8, borderWidth: 1 },
+  voucherText: { fontSize: 12, fontWeight: '700' },
   voucherWrap: { position: 'relative' },
   voucherImg: { width: '100%', height: 180, borderRadius: 14, resizeMode: 'cover' },
   voucherRemove: {
     position: 'absolute', top: 10, right: 10, width: 36, height: 36,
     borderRadius: 18, alignItems: 'center', justifyContent: 'center', borderWidth: 1,
   },
-  voucherRemoveText: { fontSize: 16, fontWeight: '600' },
   bottomBar: { position: 'absolute', bottom: 0, left: 0, right: 0, padding: 16, paddingBottom: 34, borderTopWidth: 1 },
   doneBtn: { borderRadius: 16, paddingVertical: 18, alignItems: 'center' },
   doneText: { fontSize: 16, fontWeight: '900', letterSpacing: 4 },
   snack: {
-    position: 'absolute', bottom: 34, left: 16, right: 16,
-    borderRadius: 14, paddingVertical: 16, paddingHorizontal: 20,
-    alignItems: 'center',
+    position: 'absolute', bottom: 24, left: 16, right: 16,
+    borderRadius: 16, borderWidth: 1,
+    paddingVertical: 14, paddingHorizontal: 16,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
   },
-  snackText: { color: '#fff', fontSize: 14, fontWeight: '800' },
+  snackLeft: { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 },
+  snackDot: { width: 8, height: 8, borderRadius: 4 },
+  snackTitle: { fontSize: 13, fontWeight: '700' },
+  snackSub: { fontSize: 12, fontWeight: '500', marginTop: 1 },
+  snackActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  snackBtn: { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  snackClose: { width: 30, height: 30, alignItems: 'center', justifyContent: 'center', marginLeft: 2 },
 });
