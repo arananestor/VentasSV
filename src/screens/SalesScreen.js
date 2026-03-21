@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import {
   View, Text, ScrollView, StyleSheet, SafeAreaView,
-  TouchableOpacity, Modal, TextInput, Alert, Linking,
+  TouchableOpacity, Linking,
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useApp } from '../context/AppContext';
 import { useTheme } from '../context/ThemeContext';
 import {
@@ -24,9 +25,7 @@ export default function SalesScreen({ navigation }) {
 
   const [waNumber, setWaNumber] = useState(null);
   const [bankConfig, setBankConfig] = useState(null);
-  const [showPhoneModal, setShowPhoneModal] = useState(false);
-  const [clientPhone, setClientPhone] = useState('');
-  const [pendingSale, setPendingSale] = useState(null);
+  const [activeWa, setActiveWa] = useState(null); // sale.id activo
 
   useEffect(() => {
     (async () => {
@@ -35,20 +34,13 @@ export default function SalesScreen({ navigation }) {
     })();
   }, []);
 
-  const handleWaTap = (sale) => {
-    setPendingSale(sale);
-    setClientPhone('');
-    setShowPhoneModal(true);
-  };
-
-  const sendWhatsApp = () => {
-    const cleaned = clientPhone.replace(/\D/g, '');
-    if (cleaned.length < 8) { Alert.alert('', 'Ingresá un número válido'); return; }
-    const message = pendingSale.paymentMethod === 'transfer' && bankConfig
-      ? buildTransferMessage(pendingSale, bankConfig)
-      : buildTicketMessage(pendingSale);
-    Linking.openURL(`https://wa.me/503${cleaned}?text=${message}`);
-    setShowPhoneModal(false);
+  const handleWaTap = async (sale) => {
+    setActiveWa(sale.id);
+    const message = sale.paymentMethod === 'transfer' && bankConfig
+      ? buildTransferMessage(sale, bankConfig)
+      : buildTicketMessage(sale);
+    await Linking.openURL(`https://wa.me/503${waNumber}?text=${message}`);
+    setTimeout(() => setActiveWa(null), 800);
   };
 
   const methodLabel = (m) => ({ cash: 'Efectivo', transfer: 'Transferencia', card: 'Tarjeta' }[m] || m);
@@ -87,42 +79,55 @@ export default function SalesScreen({ navigation }) {
       </View>
 
       <ScrollView contentContainerStyle={styles.list} showsVerticalScrollIndicator={false}>
-        {sales.map((sale, i) => (
-          <TouchableOpacity
-            key={sale.id}
-            style={[styles.saleRow, { borderColor: theme.cardBorder }]}
-            activeOpacity={0.7}
-            onPress={() => navigation.navigate('SaleDetail', { sale })}
-          >
-            <View style={styles.saleLeft}>
-              <View style={[styles.saleIndex, { backgroundColor: theme.card }]}>
-                <Text style={[styles.saleIndexText, { color: theme.textMuted }]}>
-                  {sales.length - i}
-                </Text>
+        {sales.map((sale) => {
+          const isWaActive = activeWa === sale.id;
+          const orderDisplay = sale.orderNumber ? `#${sale.orderNumber}` : `#${sale.id.slice(-4)}`;
+          return (
+            <TouchableOpacity
+              key={sale.id}
+              style={[styles.saleRow, { borderColor: theme.cardBorder }]}
+              activeOpacity={0.7}
+              onPress={() => navigation.navigate('SaleDetail', { sale })}
+            >
+              <View style={styles.saleLeft}>
+                <View style={[styles.saleIndex, { backgroundColor: theme.card }]}>
+                  <Text style={[styles.saleIndexText, { color: theme.textMuted }]}>
+                    {orderDisplay}
+                  </Text>
+                </View>
+                <View>
+                  <Text style={[styles.saleName, { color: theme.text }]}>{sale.productName}</Text>
+                  <Text style={[styles.saleDetail, { color: theme.textMuted }]}>
+                    {sale.size} · {sale.quantity}x · {methodLabel(sale.paymentMethod)}
+                  </Text>
+                </View>
               </View>
-              <View>
-                <Text style={[styles.saleName, { color: theme.text }]}>{sale.productName}</Text>
-                <Text style={[styles.saleDetail, { color: theme.textMuted }]}>
-                  {sale.size} · {sale.quantity}x · {methodLabel(sale.paymentMethod)}
-                </Text>
-              </View>
-            </View>
 
-            <View style={styles.saleRight}>
-              <Text style={[styles.saleAmount, { color: theme.text }]}>${sale.total.toFixed(2)}</Text>
-              {waNumber && (
-                <TouchableOpacity
-                  style={[styles.waBtn, { borderColor: WA_COLOR }]}
-                  onPress={(e) => { e.stopPropagation?.(); handleWaTap(sale); }}
-                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                >
-                  <Feather name="message-circle" size={15} color={WA_COLOR} />
-                </TouchableOpacity>
-              )}
-              <Feather name="chevron-right" size={18} color={theme.textMuted} />
-            </View>
-          </TouchableOpacity>
-        ))}
+              <View style={styles.saleRight}>
+                <Text style={[styles.saleAmount, { color: theme.text }]}>${sale.total.toFixed(2)}</Text>
+                {waNumber && (
+                  <TouchableOpacity
+                    style={[
+                      styles.waBtn,
+                      isWaActive
+                        ? { backgroundColor: WA_COLOR, borderColor: WA_COLOR }
+                        : { backgroundColor: 'transparent', borderColor: WA_COLOR },
+                    ]}
+                    onPress={() => handleWaTap(sale)}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  >
+                    <MaterialCommunityIcons
+                      name="whatsapp"
+                      size={16}
+                      color={isWaActive ? '#fff' : WA_COLOR}
+                    />
+                  </TouchableOpacity>
+                )}
+                <Feather name="chevron-right" size={18} color={theme.textMuted} />
+              </View>
+            </TouchableOpacity>
+          );
+        })}
 
         {sales.length === 0 && (
           <View style={styles.empty}>
@@ -131,37 +136,6 @@ export default function SalesScreen({ navigation }) {
           </View>
         )}
       </ScrollView>
-
-      <Modal visible={showPhoneModal} transparent animationType="slide">
-        <View style={[styles.phoneOverlay, { backgroundColor: theme.overlay }]}>
-          <View style={[styles.phoneModal, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
-            <Text style={[styles.phoneTitle, { color: theme.text }]}>ENVIAR POR WHATSAPP</Text>
-            <Text style={[styles.phoneSub, { color: theme.textMuted }]}>Número del cliente</Text>
-            <View style={[styles.phoneInputRow, { backgroundColor: theme.input, borderColor: theme.inputBorder }]}>
-              <Text style={[styles.phonePrefix, { color: theme.textMuted }]}>+503</Text>
-              <TextInput
-                style={[styles.phoneInput, { color: theme.text }]}
-                value={clientPhone}
-                onChangeText={setClientPhone}
-                placeholder="7000-0000"
-                placeholderTextColor={theme.textMuted}
-                keyboardType="phone-pad"
-                maxLength={12}
-                autoFocus
-              />
-            </View>
-            <TouchableOpacity
-              style={[styles.sendBtn, { backgroundColor: theme.accent }]}
-              onPress={sendWhatsApp}
-            >
-              <Text style={[styles.sendBtnText, { color: theme.accentText }]}>ABRIR WHATSAPP →</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.cancelBtn} onPress={() => setShowPhoneModal(false)}>
-              <Text style={[styles.cancelBtnText, { color: theme.textMuted }]}>Cancelar</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
     </SafeAreaView>
   );
 }
@@ -192,24 +166,16 @@ const styles = StyleSheet.create({
     paddingVertical: 16, borderBottomWidth: 1,
   },
   saleLeft: { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 },
-  saleIndex: { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
-  saleIndexText: { fontSize: 12, fontWeight: '800' },
+  saleIndex: { borderRadius: 10, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 10, paddingVertical: 6 },
+  saleIndexText: { fontSize: 11, fontWeight: '800', letterSpacing: 1 },
   saleName: { fontSize: 15, fontWeight: '700' },
   saleDetail: { fontSize: 12, fontWeight: '500', marginTop: 2 },
   saleRight: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   saleAmount: { fontSize: 16, fontWeight: '900' },
-  waBtn: { width: 32, height: 32, borderRadius: 8, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
+  waBtn: {
+    width: 32, height: 32, borderRadius: 8,
+    borderWidth: 1.5, alignItems: 'center', justifyContent: 'center',
+  },
   empty: { alignItems: 'center', marginTop: 60 },
   emptyText: { fontSize: 15, fontWeight: '700' },
-  phoneOverlay: { flex: 1, justifyContent: 'flex-end' },
-  phoneModal: { borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 28, paddingBottom: 48, borderWidth: 1 },
-  phoneTitle: { fontSize: 16, fontWeight: '900', letterSpacing: 2, textAlign: 'center', marginBottom: 6 },
-  phoneSub: { fontSize: 13, fontWeight: '600', textAlign: 'center', marginBottom: 20 },
-  phoneInputRow: { flexDirection: 'row', alignItems: 'center', borderRadius: 14, paddingHorizontal: 16, borderWidth: 1, marginBottom: 16 },
-  phonePrefix: { fontSize: 18, fontWeight: '700', marginRight: 10 },
-  phoneInput: { flex: 1, fontSize: 24, fontWeight: '700', paddingVertical: 16 },
-  sendBtn: { borderRadius: 16, paddingVertical: 18, alignItems: 'center', marginBottom: 10 },
-  sendBtnText: { fontSize: 15, fontWeight: '900', letterSpacing: 2 },
-  cancelBtn: { paddingVertical: 14, alignItems: 'center' },
-  cancelBtnText: { fontSize: 14, fontWeight: '600' },
 });

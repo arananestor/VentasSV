@@ -3,6 +3,8 @@ import {
   View, Text, TouchableOpacity, ScrollView, StyleSheet,
   Dimensions, SafeAreaView, Image, StatusBar, Alert, Modal, TextInput,
 } from 'react-native';
+import { Feather } from '@expo/vector-icons';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useApp } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
@@ -65,7 +67,6 @@ export default function HomeScreen({ navigation }) {
     setShowQtyModal(false);
     const product = selectedProduct;
     const hasComponents = product.flavors && product.flavors.length > 0;
-
     if (hasComponents) {
       navigation.navigate('OrderBuilder', { product, initialQty: qty });
     } else {
@@ -79,12 +80,8 @@ export default function HomeScreen({ navigation }) {
     const size = product.sizes[0];
     navigation.navigate('Payment', {
       order: {
-        product,
-        size,
-        quantity: qty,
-        total: size.price * qty,
-        units: [],
-        toppings: [],
+        product, size, quantity: qty,
+        total: size.price * qty, units: [], toppings: [],
       },
     });
   };
@@ -113,10 +110,17 @@ export default function HomeScreen({ navigation }) {
     else requestAdminAction(() => setEditMode(true));
   };
 
+  const filterIcons = {
+    all: { name: 'view-grid', lib: 'mci' },
+    fixed: { name: 'map-marker', lib: 'mci' },
+    event: { name: 'calendar-star', lib: 'mci' },
+  };
+
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.bg }]}>
       <StatusBar barStyle={theme.statusBar} backgroundColor={theme.bg} />
 
+      {/* HEADER */}
       <View style={styles.header}>
         <View>
           <Text style={[styles.logo, { color: theme.text }]}>VENTA</Text>
@@ -124,12 +128,16 @@ export default function HomeScreen({ navigation }) {
         </View>
         <View style={styles.headerRight}>
           <TouchableOpacity
-            style={[styles.editBtn, { backgroundColor: editMode ? theme.accent : theme.card, borderColor: editMode ? theme.accent : theme.cardBorder }]}
+            style={[styles.editBtn, {
+              backgroundColor: editMode ? theme.accent : theme.card,
+              borderColor: editMode ? theme.accent : theme.cardBorder,
+            }]}
             onPress={toggleEditMode}
           >
-            <Text style={[styles.editBtnText, { color: editMode ? theme.accentText : theme.textMuted }]}>
-              {editMode ? 'Listo' : '✏️'}
-            </Text>
+            {editMode
+              ? <Text style={[styles.editBtnText, { color: theme.accentText }]}>Listo</Text>
+              : <Feather name="edit-2" size={16} color={theme.textMuted} />
+            }
           </TouchableOpacity>
           <TouchableOpacity style={styles.profileBtn} onPress={() => navigation.navigate('Profile')}>
             {currentWorker?.photo ? (
@@ -145,6 +153,7 @@ export default function HomeScreen({ navigation }) {
         </View>
       </View>
 
+      {/* WORKER BAR */}
       <View style={styles.workerBar}>
         <View style={[styles.workerDot, { backgroundColor: theme.dot }]} />
         <Text style={[styles.workerText, { color: theme.textSecondary }]}>
@@ -152,6 +161,7 @@ export default function HomeScreen({ navigation }) {
         </Text>
       </View>
 
+      {/* FILTROS */}
       <View style={styles.filterRow}>
         {['all', 'fixed', 'event'].map(f => (
           <TouchableOpacity key={f}
@@ -159,9 +169,14 @@ export default function HomeScreen({ navigation }) {
               filterType === f && { backgroundColor: theme.accent, borderColor: theme.accent }]}
             onPress={() => setFilterType(f)}
           >
+            <MaterialCommunityIcons
+              name={filterIcons[f].name}
+              size={14}
+              color={filterType === f ? theme.accentText : theme.textSecondary}
+            />
             <Text style={[styles.filterText, { color: theme.textSecondary },
               filterType === f && { color: theme.accentText }]}>
-              {f === 'all' ? 'Todos' : f === 'fixed' ? '📍 Fijos' : '🎪 Eventos'}
+              {f === 'all' ? 'Todos' : f === 'fixed' ? 'Fijos' : 'Eventos'}
             </Text>
           </TouchableOpacity>
         ))}
@@ -169,10 +184,11 @@ export default function HomeScreen({ navigation }) {
           style={[styles.filterBtn, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}
           onPress={() => requestAdminAction(() => navigation.navigate('ManageTabs'))}
         >
-          <Text style={[styles.filterText, { color: theme.textMuted }]}>⚙️</Text>
+          <Feather name="settings" size={14} color={theme.textMuted} />
         </TouchableOpacity>
       </View>
 
+      {/* TABS */}
       <View style={styles.tabBarWrapper}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabBar}>
           {filteredTabs.map(tab => {
@@ -180,18 +196,20 @@ export default function HomeScreen({ navigation }) {
             const count = tab.productIds.filter(id => existingIds.includes(id)).length;
             return (
               <TouchableOpacity key={tab.id}
-                style={[styles.tabPill,
-                  { backgroundColor: isActive ? tab.color : theme.card, borderColor: isActive ? tab.color : theme.cardBorder }]}
+                style={[styles.tabPill, {
+                  backgroundColor: isActive ? tab.color : theme.card,
+                  borderColor: isActive ? tab.color : theme.cardBorder,
+                }]}
                 onPress={() => selectTab(tab.id)}
               >
-                <Text style={styles.tabPillIcon}>{tab.icon}</Text>
-                <Text style={[styles.tabPillName,
-                  { color: isActive ? (tab.color === '#FFFFFF' ? '#000' : '#FFF') : theme.textSecondary }]}
-                  numberOfLines={1}>{tab.name}</Text>
+                <Text style={[styles.tabPillName, {
+                  color: isActive ? (tab.color === '#FFFFFF' ? '#000' : '#FFF') : theme.textSecondary,
+                }]} numberOfLines={1}>{tab.name}</Text>
                 {count > 0 && (
                   <View style={[styles.tabCount, { backgroundColor: isActive ? 'rgba(0,0,0,0.15)' : theme.bg }]}>
-                    <Text style={[styles.tabCountText,
-                      { color: isActive ? (tab.color === '#FFFFFF' ? '#000' : '#FFF') : theme.textMuted }]}>{count}</Text>
+                    <Text style={[styles.tabCountText, {
+                      color: isActive ? (tab.color === '#FFFFFF' ? '#000' : '#FFF') : theme.textMuted,
+                    }]}>{count}</Text>
                   </View>
                 )}
               </TouchableOpacity>
@@ -200,6 +218,7 @@ export default function HomeScreen({ navigation }) {
         </ScrollView>
       </View>
 
+      {/* VENTAS HOY */}
       <TouchableOpacity
         style={[styles.salesBtn, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}
         onPress={() => navigation.navigate('Sales')}
@@ -208,11 +227,10 @@ export default function HomeScreen({ navigation }) {
           <Text style={[styles.salesToday, { color: theme.text }]}>${todayTotal.toFixed(2)}</Text>
           <Text style={[styles.salesCount, { color: theme.textSecondary }]}>{todaySales.length} ventas hoy</Text>
         </View>
-        <View style={[styles.salesArrow, { backgroundColor: theme.mode === 'dark' ? '#222' : '#F0F0F0' }]}>
-          <Text style={[styles.salesArrowText, { color: theme.text }]}>›</Text>
-        </View>
+        <Feather name="chevron-right" size={20} color={theme.textMuted} />
       </TouchableOpacity>
 
+      {/* GRID PRODUCTOS */}
       <ScrollView contentContainerStyle={styles.grid} showsVerticalScrollIndicator={false}>
         {tabProducts.map((product) => (
           <View key={product.id} style={styles.cardWrapper}>
@@ -242,7 +260,7 @@ export default function HomeScreen({ navigation }) {
                 style={[styles.deleteOverlay, { backgroundColor: 'rgba(255,59,48,0.9)' }]}
                 onPress={() => handleDeleteProduct(product)}
               >
-                <Text style={styles.deleteIcon}>🗑️</Text>
+                <Feather name="trash-2" size={22} color="#fff" />
                 <Text style={styles.deleteText}>Eliminar</Text>
               </TouchableOpacity>
             )}
@@ -255,19 +273,20 @@ export default function HomeScreen({ navigation }) {
           onPress={() => requestAdminAction(() => navigation.navigate('AddProduct'))}
         >
           <View style={[styles.addPlus, { backgroundColor: theme.mode === 'dark' ? '#222' : '#F0F0F0' }]}>
-            <Text style={[styles.addPlusText, { color: theme.textMuted }]}>+</Text>
+            <Feather name="plus" size={28} color={theme.textMuted} />
           </View>
         </TouchableOpacity>
       </ScrollView>
 
-      {/* Quantity Popup */}
+      {/* QTY MODAL */}
       <Modal visible={showQtyModal} transparent animationType="fade">
         <TouchableOpacity
           style={[styles.qtyOverlay, { backgroundColor: theme.overlay }]}
           activeOpacity={1}
           onPress={() => setShowQtyModal(false)}
         >
-          <View style={[styles.qtyModal, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}
+          <View
+            style={[styles.qtyModal, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}
             onStartShouldSetResponder={() => true}
           >
             {selectedProduct && (
@@ -321,24 +340,40 @@ export default function HomeScreen({ navigation }) {
         </TouchableOpacity>
       </Modal>
 
-      {/* Admin PIN Modal */}
+      {/* ADMIN PIN MODAL */}
       <Modal visible={showAdminPin} transparent animationType="fade">
         <View style={[styles.adminOverlay, { backgroundColor: theme.overlay }]}>
           <View style={[styles.adminModal, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
-            <Text style={styles.adminIcon}>🔐</Text>
+            <View style={[styles.adminIconWrap, { backgroundColor: theme.bg }]}>
+              <Feather name="lock" size={24} color={theme.text} />
+            </View>
             <Text style={[styles.adminTitle, { color: theme.text }]}>AUTORIZACIÓN</Text>
             <Text style={[styles.adminSub, { color: theme.textMuted }]}>PIN de administrador</Text>
             <TextInput
-              style={[styles.adminInput, { backgroundColor: theme.input, borderColor: theme.inputBorder, color: theme.text }]}
-              value={adminPinInput} onChangeText={setAdminPinInput}
-              placeholder="PIN" placeholderTextColor={theme.textMuted}
-              keyboardType="numeric" secureTextEntry maxLength={8} autoFocus
+              style={[styles.adminInput, {
+                backgroundColor: theme.input,
+                borderColor: theme.inputBorder,
+                color: theme.text,
+              }]}
+              value={adminPinInput}
+              onChangeText={setAdminPinInput}
+              placeholder="PIN"
+              placeholderTextColor={theme.textMuted}
+              keyboardType="numeric"
+              secureTextEntry
+              maxLength={8}
+              autoFocus
             />
-            <TouchableOpacity style={[styles.adminBtn, { backgroundColor: theme.accent }]} onPress={handleAdminVerify}>
+            <TouchableOpacity
+              style={[styles.adminBtn, { backgroundColor: theme.accent }]}
+              onPress={handleAdminVerify}
+            >
               <Text style={[styles.adminBtnText, { color: theme.accentText }]}>VERIFICAR</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.adminCancel}
-              onPress={() => { setShowAdminPin(false); setAdminPinInput(''); setPendingAction(null); }}>
+            <TouchableOpacity
+              style={styles.adminCancel}
+              onPress={() => { setShowAdminPin(false); setAdminPinInput(''); setPendingAction(null); }}
+            >
               <Text style={[styles.adminCancelText, { color: theme.textMuted }]}>Cancelar</Text>
             </TouchableOpacity>
           </View>
@@ -357,8 +392,11 @@ const styles = StyleSheet.create({
   logo: { fontSize: 30, fontWeight: '900', letterSpacing: 6 },
   logoSub: { fontSize: 10, fontWeight: '600', letterSpacing: 4, marginTop: 2 },
   headerRight: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  editBtn: { height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', borderWidth: 1, paddingHorizontal: 14 },
-  editBtnText: { fontSize: 14, fontWeight: '700' },
+  editBtn: {
+    height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center',
+    borderWidth: 1, paddingHorizontal: 14,
+  },
+  editBtnText: { fontSize: 13, fontWeight: '700' },
   profileBtn: { overflow: 'hidden' },
   profilePhoto: { width: 44, height: 44, borderRadius: 22 },
   profileCircle: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
@@ -371,7 +409,10 @@ const styles = StyleSheet.create({
   workerText: { fontSize: 13, fontWeight: '600' },
   workerName: { fontWeight: '800' },
   filterRow: { flexDirection: 'row', gap: 6, paddingHorizontal: PADDING, paddingBottom: 8 },
-  filterBtn: { paddingHorizontal: 12, paddingVertical: 7, borderRadius: 10, borderWidth: 1 },
+  filterBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    paddingHorizontal: 12, paddingVertical: 7, borderRadius: 10, borderWidth: 1,
+  },
   filterText: { fontSize: 12, fontWeight: '700' },
   tabBarWrapper: { height: 48, marginBottom: 6 },
   tabBar: { paddingHorizontal: PADDING, alignItems: 'center', gap: 8 },
@@ -379,9 +420,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', gap: 6,
     height: 40, paddingHorizontal: 16, borderRadius: 20, borderWidth: 1.5,
   },
-  tabPillIcon: { fontSize: 13 },
   tabPillName: { fontSize: 13, fontWeight: '700' },
-  tabCount: { minWidth: 20, height: 20, borderRadius: 10, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 6 },
+  tabCount: {
+    minWidth: 20, height: 20, borderRadius: 10,
+    alignItems: 'center', justifyContent: 'center', paddingHorizontal: 6,
+  },
   tabCountText: { fontSize: 10, fontWeight: '800' },
   salesBtn: {
     flexDirection: 'row', alignItems: 'center', borderRadius: 14, padding: 14,
@@ -390,8 +433,6 @@ const styles = StyleSheet.create({
   salesInfo: { flex: 1 },
   salesToday: { fontSize: 24, fontWeight: '900' },
   salesCount: { fontSize: 12, fontWeight: '600', marginTop: 2 },
-  salesArrow: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
-  salesArrowText: { fontSize: 20, fontWeight: '300' },
   grid: {
     flexDirection: 'row', flexWrap: 'wrap',
     paddingHorizontal: PADDING, gap: CARD_GAP, paddingTop: 4, paddingBottom: 100,
@@ -408,26 +449,20 @@ const styles = StyleSheet.create({
   productPrice: { fontSize: 18, fontWeight: '900', marginTop: 2 },
   deleteOverlay: {
     position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
-    borderRadius: 18, alignItems: 'center', justifyContent: 'center', gap: 4, zIndex: 10,
+    borderRadius: 18, alignItems: 'center', justifyContent: 'center', gap: 6, zIndex: 10,
   },
-  deleteIcon: { fontSize: 24 },
   deleteText: { color: '#FFF', fontSize: 12, fontWeight: '800', letterSpacing: 1 },
   addCard: {
     width: CARD_SIZE, height: CARD_SIZE * 1.05, borderRadius: 18,
     borderWidth: 1, alignItems: 'center', justifyContent: 'center',
   },
   addPlus: { width: 52, height: 52, borderRadius: 26, alignItems: 'center', justifyContent: 'center' },
-  addPlusText: { fontSize: 28, fontWeight: '300' },
-  // Quantity Modal
   qtyOverlay: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   qtyModal: { width: width * 0.78, borderRadius: 24, padding: 28, alignItems: 'center', borderWidth: 1 },
   qtyProductName: { fontSize: 20, fontWeight: '900', textAlign: 'center' },
   qtyUnitPrice: { fontSize: 14, fontWeight: '600', marginTop: 4 },
   qtyControls: { flexDirection: 'row', alignItems: 'center', gap: 24, marginTop: 24 },
-  qtyBtn: {
-    width: 56, height: 56, borderRadius: 28,
-    alignItems: 'center', justifyContent: 'center', borderWidth: 1.5,
-  },
+  qtyBtn: { width: 56, height: 56, borderRadius: 28, alignItems: 'center', justifyContent: 'center', borderWidth: 1.5 },
   qtyBtnText: { fontSize: 28, fontWeight: '300' },
   qtyNumber: { fontSize: 48, fontWeight: '900', minWidth: 60, textAlign: 'center' },
   qtyTotal: { fontSize: 28, fontWeight: '900', marginTop: 16 },
@@ -435,10 +470,9 @@ const styles = StyleSheet.create({
   qtyMainBtnText: { fontSize: 16, fontWeight: '900', letterSpacing: 2 },
   qtyQuickPay: { width: '100%', borderRadius: 14, paddingVertical: 14, alignItems: 'center', marginTop: 8, borderWidth: 1 },
   qtyQuickPayText: { fontSize: 14, fontWeight: '700' },
-  // Admin Modal
   adminOverlay: { flex: 1, justifyContent: 'center', paddingHorizontal: 24 },
   adminModal: { borderRadius: 20, padding: 24, borderWidth: 1, alignItems: 'center' },
-  adminIcon: { fontSize: 36, marginBottom: 12 },
+  adminIconWrap: { width: 56, height: 56, borderRadius: 28, alignItems: 'center', justifyContent: 'center', marginBottom: 16 },
   adminTitle: { fontSize: 16, fontWeight: '900', letterSpacing: 3 },
   adminSub: { fontSize: 13, fontWeight: '600', marginTop: 6, marginBottom: 20 },
   adminInput: {
