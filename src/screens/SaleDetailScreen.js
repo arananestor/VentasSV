@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   View, Text, StyleSheet, SafeAreaView, TouchableOpacity,
-  Image, ScrollView, ActivityIndicator, Linking, Alert,
+  Image, ScrollView, ActivityIndicator, Linking,
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -12,6 +12,8 @@ import {
   buildTicketMessage, buildTransferMessage,
 } from '../utils/businessConfig';
 
+const PRINT_COLOR_DARK = '#000000';
+const PRINT_COLOR_LIGHT = '#000000';
 const SHARE_COLOR = '#0A84FF';
 const WA_COLOR = '#25D366';
 
@@ -19,8 +21,7 @@ export default function SaleDetailScreen({ route, navigation }) {
   const { sale } = route.params;
   const { theme } = useTheme();
 
-  const [isPrinting, setIsPrinting] = useState(false);
-  const [isSharing, setIsSharing] = useState(false);
+  const [activeBtn, setActiveBtn] = useState(null); // 'print' | 'share' | 'wa'
   const [waNumber, setWaNumber] = useState(null);
   const [bankConfig, setBankConfig] = useState(null);
 
@@ -45,29 +46,35 @@ export default function SaleDetailScreen({ route, navigation }) {
     })();
   }, []);
 
-  const handlePrint = async () => {
-    setIsPrinting(true);
-    await printTicket(sale);
-    setIsPrinting(false);
+  const runAction = async (key, fn) => {
+    setActiveBtn(key);
+    await fn();
+    setActiveBtn(null);
   };
 
-  const handleShare = async () => {
-    setIsSharing(true);
-    await shareTicket(sale);
-    setIsSharing(false);
-  };
-
-  const handleWhatsApp = () => {
+  const handlePrint = () => runAction('print', () => printTicket(sale));
+  const handleShare = () => runAction('share', () => shareTicket(sale));
+  const handleWhatsApp = () => runAction('wa', async () => {
     if (!waNumber) return;
     const message = sale.paymentMethod === 'transfer' && bankConfig
       ? buildTransferMessage(sale, bankConfig)
       : buildTicketMessage(sale);
     Linking.openURL(`https://wa.me/503${waNumber}?text=${message}`);
-  };
+  });
 
   const methodLabel = {
     cash: 'Efectivo', transfer: 'Transferencia', card: 'Tarjeta',
   }[sale.paymentMethod] || sale.paymentMethod;
+
+  const orderDisplay = sale.orderNumber ? `#${sale.orderNumber}` : `#${sale.id.slice(-4)}`;
+
+  // Botón: vacío por defecto, lleno al estar activo
+  const btnStyle = (key, color) => ({
+    backgroundColor: activeBtn === key ? color : 'transparent',
+    borderColor: color,
+  });
+  const btnTextColor = (key, color) => activeBtn === key ? '#fff' : color;
+  const btnIconColor = (key, color) => activeBtn === key ? '#fff' : color;
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.bg }]}>
@@ -84,7 +91,9 @@ export default function SaleDetailScreen({ route, navigation }) {
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
 
+        {/* MONTO + NÚMERO */}
         <View style={styles.amountSection}>
+          <Text style={[styles.orderNumber, { color: theme.textMuted }]}>{orderDisplay}</Text>
           <Text style={[styles.amount, { color: theme.text }]}>${sale.total.toFixed(2)}</Text>
           <View style={[styles.statusBadge, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
             <View style={[styles.statusDot, { backgroundColor: theme.success }]} />
@@ -92,6 +101,7 @@ export default function SaleDetailScreen({ route, navigation }) {
           </View>
         </View>
 
+        {/* INFO GRID */}
         <View style={styles.infoGrid}>
           {[
             { label: 'FECHA', value: formatDate(date) },
@@ -106,6 +116,7 @@ export default function SaleDetailScreen({ route, navigation }) {
           ))}
         </View>
 
+        {/* PRODUCTO */}
         <Text style={[styles.sectionLabel, { color: theme.textMuted }]}>PRODUCTO</Text>
         <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
           <Text style={[styles.productName, { color: theme.text }]}>{sale.productName}</Text>
@@ -122,6 +133,7 @@ export default function SaleDetailScreen({ route, navigation }) {
           ))}
         </View>
 
+        {/* PAGO EFECTIVO */}
         {sale.paymentMethod === 'cash' && sale.cashGiven && (
           <>
             <Text style={[styles.sectionLabel, { color: theme.textMuted }]}>PAGO</Text>
@@ -138,6 +150,7 @@ export default function SaleDetailScreen({ route, navigation }) {
           </>
         )}
 
+        {/* COMPROBANTE */}
         {sale.voucherImage && (
           <>
             <Text style={[styles.sectionLabel, { color: theme.textMuted }]}>COMPROBANTE</Text>
@@ -145,41 +158,52 @@ export default function SaleDetailScreen({ route, navigation }) {
           </>
         )}
 
+        {/* ACCIONES */}
         <Text style={[styles.sectionLabel, { color: theme.textMuted }]}>TICKET</Text>
-        {isPrinting || isSharing ? (
-          <ActivityIndicator color={theme.text} size="large" style={{ marginVertical: 20 }} />
-        ) : (
-          <View style={styles.actionRow}>
-            <TouchableOpacity
-              style={[styles.actionBtn, { backgroundColor: theme.accent, borderColor: theme.accent }]}
-              onPress={handlePrint}
-            >
-              <MaterialCommunityIcons name="printer" size={20} color={theme.accentText} />
-              <Text style={[styles.actionLabel, { color: theme.accentText }]}>Imprimir</Text>
-            </TouchableOpacity>
+        <View style={styles.actionRow}>
 
-            <TouchableOpacity
-              style={[styles.actionBtn, { backgroundColor: 'transparent', borderColor: SHARE_COLOR }]}
-              onPress={handleShare}
-            >
-              <MaterialCommunityIcons name="share-variant" size={20} color={SHARE_COLOR} />
-              <Text style={[styles.actionLabel, { color: SHARE_COLOR }]}>Compartir</Text>
-            </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.actionBtn, btnStyle('print', theme.text)]}
+            onPress={handlePrint}
+            disabled={activeBtn !== null}
+          >
+            {activeBtn === 'print'
+              ? <ActivityIndicator size="small" color="#fff" />
+              : <MaterialCommunityIcons name="printer-outline" size={20} color={btnIconColor('print', theme.text)} />
+            }
+            <Text style={[styles.actionLabel, { color: btnTextColor('print', theme.text) }]}>Imprimir</Text>
+          </TouchableOpacity>
 
-            {waNumber && (
-              <TouchableOpacity
-                style={[styles.actionBtn, { backgroundColor: 'transparent', borderColor: WA_COLOR }]}
-                onPress={handleWhatsApp}
-              >
-                <MaterialCommunityIcons name="whatsapp" size={20} color={WA_COLOR} />
-                <Text style={[styles.actionLabel, { color: WA_COLOR }]}>WhatsApp</Text>
-              </TouchableOpacity>
-            )}
-          </View>
-        )}
+          <TouchableOpacity
+            style={[styles.actionBtn, btnStyle('share', SHARE_COLOR)]}
+            onPress={handleShare}
+            disabled={activeBtn !== null}
+          >
+            {activeBtn === 'share'
+              ? <ActivityIndicator size="small" color="#fff" />
+              : <MaterialCommunityIcons name="share-variant-outline" size={20} color={btnIconColor('share', SHARE_COLOR)} />
+            }
+            <Text style={[styles.actionLabel, { color: btnTextColor('share', SHARE_COLOR) }]}>Compartir</Text>
+          </TouchableOpacity>
+
+          {waNumber && (
+            <TouchableOpacity
+              style={[styles.actionBtn, btnStyle('wa', WA_COLOR)]}
+              onPress={handleWhatsApp}
+              disabled={activeBtn !== null}
+            >
+              {activeBtn === 'wa'
+                ? <ActivityIndicator size="small" color="#fff" />
+                : <MaterialCommunityIcons name="whatsapp" size={20} color={btnIconColor('wa', WA_COLOR)} />
+              }
+              <Text style={[styles.actionLabel, { color: btnTextColor('wa', WA_COLOR) }]}>WhatsApp</Text>
+            </TouchableOpacity>
+          )}
+
+        </View>
 
         <View style={[styles.idSection, { borderColor: theme.cardBorder }]}>
-          <Text style={[styles.idValue, { color: theme.textMuted }]}>#{sale.id}</Text>
+          <Text style={[styles.idValue, { color: theme.textMuted }]}>{sale.id}</Text>
         </View>
 
       </ScrollView>
@@ -197,10 +221,11 @@ const styles = StyleSheet.create({
   headerTitle: { fontSize: 14, fontWeight: '800', letterSpacing: 3 },
   scroll: { paddingHorizontal: 16, paddingBottom: 60 },
   amountSection: { alignItems: 'center', paddingVertical: 30 },
+  orderNumber: { fontSize: 13, fontWeight: '700', letterSpacing: 2, marginBottom: 8 },
   amount: { fontSize: 52, fontWeight: '900' },
   statusBadge: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
-    borderRadius: 8, paddingHorizontal: 14, paddingVertical: 6, marginTop: 10, borderWidth: 1,
+    borderRadius: 8, paddingHorizontal: 14, paddingVertical: 6, marginTop: 12, borderWidth: 1,
   },
   statusDot: { width: 6, height: 6, borderRadius: 3 },
   statusText: { fontSize: 10, fontWeight: '800', letterSpacing: 2 },
@@ -219,9 +244,10 @@ const styles = StyleSheet.create({
   actionRow: { flexDirection: 'row', gap: 8 },
   actionBtn: {
     flex: 1, borderRadius: 14, paddingVertical: 16,
-    alignItems: 'center', justifyContent: 'center', borderWidth: 1.5, gap: 6,
+    alignItems: 'center', justifyContent: 'center',
+    borderWidth: 1.5, gap: 6,
   },
   actionLabel: { fontSize: 11, fontWeight: '800', letterSpacing: 0.5 },
   idSection: { alignItems: 'center', marginTop: 30, paddingVertical: 16, borderTopWidth: 1 },
-  idValue: { fontSize: 11, fontWeight: '600' },
+  idValue: { fontSize: 10, fontWeight: '500', color: '#999' },
 });

@@ -2,7 +2,6 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const AppContext = createContext();
-
 const DEFAULT_PRODUCTS = [];
 
 export function AppProvider({ children }) {
@@ -44,9 +43,15 @@ export function AppProvider({ children }) {
   };
 
   const addSale = async (sale) => {
+    // Número de pedido secuencial del día — #0001, #0002...
+    const today = new Date().toDateString();
+    const todaySales = sales.filter(s => new Date(s.timestamp).toDateString() === today);
+    const orderNumber = String(todaySales.length + 1).padStart(4, '0');
+
     const newSale = {
       ...sale,
       id: Date.now().toString(),
+      orderNumber,
       timestamp: new Date().toISOString(),
     };
     const newSales = [...sales, newSale];
