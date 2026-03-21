@@ -2,15 +2,19 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
   View, Text, TouchableOpacity, TextInput, StyleSheet,
   SafeAreaView, Image, Alert, ScrollView, Animated,
-  ActivityIndicator,
+  ActivityIndicator, Linking,
 } from 'react-native';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Feather } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { useApp } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { printTicket, shareTicket } from '../utils/ticketPrinter';
-import { loadBankConfig, loadWhatsAppNumber } from '../utils/businessConfig';
+import {
+  loadBankConfig, loadWhatsAppNumber, loadKitchenNumber,
+  buildTicketMessage, buildKitchenMessage,
+} from '../utils/businessConfig';
 
 const SHARE_COLOR = '#0A84FF';
 const WA_COLOR = '#25D366';
@@ -23,34 +27,38 @@ export default function PaymentScreen({ route, navigation }) {
 
   const [paymentMethod, setPaymentMethod] = useState(null);
   const [cashGiven, setCashGiven] = useState('');
+  const [isEditingAmount, setIsEditingAmount] = useState(false);
   const [voucherImage, setVoucherImage] = useState(null);
   const [bankConfig, setBankConfig] = useState(null);
   const [waNumber, setWaNumber] = useState(null);
+  const [kitchenNumber, setKitchenNumber] = useState(null);
   const [completing, setCompleting] = useState(false);
   const [completedSale, setCompletedSale] = useState(null);
-  const [snackVisible, setSnackVisible] = useState(false);
 
   const snackAnim = useRef(new Animated.Value(120)).current;
   const snackOpacity = useRef(new Animated.Value(0)).current;
   const dismissTimer = useRef(null);
+  const amountInputRef = useRef(null);
 
-  const change = cashGiven ? parseFloat(cashGiven) - order.total : 0;
-  const nextBill = [1, 2, 5, 10, 20, 50, 100].find(b => b > order.total) || 20;
+  const quickBills = [1, 2, 5, 10, 20];
+  const parsedCash = parseFloat(cashGiven) || 0;
+  const effectiveAmount = cashGiven !== '' ? parsedCash : order.total;
+  const change = effectiveAmount - order.total;
 
   useEffect(() => {
     (async () => {
       setBankConfig(await loadBankConfig());
       setWaNumber(await loadWhatsAppNumber());
+      setKitchenNumber(await loadKitchenNumber());
     })();
     return () => { if (dismissTimer.current) clearTimeout(dismissTimer.current); };
   }, []);
 
   const showSnack = (sale) => {
     setCompletedSale(sale);
-    setSnackVisible(true);
     Animated.parallel([
       Animated.spring(snackAnim, { toValue: 0, useNativeDriver: true, tension: 70, friction: 10 }),
-      Animated.timing(snackOpacity, { toValue: 1, duration: 180, useNativeDriver: true }),
+      Animated.timing(snackOpacity, { toValue: 1, duration: 200, useNativeDriver: true }),
     ]).start();
     dismissTimer.current = setTimeout(() => dismissSnack(), 5000);
   };
@@ -60,7 +68,7 @@ export default function PaymentScreen({ route, navigation }) {
     Animated.parallel([
       Animated.timing(snackAnim, { toValue: 120, duration: 220, useNativeDriver: true }),
       Animated.timing(snackOpacity, { toValue: 0, duration: 220, useNativeDriver: true }),
-    ]).start(() => { setSnackVisible(false); navigation.popToTop(); });
+    ]).start(() => navigation.popToTop());
   };
 
   const handleComplete = async () => {
@@ -73,15 +81,30 @@ export default function PaymentScreen({ route, navigation }) {
       quantity: order.quantity,
       total: order.total,
       paymentMethod,
-      cashGiven: paymentMethod === 'cash' ? parseFloat(cashGiven) : null,
+      cashGiven: paymentMethod === 'cash' ? effectiveAmount : null,
       change: paymentMethod === 'cash' ? change : null,
       voucherImage: paymentMethod === 'transfer' ? voucherImage : null,
       workerId: currentWorker?.id || null,
       workerName: currentWorker?.name || 'Sin asignar',
     };
     const sale = await addSale(saleData);
+
+    // Mandar a cocina automáticamente si hay número configurado
+    if (kitchenNumber) {
+      const msg = buildKitchenMessage(sale);
+      Linking.openURL(`https://wa.me/503${kitchenNumber}?text=${msg}`);
+    }
+
     setCompleting(false);
     showSnack(sale);
+  };
+
+  const handleSnackWhatsApp = () => {
+    if (!completedSale || !waNumber) return;
+    if (dismissTimer.current) clearTimeout(dismissTimer.current);
+    const msg = buildTicketMessage(completedSale);
+    Linking.openURL(`https://wa.me/503${waNumber}?text=${msg}`);
+    dismissSnack();
   };
 
   const handlePrint = async () => {
@@ -91,11 +114,16 @@ export default function PaymentScreen({ route, navigation }) {
     dismissSnack();
   };
 
-  const handleShare = async () => {
-    if (!completedSale) return;
-    if (dismissTimer.current) clearTimeout(dismissTimer.current);
-    await shareTicket(completedSale);
-    dismissSnack();
+  const handleAmountTap = () => {
+    setIsEditingAmount(true);
+    setCashGiven('');
+    setTimeout(() => amountInputRef.current?.focus(), 50);
+  };
+
+  const handleAmountChange = (text) => {
+    // Cualquier tecla reemplaza desde cero
+    const nums = text.replace(/[^0-9.]/g, '');
+    setCashGiven(nums);
   };
 
   const takeVoucherPhoto = async () => {
@@ -111,8 +139,11 @@ export default function PaymentScreen({ route, navigation }) {
   };
 
   const canComplete =
-    (paymentMethod === 'cash' && cashGiven !== '' && change >= 0) ||
+    (paymentMethod === 'cash' && effectiveAmount >= order.total) ||
     paymentMethod === 'transfer';
+
+  const displayAmount = cashGiven !== '' ? cashGiven : order.total.toFixed(2);
+  const showChange = paymentMethod === 'cash' && cashGiven !== '';
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.bg }]}>
@@ -128,24 +159,60 @@ export default function PaymentScreen({ route, navigation }) {
         <View style={{ width: 44 }} />
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}
+        keyboardShouldPersistTaps="handled">
 
-        <View style={[styles.totalSection, { borderColor: theme.cardBorder }]}>
+        {/* MONTO — editable */}
+        <TouchableOpacity
+          style={styles.totalSection}
+          onPress={paymentMethod === 'cash' ? handleAmountTap : undefined}
+          activeOpacity={paymentMethod === 'cash' ? 0.7 : 1}
+        >
           <Text style={[styles.totalLabel, { color: theme.textMuted }]}>TOTAL</Text>
-          <Text style={[styles.totalAmount, { color: theme.text }]}>${order.total.toFixed(2)}</Text>
+          <Text style={[styles.totalAmount, { color: theme.text }]}>${displayAmount}</Text>
           <Text style={[styles.totalDetail, { color: theme.textMuted }]}>
             {order.quantity}x {order.size.name} · {order.product.name}
           </Text>
-        </View>
 
+          {/* Input oculto para capturar teclado */}
+          {paymentMethod === 'cash' && (
+            <TextInput
+              ref={amountInputRef}
+              style={styles.hiddenInput}
+              value={cashGiven}
+              onChangeText={handleAmountChange}
+              keyboardType="numeric"
+              onBlur={() => setIsEditingAmount(false)}
+            />
+          )}
+        </TouchableOpacity>
+
+        {/* Indicador de vuelto/falta bajo el monto */}
+        {showChange && (
+          <View style={[styles.changeBar, {
+            backgroundColor: change >= 0 ? theme.accent : theme.danger,
+          }]}>
+            <Text style={[styles.changeBarLabel, { color: theme.accentText }]}>
+              {change > 0 ? 'VUELTO' : change === 0 ? 'EXACTO' : 'FALTA'}
+            </Text>
+            <Text style={[styles.changeBarAmount, { color: theme.accentText }]}>
+              ${Math.abs(change).toFixed(2)}
+            </Text>
+          </View>
+        )}
+
+        {/* MÉTODOS */}
         <View style={styles.methodSection}>
           <TouchableOpacity
             style={[styles.methodBtn, { backgroundColor: theme.card, borderColor: theme.cardBorder },
               paymentMethod === 'cash' && { backgroundColor: theme.accent, borderColor: theme.accent }]}
-            onPress={() => { setPaymentMethod('cash'); setVoucherImage(null); }}
+            onPress={() => { setPaymentMethod('cash'); setCashGiven(''); setVoucherImage(null); }}
           >
-            <Feather name="dollar-sign" size={20}
-              color={paymentMethod === 'cash' ? theme.accentText : theme.textSecondary} />
+            <MaterialCommunityIcons
+              name="cash-multiple"
+              size={28}
+              color={paymentMethod === 'cash' ? theme.accentText : theme.textSecondary}
+            />
             <Text style={[styles.methodText, { color: theme.textSecondary },
               paymentMethod === 'cash' && { color: theme.accentText }]}>Efectivo</Text>
           </TouchableOpacity>
@@ -155,71 +222,36 @@ export default function PaymentScreen({ route, navigation }) {
               paymentMethod === 'transfer' && { backgroundColor: theme.accent, borderColor: theme.accent }]}
             onPress={() => { setPaymentMethod('transfer'); setCashGiven(''); }}
           >
-            <Feather name="send" size={20}
-              color={paymentMethod === 'transfer' ? theme.accentText : theme.textSecondary} />
+            <MaterialCommunityIcons
+              name="bank-transfer"
+              size={28}
+              color={paymentMethod === 'transfer' ? theme.accentText : theme.textSecondary}
+            />
             <Text style={[styles.methodText, { color: theme.textSecondary },
               paymentMethod === 'transfer' && { color: theme.accentText }]}>Transferencia</Text>
           </TouchableOpacity>
         </View>
 
+        {/* EFECTIVO — billetes rápidos */}
         {paymentMethod === 'cash' && (
           <View style={styles.cashSection}>
-            <View style={styles.smartRow}>
-              <TouchableOpacity
-                style={[styles.smartBtn, { backgroundColor: theme.card, borderColor: theme.cardBorder },
-                  parseFloat(cashGiven) === order.total && { backgroundColor: theme.accent, borderColor: theme.accent }]}
-                onPress={() => setCashGiven(order.total.toString())}
-              >
-                <Text style={[styles.smartBtnSub, { color: theme.textMuted },
-                  parseFloat(cashGiven) === order.total && { color: theme.accentText }]}>EXACTO</Text>
-                <Text style={[styles.smartBtnAmount, { color: theme.text },
-                  parseFloat(cashGiven) === order.total && { color: theme.accentText }]}>
-                  ${order.total.toFixed(2)}
-                </Text>
-              </TouchableOpacity>
-
-              {nextBill > order.total && (
+            <View style={styles.billsRow}>
+              {quickBills.map(bill => (
                 <TouchableOpacity
-                  style={[styles.smartBtn, { backgroundColor: theme.card, borderColor: theme.cardBorder },
-                    parseFloat(cashGiven) === nextBill && { backgroundColor: theme.accent, borderColor: theme.accent }]}
-                  onPress={() => setCashGiven(nextBill.toString())}
+                  key={bill}
+                  style={[styles.billBtn, { backgroundColor: theme.card, borderColor: theme.cardBorder },
+                    parsedCash === bill && { backgroundColor: theme.accent, borderColor: theme.accent }]}
+                  onPress={() => { setCashGiven(bill.toString()); setIsEditingAmount(false); amountInputRef.current?.blur(); }}
                 >
-                  <Text style={[styles.smartBtnSub, { color: theme.textMuted },
-                    parseFloat(cashGiven) === nextBill && { color: theme.accentText }]}>CON</Text>
-                  <Text style={[styles.smartBtnAmount, { color: theme.text },
-                    parseFloat(cashGiven) === nextBill && { color: theme.accentText }]}>
-                    ${nextBill}.00
-                  </Text>
+                  <Text style={[styles.billText, { color: theme.textSecondary },
+                    parsedCash === bill && { color: theme.accentText }]}>${bill}</Text>
                 </TouchableOpacity>
-              )}
+              ))}
             </View>
-
-            <View style={[styles.inputRow, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
-              <Text style={[styles.inputDollar, { color: theme.textMuted }]}>$</Text>
-              <TextInput
-                style={[styles.cashInput, { color: theme.text }]}
-                value={cashGiven}
-                onChangeText={setCashGiven}
-                keyboardType="numeric"
-                placeholder="Otro monto"
-                placeholderTextColor={theme.textMuted}
-              />
-            </View>
-
-            {cashGiven !== '' && (
-              <View style={[styles.changeBox,
-                change >= 0 ? { backgroundColor: theme.accent } : { backgroundColor: theme.danger }]}>
-                <Text style={[styles.changeLabel, { color: theme.accentText }]}>
-                  {change > 0 ? 'VUELTO' : change === 0 ? 'EXACTO' : 'FALTA'}
-                </Text>
-                <Text style={[styles.changeAmount, { color: theme.accentText }]}>
-                  ${Math.abs(change).toFixed(2)}
-                </Text>
-              </View>
-            )}
           </View>
         )}
 
+        {/* TRANSFERENCIA */}
         {paymentMethod === 'transfer' && (
           <View style={styles.transferSection}>
             {bankConfig ? (
@@ -248,7 +280,7 @@ export default function PaymentScreen({ route, navigation }) {
               </View>
             ) : (
               <View style={[styles.noBankCard, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
-                <Feather name="alert-circle" size={22} color={theme.textMuted} />
+                <MaterialCommunityIcons name="bank-off-outline" size={28} color={theme.textMuted} />
                 <Text style={[styles.noBankText, { color: theme.textMuted }]}>Sin datos bancarios</Text>
                 <Text style={[styles.noBankSub, { color: theme.textMuted }]}>
                   Perfil → Configuración de cobro
@@ -273,20 +305,21 @@ export default function PaymentScreen({ route, navigation }) {
                   style={[styles.voucherBtn, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}
                   onPress={takeVoucherPhoto}
                 >
-                  <Feather name="camera" size={20} color={theme.textSecondary} />
+                  <MaterialCommunityIcons name="camera-outline" size={22} color={theme.textSecondary} />
                   <Text style={[styles.voucherText, { color: theme.textSecondary }]}>Foto</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={[styles.voucherBtn, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}
                   onPress={pickVoucherFromGallery}
                 >
-                  <Feather name="image" size={20} color={theme.textSecondary} />
+                  <MaterialCommunityIcons name="image-outline" size={22} color={theme.textSecondary} />
                   <Text style={[styles.voucherText, { color: theme.textSecondary }]}>Galería</Text>
                 </TouchableOpacity>
               </View>
             )}
           </View>
         )}
+
       </ScrollView>
 
       {paymentMethod && (
@@ -321,20 +354,22 @@ export default function PaymentScreen({ route, navigation }) {
           </View>
         </View>
         <View style={styles.snackActions}>
-          {/* Imprimir — sólido accent */}
+          {/* Imprimir — sólido */}
           <TouchableOpacity
             style={[styles.snackBtn, { backgroundColor: theme.accent }]}
             onPress={handlePrint}
           >
-            <Feather name="printer" size={15} color={theme.accentText} />
+            <MaterialCommunityIcons name="printer" size={16} color={theme.accentText} />
           </TouchableOpacity>
-          {/* Compartir — outline azul */}
-          <TouchableOpacity
-            style={[styles.snackBtn, { backgroundColor: 'transparent', borderWidth: 1.5, borderColor: SHARE_COLOR }]}
-            onPress={handleShare}
-          >
-            <Feather name="share-2" size={15} color={SHARE_COLOR} />
-          </TouchableOpacity>
+          {/* WhatsApp — outline verde */}
+          {waNumber && (
+            <TouchableOpacity
+              style={[styles.snackBtn, { backgroundColor: 'transparent', borderWidth: 1.5, borderColor: WA_COLOR }]}
+              onPress={handleSnackWhatsApp}
+            >
+              <MaterialCommunityIcons name="whatsapp" size={16} color={WA_COLOR} />
+            </TouchableOpacity>
+          )}
           {/* Cerrar */}
           <TouchableOpacity style={styles.snackClose} onPress={dismissSnack}>
             <Feather name="x" size={16} color={theme.textMuted} />
@@ -355,25 +390,28 @@ const styles = StyleSheet.create({
   backBtn: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', borderWidth: 1 },
   headerTitle: { fontSize: 14, fontWeight: '800', letterSpacing: 3 },
   scroll: { paddingBottom: 120 },
-  totalSection: { alignItems: 'center', paddingVertical: 30, marginHorizontal: 16, borderBottomWidth: 1 },
+  totalSection: { alignItems: 'center', paddingVertical: 30, marginHorizontal: 16 },
   totalLabel: { fontSize: 11, fontWeight: '800', letterSpacing: 3 },
-  totalAmount: { fontSize: 56, fontWeight: '900', marginTop: 6 },
-  totalDetail: { fontSize: 13, fontWeight: '600', marginTop: 6 },
-  methodSection: { flexDirection: 'row', gap: 10, paddingHorizontal: 16, marginTop: 24 },
-  methodBtn: { flex: 1, borderRadius: 14, paddingVertical: 20, alignItems: 'center', gap: 8, borderWidth: 1 },
-  methodText: { fontSize: 13, fontWeight: '800', letterSpacing: 1 },
-  cashSection: { paddingHorizontal: 16, marginTop: 20, gap: 12 },
-  smartRow: { flexDirection: 'row', gap: 10 },
-  smartBtn: { flex: 1, borderRadius: 14, paddingVertical: 20, alignItems: 'center', borderWidth: 1, gap: 2 },
-  smartBtnSub: { fontSize: 10, fontWeight: '800', letterSpacing: 2 },
-  smartBtnAmount: { fontSize: 22, fontWeight: '900' },
-  inputRow: { flexDirection: 'row', alignItems: 'center', borderRadius: 14, paddingHorizontal: 18, borderWidth: 1 },
-  inputDollar: { fontSize: 22, fontWeight: '700', marginRight: 4 },
-  cashInput: { flex: 1, fontSize: 28, fontWeight: '800', paddingVertical: 16 },
-  changeBox: { borderRadius: 14, paddingVertical: 20, alignItems: 'center' },
-  changeLabel: { fontSize: 11, fontWeight: '800', letterSpacing: 3 },
-  changeAmount: { fontSize: 36, fontWeight: '900', marginTop: 4 },
-  transferSection: { paddingHorizontal: 16, marginTop: 20, gap: 16 },
+  totalAmount: { fontSize: 64, fontWeight: '900', marginTop: 6, letterSpacing: -2 },
+  totalDetail: { fontSize: 13, fontWeight: '500', marginTop: 8, color: '#999' },
+  hiddenInput: {
+    position: 'absolute', opacity: 0, width: 1, height: 1,
+  },
+  changeBar: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    marginHorizontal: 16, borderRadius: 14, paddingHorizontal: 20, paddingVertical: 14,
+    marginBottom: 8,
+  },
+  changeBarLabel: { fontSize: 11, fontWeight: '800', letterSpacing: 3 },
+  changeBarAmount: { fontSize: 24, fontWeight: '900' },
+  methodSection: { flexDirection: 'row', gap: 10, paddingHorizontal: 16, marginTop: 8 },
+  methodBtn: { flex: 1, borderRadius: 16, paddingVertical: 22, alignItems: 'center', gap: 8, borderWidth: 1 },
+  methodText: { fontSize: 13, fontWeight: '800', letterSpacing: 0.5 },
+  cashSection: { paddingHorizontal: 16, marginTop: 16 },
+  billsRow: { flexDirection: 'row', gap: 8 },
+  billBtn: { flex: 1, borderRadius: 12, paddingVertical: 18, alignItems: 'center', borderWidth: 1 },
+  billText: { fontSize: 16, fontWeight: '800' },
+  transferSection: { paddingHorizontal: 16, marginTop: 16, gap: 16 },
   bankCard: { borderRadius: 16, padding: 20, borderWidth: 1 },
   bankCardLabel: { fontSize: 10, fontWeight: '800', letterSpacing: 2, marginBottom: 16 },
   bankRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 10 },

@@ -4,10 +4,12 @@ import {
   SafeAreaView, ScrollView, Image, ActivityIndicator,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
+import { Feather } from '@expo/vector-icons';
 import { useTheme } from '../context/ThemeContext';
 import {
   saveBankConfig, loadBankConfig,
   saveWhatsAppNumber, loadWhatsAppNumber,
+  saveKitchenNumber, loadKitchenNumber,
 } from '../utils/businessConfig';
 
 export default function BusinessConfigScreen({ navigation }) {
@@ -18,6 +20,7 @@ export default function BusinessConfigScreen({ navigation }) {
   const [account, setAccount] = useState('');
   const [qrImage, setQrImage] = useState(null);
   const [waNumber, setWaNumber] = useState('');
+  const [kitchenNumber, setKitchenNumber] = useState('');
   const [saving, setSaving] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -25,14 +28,11 @@ export default function BusinessConfigScreen({ navigation }) {
   useEffect(() => {
     (async () => {
       const bc = await loadBankConfig();
-      if (bc) {
-        setBank(bc.bank || '');
-        setHolder(bc.holder || '');
-        setAccount(bc.account || '');
-        setQrImage(bc.qrImage || null);
-      }
+      if (bc) { setBank(bc.bank || ''); setHolder(bc.holder || ''); setAccount(bc.account || ''); setQrImage(bc.qrImage || null); }
       const wa = await loadWhatsAppNumber();
       if (wa) setWaNumber(wa);
+      const kn = await loadKitchenNumber();
+      if (kn) setKitchenNumber(kn);
       setLoaded(true);
     })();
   }, []);
@@ -45,15 +45,18 @@ export default function BusinessConfigScreen({ navigation }) {
   const handleSave = async () => {
     setSaving(true);
     await saveBankConfig({ bank: bank.trim(), holder: holder.trim(), account: account.trim(), qrImage });
-    const cleaned = waNumber.replace(/\D/g, '');
-    if (cleaned) await saveWhatsAppNumber(cleaned);
+    const waCleaned = waNumber.replace(/\D/g, '');
+    if (waCleaned) await saveWhatsAppNumber(waCleaned);
+    const knCleaned = kitchenNumber.replace(/\D/g, '');
+    if (knCleaned) await saveKitchenNumber(knCleaned);
     setSaving(false);
     setSaved(true);
-    setTimeout(() => navigation.goBack(), 800);
+    setTimeout(() => navigation.goBack(), 600);
   };
 
   const bankComplete = bank.trim() && holder.trim() && account.trim();
   const waComplete = waNumber.replace(/\D/g, '').length >= 8;
+  const kitchenComplete = kitchenNumber.replace(/\D/g, '').length >= 8;
 
   if (!loaded) {
     return (
@@ -81,7 +84,7 @@ export default function BusinessConfigScreen({ navigation }) {
           style={[styles.backBtn, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}
           onPress={() => navigation.goBack()}
         >
-          <Text style={[styles.backText, { color: theme.text }]}>‹</Text>
+          <Feather name="chevron-left" size={22} color={theme.text} />
         </TouchableOpacity>
         <Text style={[styles.headerTitle, { color: theme.text }]}>CONFIGURACIÓN DE COBRO</Text>
         <View style={{ width: 44 }} />
@@ -89,33 +92,26 @@ export default function BusinessConfigScreen({ navigation }) {
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
 
-        {/* STATUS ROW */}
+        {/* STATUS */}
         <View style={styles.statusRow}>
-          <View style={[styles.statusPill, {
-            backgroundColor: theme.card,
-            borderColor: bankComplete ? theme.success : theme.cardBorder,
-          }]}>
-            <View style={[styles.statusDot, {
-              backgroundColor: bankComplete ? theme.success : theme.cardBorder,
-            }]} />
-            <Text style={[styles.statusText, { color: bankComplete ? theme.text : theme.textMuted }]}>
-              Banco {bankComplete ? 'configurado' : 'pendiente'}
-            </Text>
-          </View>
-          <View style={[styles.statusPill, {
-            backgroundColor: theme.card,
-            borderColor: waComplete ? theme.success : theme.cardBorder,
-          }]}>
-            <View style={[styles.statusDot, {
-              backgroundColor: waComplete ? theme.success : theme.cardBorder,
-            }]} />
-            <Text style={[styles.statusText, { color: waComplete ? theme.text : theme.textMuted }]}>
-              WhatsApp {waComplete ? 'conectado' : 'pendiente'}
-            </Text>
-          </View>
+          {[
+            { label: 'Banco', done: bankComplete },
+            { label: 'WhatsApp', done: waComplete },
+            { label: 'Cocina', done: kitchenComplete },
+          ].map(s => (
+            <View key={s.label} style={[styles.statusPill, {
+              backgroundColor: theme.card,
+              borderColor: s.done ? theme.success : theme.cardBorder,
+            }]}>
+              <View style={[styles.statusDot, { backgroundColor: s.done ? theme.success : theme.cardBorder }]} />
+              <Text style={[styles.statusText, { color: s.done ? theme.text : theme.textMuted }]}>
+                {s.label}
+              </Text>
+            </View>
+          ))}
         </View>
 
-        {/* WHATSAPP */}
+        {/* WHATSAPP NEGOCIO */}
         <View style={styles.section}>
           <Text style={[styles.sectionLabel, { color: theme.textMuted }]}>WHATSAPP DEL NEGOCIO</Text>
           <View style={[styles.inputRow, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
@@ -132,7 +128,7 @@ export default function BusinessConfigScreen({ navigation }) {
           </View>
           {waComplete && (
             <View style={styles.benefitList}>
-              {['Enviar tickets al cliente', 'Compartir datos de transferencia', 'Aviso de pedido listo'].map(b => (
+              {['Tickets al cliente por WhatsApp', 'Datos de transferencia automáticos', 'Aviso de pedido listo'].map(b => (
                 <View key={b} style={styles.benefitRow}>
                   <View style={[styles.benefitDot, { backgroundColor: theme.success }]} />
                   <Text style={[styles.benefitText, { color: theme.textSecondary }]}>{b}</Text>
@@ -142,43 +138,49 @@ export default function BusinessConfigScreen({ navigation }) {
           )}
         </View>
 
+        {/* WHATSAPP COCINA */}
+        <View style={styles.section}>
+          <Text style={[styles.sectionLabel, { color: theme.textMuted }]}>WHATSAPP DE COCINA</Text>
+          <Text style={[styles.sectionSub, { color: theme.textMuted }]}>
+            Recibe cada pedido nuevo automáticamente
+          </Text>
+          <View style={[styles.inputRow, { backgroundColor: theme.card, borderColor: theme.cardBorder, marginTop: 10 }]}>
+            <Text style={[styles.prefix, { color: theme.textMuted }]}>+503</Text>
+            <TextInput
+              style={[styles.input, { color: theme.text }]}
+              value={kitchenNumber}
+              onChangeText={setKitchenNumber}
+              placeholder="7000-0000"
+              placeholderTextColor={theme.textMuted}
+              keyboardType="phone-pad"
+              maxLength={12}
+            />
+          </View>
+        </View>
+
         {/* BANCO */}
         <View style={styles.section}>
           <Text style={[styles.sectionLabel, { color: theme.textMuted }]}>DATOS BANCARIOS</Text>
-
-          <View style={[styles.inputRow, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
-            <TextInput
-              style={[styles.inputFull, { color: theme.text }]}
-              value={bank}
-              onChangeText={setBank}
-              placeholder="Banco"
-              placeholderTextColor={theme.textMuted}
-              maxLength={40}
-            />
-          </View>
-
-          <View style={[styles.inputRow, { backgroundColor: theme.card, borderColor: theme.cardBorder, marginTop: 8 }]}>
-            <TextInput
-              style={[styles.inputFull, { color: theme.text }]}
-              value={holder}
-              onChangeText={setHolder}
-              placeholder="Titular de la cuenta"
-              placeholderTextColor={theme.textMuted}
-              maxLength={60}
-            />
-          </View>
-
-          <View style={[styles.inputRow, { backgroundColor: theme.card, borderColor: theme.cardBorder, marginTop: 8 }]}>
-            <TextInput
-              style={[styles.inputFull, { color: theme.text }]}
-              value={account}
-              onChangeText={setAccount}
-              placeholder="Número de cuenta"
-              placeholderTextColor={theme.textMuted}
-              keyboardType="numeric"
-              maxLength={30}
-            />
-          </View>
+          {[
+            { placeholder: 'Banco', value: bank, setter: setBank, max: 40 },
+            { placeholder: 'Titular de la cuenta', value: holder, setter: setHolder, max: 60 },
+            { placeholder: 'Número de cuenta', value: account, setter: setAccount, max: 30, numeric: true },
+          ].map((f, i) => (
+            <View key={i} style={[styles.inputRow, {
+              backgroundColor: theme.card, borderColor: theme.cardBorder,
+              marginTop: i === 0 ? 0 : 8,
+            }]}>
+              <TextInput
+                style={[styles.inputFull, { color: theme.text }]}
+                value={f.value}
+                onChangeText={f.setter}
+                placeholder={f.placeholder}
+                placeholderTextColor={theme.textMuted}
+                keyboardType={f.numeric ? 'numeric' : 'default'}
+                maxLength={f.max}
+              />
+            </View>
+          ))}
         </View>
 
         {/* QR */}
@@ -199,7 +201,8 @@ export default function BusinessConfigScreen({ navigation }) {
               style={[styles.qrUpload, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}
               onPress={pickQR}
             >
-              <Text style={[styles.qrUploadLabel, { color: theme.textMuted }]}>Subir QR  ↑</Text>
+              <Feather name="upload" size={20} color={theme.textMuted} />
+              <Text style={[styles.qrUploadLabel, { color: theme.textMuted }]}>Subir QR</Text>
               <Text style={[styles.qrUploadSub, { color: theme.textMuted }]}>
                 Se muestra al cliente en transferencias
               </Text>
@@ -232,7 +235,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16, paddingVertical: 12,
   },
   backBtn: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', borderWidth: 1 },
-  backText: { fontSize: 24, fontWeight: '300', marginTop: -2 },
   headerTitle: { fontSize: 12, fontWeight: '800', letterSpacing: 2 },
   scroll: { paddingHorizontal: 16, paddingBottom: 120 },
   savedScreen: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 14 },
@@ -241,12 +243,13 @@ const styles = StyleSheet.create({
   statusRow: { flexDirection: 'row', gap: 8, marginTop: 20, marginBottom: 4 },
   statusPill: {
     flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8,
-    borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, borderWidth: 1,
+    borderRadius: 12, paddingHorizontal: 12, paddingVertical: 12, borderWidth: 1,
   },
   statusDot: { width: 7, height: 7, borderRadius: 4 },
-  statusText: { fontSize: 12, fontWeight: '600' },
+  statusText: { fontSize: 11, fontWeight: '600' },
   section: { marginTop: 28 },
   sectionLabel: { fontSize: 10, fontWeight: '800', letterSpacing: 2, marginBottom: 10 },
+  sectionSub: { fontSize: 12, fontWeight: '500', marginTop: -6 },
   inputRow: {
     flexDirection: 'row', alignItems: 'center',
     borderRadius: 14, paddingHorizontal: 16, borderWidth: 1,
@@ -260,9 +263,9 @@ const styles = StyleSheet.create({
   benefitText: { fontSize: 13, fontWeight: '500' },
   qrUpload: {
     borderRadius: 14, paddingVertical: 28, paddingHorizontal: 20,
-    borderWidth: 1, borderStyle: 'dashed',
+    borderWidth: 1, borderStyle: 'dashed', alignItems: 'center', gap: 8,
   },
-  qrUploadLabel: { fontSize: 14, fontWeight: '700', marginBottom: 4 },
+  qrUploadLabel: { fontSize: 14, fontWeight: '700' },
   qrUploadSub: { fontSize: 12, fontWeight: '500' },
   qrCard: { borderRadius: 14, padding: 20, alignItems: 'center', gap: 16, borderWidth: 1 },
   qrImage: { width: 160, height: 160, borderRadius: 10 },

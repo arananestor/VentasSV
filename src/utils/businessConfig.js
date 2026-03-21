@@ -2,8 +2,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const BANK_KEY = 'business_bank_config';
 const WA_KEY = 'business_whatsapp';
+const KITCHEN_KEY = 'business_kitchen_whatsapp';
 
-// ─── BANCO ───────────────────────────────────────────
 export const saveBankConfig = async (config) => {
   await AsyncStorage.setItem(BANK_KEY, JSON.stringify(config));
 };
@@ -13,7 +13,6 @@ export const loadBankConfig = async () => {
   return raw ? JSON.parse(raw) : null;
 };
 
-// ─── WHATSAPP DEL NEGOCIO ────────────────────────────
 export const saveWhatsAppNumber = async (number) => {
   await AsyncStorage.setItem(WA_KEY, number);
 };
@@ -22,40 +21,62 @@ export const loadWhatsAppNumber = async () => {
   return await AsyncStorage.getItem(WA_KEY);
 };
 
-// ─── HELPERS DE MENSAJES ────────────────────────────
-export const buildTransferMessage = (order, bankConfig) => {
+export const saveKitchenNumber = async (number) => {
+  await AsyncStorage.setItem(KITCHEN_KEY, number);
+};
+
+export const loadKitchenNumber = async () => {
+  return await AsyncStorage.getItem(KITCHEN_KEY);
+};
+
+// Mensaje para cocina — claro y directo, sin adornos
+export const buildKitchenMessage = (sale) => {
   const lines = [
-    `🧾 *Pedido #${order.id?.slice(-4) || '----'}*`,
+    `*PEDIDO #${sale.id?.slice(-4) || '----'}*`,
     ``,
-    `📦 ${order.productName || order.product?.name}`,
-    `   ${order.size?.name || order.size} × ${order.quantity}`,
+    `*${sale.productName}*`,
+    `Tamaño: ${sale.size}`,
+    `Cantidad: ${sale.quantity}x`,
+    sale.toppings?.length ? `Extras: ${sale.toppings.join(', ')}` : null,
     ``,
-    `💰 *Total: $${order.total?.toFixed(2)}*`,
-    ``,
-    `──────────────────`,
-    `🏦 *Datos para transferencia:*`,
-    `Banco: ${bankConfig.bank}`,
-    `Titular: ${bankConfig.holder}`,
-    `Cuenta: ${bankConfig.account}`,
-    `──────────────────`,
-    `Por favor enviá tu comprobante al responder este mensaje ✅`,
-  ];
+    `Total: $${sale.total?.toFixed(2)}`,
+  ].filter(Boolean);
   return encodeURIComponent(lines.join('\n'));
 };
 
+// Mensaje para cliente — con detalle completo
 export const buildTicketMessage = (sale) => {
-  const methods = { cash: '💵 Efectivo', card: '💳 Tarjeta', transfer: '🏦 Transferencia' };
+  const methods = { cash: 'Efectivo', card: 'Tarjeta', transfer: 'Transferencia' };
   const lines = [
-    `🧾 *Ticket #${sale.id?.slice(-4) || '----'}*`,
+    `*Pedido #${sale.id?.slice(-4) || '----'}*`,
     ``,
-    `📦 ${sale.productName}`,
-    `   ${sale.size} × ${sale.quantity}`,
-    sale.toppings?.length ? `   Extras: ${sale.toppings.join(', ')}` : null,
+    `*${sale.productName}*`,
+    `${sale.size} × ${sale.quantity}`,
+    sale.toppings?.length ? `Extras: ${sale.toppings.join(', ')}` : null,
     ``,
-    `💰 *Total: $${sale.total?.toFixed(2)}*`,
-    `   Pago: ${methods[sale.paymentMethod] || sale.paymentMethod}`,
+    `*Total: $${sale.total?.toFixed(2)}*`,
+    `Pago: ${methods[sale.paymentMethod] || sale.paymentMethod}`,
     ``,
-    `✅ ¡Gracias por tu compra!`,
+    `Gracias por tu compra`,
+  ].filter(Boolean);
+  return encodeURIComponent(lines.join('\n'));
+};
+
+export const buildTransferMessage = (order, bankConfig) => {
+  const lines = [
+    `*Pedido #${order.id?.slice(-4) || '----'}*`,
+    ``,
+    `*${order.productName || order.product?.name}*`,
+    `${order.size?.name || order.size} × ${order.quantity}`,
+    ``,
+    `*Total: $${order.total?.toFixed(2)}*`,
+    ``,
+    `Datos para transferir:`,
+    `Banco: ${bankConfig.bank}`,
+    `Titular: ${bankConfig.holder}`,
+    `Cuenta: ${bankConfig.account}`,
+    ``,
+    `Enviá tu comprobante al responder este mensaje.`,
   ].filter(Boolean);
   return encodeURIComponent(lines.join('\n'));
 };
