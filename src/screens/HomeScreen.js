@@ -242,6 +242,10 @@ export default function HomeScreen({ navigation }) {
               <View style={styles.cardInner}>
                 {product.customImage ? (
                   <Image source={{ uri: product.customImage }} style={styles.productImage} />
+                ) : product.iconName ? (
+                  <View style={[styles.iconBgCircle, {backgroundColor: product.iconBgColor || '#000'}]}>
+                    <MaterialCommunityIcons name={product.iconName} size={CARD_SIZE * 0.32} color="#fff" />
+                  </View>
                 ) : (
                   <ProductSticker type={product.stickerType} size={CARD_SIZE * 0.35} />
                 )}
@@ -483,4 +487,9 @@ const styles = StyleSheet.create({
   adminBtnText: { fontSize: 15, fontWeight: '900', letterSpacing: 2 },
   adminCancel: { paddingVertical: 14 },
   adminCancelText: { fontSize: 14, fontWeight: '600' },
+  iconBgCircle: {
+    width: CARD_SIZE * 0.62, height: CARD_SIZE * 0.62,
+    borderRadius: CARD_SIZE * 0.18,
+    alignItems: 'center', justifyContent: 'center',
+  },
 });

@@ -60,7 +60,7 @@ export default function PaymentScreen({ route, navigation }) {
       Animated.spring(snackAnim, { toValue: 0, useNativeDriver: true, tension: 70, friction: 10 }),
       Animated.timing(snackOpacity, { toValue: 1, duration: 200, useNativeDriver: true }),
     ]).start();
-    dismissTimer.current = setTimeout(() => dismissSnack(), 5000);
+    dismissTimer.current = setTimeout(() => dismissSnack(), 2500);
   };
 
   const dismissSnack = () => {
@@ -151,7 +151,7 @@ export default function PaymentScreen({ route, navigation }) {
       <View style={styles.header}>
         <TouchableOpacity
           style={[styles.backBtn, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}
-          onPress={() => navigation.goBack()}
+          onPress={() => completedSale ? navigation.popToTop() : navigation.goBack()}
         >
           <Feather name="chevron-left" size={22} color={theme.text} />
         </TouchableOpacity>
