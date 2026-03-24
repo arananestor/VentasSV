@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import {
   View, Text, TouchableOpacity, TextInput, ScrollView,
-  StyleSheet, SafeAreaView, Alert, Image, Modal, FlatList,Dimensions,
+  StyleSheet,  Alert, Image, Modal, FlatList,Dimensions,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import { Feather } from '@expo/vector-icons';
 import { MaterialCommunityIcons } from '@expo/vector-icons';

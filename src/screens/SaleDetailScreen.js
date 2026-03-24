@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import {
-  View, Text, StyleSheet, SafeAreaView, TouchableOpacity,
+  View, Text, StyleSheet,  TouchableOpacity,
   Image, ScrollView, ActivityIndicator, Linking,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '../context/ThemeContext';

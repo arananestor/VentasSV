@@ -2,6 +2,7 @@ import React from 'react';
 import { ActivityIndicator, View } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AppProvider } from './src/context/AppContext';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
 import { ThemeProvider, useTheme } from './src/context/ThemeContext';
@@ -69,16 +70,18 @@ function AppNavigator() {
 
 export default function App() {
   return (
-    <ThemeProvider>
-      <AuthProvider>
-        <AppProvider>
-          <TabProvider>
-            <NavigationContainer>
-              <AppNavigator />
-            </NavigationContainer>
-          </TabProvider>
-        </AppProvider>
-      </AuthProvider>
-    </ThemeProvider>
+    <SafeAreaProvider>
+      <ThemeProvider>
+        <AuthProvider>
+          <AppProvider>
+            <TabProvider>
+              <NavigationContainer>
+                <AppNavigator />
+              </NavigationContainer>
+            </TabProvider>
+          </AppProvider>
+        </AuthProvider>
+      </ThemeProvider>
+    </SafeAreaProvider>
   );
 }

@@ -5,13 +5,14 @@ import {
   TouchableOpacity,
   ScrollView,
   StyleSheet,
-  SafeAreaView,
+  
   TextInput,
   Alert,
   Modal,
   Image,
   Switch,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';

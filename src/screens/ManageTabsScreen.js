@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import {
   View, Text, TouchableOpacity, ScrollView, StyleSheet,
-  SafeAreaView, TextInput, Alert, Modal,
+   TextInput, Alert, Modal,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTab } from '../context/TabContext';
 import { useTheme } from '../context/ThemeContext';
 
