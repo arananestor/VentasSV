@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
   View, Text, TouchableOpacity, TextInput, ScrollView,
-  StyleSheet, SafeAreaView, Alert, Image, Modal, FlatList,
+  StyleSheet, SafeAreaView, Alert, Image, Modal, FlatList,Dimensions,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { Feather } from '@expo/vector-icons';
@@ -65,6 +65,10 @@ const FLAVOR_COLORS = [
   '#818CF8', '#F87171', '#2DD4BF', '#E879F9', '#FCD34D',
   '#6EE7B7', '#93C5FD', '#C084FC', '#FCA5A5', '#FDBA74',
 ];
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const ICON_COLS = 6;
+const ICON_BTN_SIZE = Math.floor((SCREEN_WIDTH - 32 - (ICON_COLS - 1) * 8) / ICON_COLS);
 
 export default function AddProductScreen({ navigation }) {
   const { addProduct } = useApp();
@@ -458,6 +462,7 @@ export default function AddProductScreen({ navigation }) {
               numColumns={6}
               keyExtractor={item => item}
               contentContainerStyle={styles.iconGrid}
+              columnWrapperStyle={{ grap: 8 }}
               showsVerticalScrollIndicator={false}
               renderItem={({ item }) => {
                 const isSelected = selectedIcon === item;
@@ -610,10 +615,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20, paddingVertical: 18,
   },
   sheetTitle: { fontSize: 13, fontWeight: '800', letterSpacing: 2 },
-  iconGrid: { paddingHorizontal: 12, paddingBottom: 40 },
+  iconGrid: { paddingHorizontal: 8, paddingBottom: 40, grap: 8 },
   iconGridBtn: {
-    width: 52, height: 52, margin: 4,
-    borderRadius: 14, alignItems: 'center', justifyContent: 'center', borderWidth: 1.5,
+    width: ICON_BTN_SIZE, height: ICON_BTN_SIZE,
+    borderRadius: 12, alignItems: 'center', justifyContent: 'center', borderWidth: 1.5,
   },
   paletteOverlay: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   paletteModal: { width: 300, borderRadius: 20, padding: 24, borderWidth: 1 },

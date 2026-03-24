@@ -93,8 +93,8 @@ export default function ProfileScreen({ navigation }) {
                 </View>
               </View>
             ) : (
-              <View style={[styles.avatar, { backgroundColor: currentWorker?.color || theme.accent }]}>
-                <Text style={[styles.avatarText, { color: theme.accentText }]}>
+              <View style={[styles.avatar, { backgroundColor: currentWorker?.color || '#000' }]}>
+                <Text style={[styles.avatarText, { color: '#fff' }]}>
                   {currentWorker?.name?.charAt(0)?.toUpperCase() || '?'}
                 </Text>
                 <View style={[styles.photoEdit, { backgroundColor: theme.card, borderColor: theme.bg }]}>
@@ -339,7 +339,7 @@ const styles = StyleSheet.create({
     width: 40, height: 40, borderRadius: 20,
     alignItems: 'center', justifyContent: 'center', marginRight: 12,
   },
-  workerInitial: { fontSize: 16, fontWeight: '800', color: '#000' },
+  workerInitial: { fontSize: 16, fontWeight: '800', color: '#fff' },
   workerInfo: { flex: 1 },
   workerName: { fontSize: 15, fontWeight: '700' },
   workerRole: { fontSize: 12, fontWeight: '600', marginTop: 2 },

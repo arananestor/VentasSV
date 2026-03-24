@@ -29,49 +29,59 @@ export const loadKitchenNumber = async () => {
   return await AsyncStorage.getItem(KITCHEN_KEY);
 };
 
-// Mensaje para cocina — claro y directo, sin adornos
 export const buildKitchenMessage = (sale) => {
   const lines = [
-    `*PEDIDO #${sale.id?.slice(-4) || '----'}*`,
+    `🎫 *PEDIDO #${sale.orderNumber || sale.id?.slice(-4) || '----'}*`,
     ``,
-    `*${sale.productName}*`,
-    `Tamaño: ${sale.size}`,
-    `Cantidad: ${sale.quantity}x`,
-    sale.toppings?.length ? `Extras: ${sale.toppings.join(', ')}` : null,
+    `🍽️ *${sale.productName}*`,
+    `📏 Tamaño: ${sale.size}`,
+    `🔢 Cantidad: ${sale.quantity}x`,
+    sale.toppings?.length
+      ? `✨ Extras:\n${sale.toppings.map(t => `   • ${t}`).join('\n')}`
+      : null,
+    sale.units?.length
+      ? `\n🧩 Unidades:\n${sale.units.map((u, i) =>
+          `   ${i + 1}. ${u.flavors?.map(f => f.name).join(' + ') || ''}${u.toppings?.length ? ' + ' + u.toppings.join(', ') : ''}`
+        ).join('\n')}`
+      : null,
     ``,
-    `Total: $${sale.total?.toFixed(2)}`,
+    `👤 Cajero: ${sale.workerName}`,
+    `⏰ ${new Date(sale.timestamp).toLocaleTimeString('es-SV', { hour: '2-digit', minute: '2-digit' })}`,
+    ``,
+    `✅ *PREPARAR YA*`,
   ].filter(Boolean);
   return encodeURIComponent(lines.join('\n'));
 };
 
-// Mensaje para cliente — con detalle completo
 export const buildTicketMessage = (sale) => {
   const methods = { cash: 'Efectivo', card: 'Tarjeta', transfer: 'Transferencia' };
   const lines = [
-    `*Pedido #${sale.id?.slice(-4) || '----'}*`,
+    `🎫 *Tu pedido #${sale.orderNumber || sale.id?.slice(-4) || '----'}*`,
     ``,
     `*${sale.productName}*`,
     `${sale.size} × ${sale.quantity}`,
-    sale.toppings?.length ? `Extras: ${sale.toppings.join(', ')}` : null,
+    sale.toppings?.length
+      ? `✨ Extras: ${sale.toppings.join(', ')}`
+      : null,
     ``,
-    `*Total: $${sale.total?.toFixed(2)}*`,
-    `Pago: ${methods[sale.paymentMethod] || sale.paymentMethod}`,
+    `💰 Total: $${sale.total?.toFixed(2)}`,
+    `💳 Pago: ${methods[sale.paymentMethod] || sale.paymentMethod}`,
     ``,
-    `Gracias por tu compra`,
+    `✅ ¡Gracias! Tu pedido está en preparación.`,
   ].filter(Boolean);
   return encodeURIComponent(lines.join('\n'));
 };
 
 export const buildTransferMessage = (order, bankConfig) => {
   const lines = [
-    `*Pedido #${order.id?.slice(-4) || '----'}*`,
+    `🎫 *Pedido #${order.orderNumber || order.id?.slice(-4) || '----'}*`,
     ``,
     `*${order.productName || order.product?.name}*`,
     `${order.size?.name || order.size} × ${order.quantity}`,
     ``,
-    `*Total: $${order.total?.toFixed(2)}*`,
+    `💰 Total: $${order.total?.toFixed(2)}`,
     ``,
-    `Datos para transferir:`,
+    `🏦 Datos para transferir:`,
     `Banco: ${bankConfig.bank}`,
     `Titular: ${bankConfig.holder}`,
     `Cuenta: ${bankConfig.account}`,
