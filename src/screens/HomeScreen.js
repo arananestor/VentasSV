@@ -140,17 +140,6 @@ export default function HomeScreen({ navigation }) {
               : <Feather name="edit-2" size={16} color={theme.textMuted} />
             }
           </TouchableOpacity>
-          <TouchableOpacity style={styles.profileBtn} onPress={() => navigation.navigate('Profile')}>
-            {currentWorker?.photo ? (
-              <Image source={{ uri: currentWorker.photo }} style={styles.profilePhoto} />
-            ) : (
-              <View style={[styles.profileCircle, { backgroundColor: theme.mode === 'dark' ? '#fff' : '#000' }]}>
-                  <Text style={[styles.profileInitial, { color: theme.mode === 'dark' ? '#000' : '#fff' }]}>
-                  {currentWorker?.name?.charAt(0)?.toUpperCase() || '?'}
-                </Text>
-              </View>
-            )}
-          </TouchableOpacity>
         </View>
       </View>
 
@@ -402,10 +391,7 @@ const styles = StyleSheet.create({
     borderWidth: 1, paddingHorizontal: 14,
   },
   editBtnText: { fontSize: 13, fontWeight: '700' },
-  profileBtn: { overflow: 'hidden' },
-  profilePhoto: { width: 44, height: 44, borderRadius: 22 },
-  profileCircle: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
-  profileInitial: { fontSize: 18, fontWeight: '900' },
+ profileInitial: { fontSize: 18, fontWeight: '900' },
   workerBar: {
     flexDirection: 'row', alignItems: 'center',
     paddingHorizontal: PADDING, paddingTop: 10, paddingBottom: 6, gap: 8,

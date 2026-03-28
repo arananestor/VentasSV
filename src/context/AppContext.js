@@ -43,21 +43,33 @@ export function AppProvider({ children }) {
   };
 
   const addSale = async (sale) => {
-    // Número de pedido secuencial del día — #0001, #0002...
     const today = new Date().toDateString();
     const todaySales = sales.filter(s => new Date(s.timestamp).toDateString() === today);
     const orderNumber = String(todaySales.length + 1).padStart(4, '0');
-
     const newSale = {
       ...sale,
       id: Date.now().toString(),
       orderNumber,
+      orderStatus: 'new', // new | processing | done
       timestamp: new Date().toISOString(),
     };
     const newSales = [...sales, newSale];
     setSales(newSales);
     await AsyncStorage.setItem('ventasv_sales', JSON.stringify(newSales));
     return newSale;
+  };
+
+  const updateSaleStatus = async (saleId, status) => {
+    const newSales = sales.map(s =>
+      s.id === saleId ? {
+        ...s,
+        orderStatus: status,
+        processingStartedAt: status === 'processing' ? new Date().toISOString() : s.processingStartedAt,
+        completedAt: status === 'done' ? new Date().toISOString() : s.completedAt,
+      } : s
+    );
+    setSales(newSales);
+    await AsyncStorage.setItem('ventasv_sales', JSON.stringify(newSales));
   };
 
   const getTodaySales = () => {
@@ -72,6 +84,7 @@ export function AppProvider({ children }) {
       products, sales,
       addProduct, updateProduct, deleteProduct,
       addSale, getTodaySales, getAllSales,
+      updateSaleStatus,
     }}>
       {children}
     </AppContext.Provider>

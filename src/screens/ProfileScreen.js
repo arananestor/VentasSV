@@ -94,8 +94,8 @@ export default function ProfileScreen({ navigation }) {
                 </View>
               </View>
             ) : (
-              <View style={[styles.avatar, { backgroundColor: currentWorker?.color || '#000' }]}>
-                <Text style={[styles.avatarText, { color: '#fff' }]}>
+              <View style={[styles.avatar, { backgroundColor: theme.mode === 'dark' ? '#fff' : '#000' }]}>
+                <Text style={[styles.avatarText, { color: theme.mode === 'dark' ? '#000' : '#fff' }]}>
                   {currentWorker?.name?.charAt(0)?.toUpperCase() || '?'}
                 </Text>
                 <View style={[styles.photoEdit, { backgroundColor: theme.card, borderColor: theme.bg }]}>
@@ -187,8 +187,8 @@ export default function ProfileScreen({ navigation }) {
                 {worker.photo ? (
                   <Image source={{ uri: worker.photo }} style={styles.workerPhoto} />
                 ) : (
-                  <View style={[styles.workerAvatar, { backgroundColor: worker.color || '#333' }]}>
-                    <Text style={styles.workerInitial}>{worker.name.charAt(0).toUpperCase()}</Text>
+                  <View style={[styles.workerAvatar, { backgroundColor: theme.mode === 'dark' ? '#fff' : '#000' }]}>
+                    <Text style={[styles.workerInitial, { color: theme.mode === 'dark' ? '#000' : '#fff' }]}>{worker.name.charAt(0).toUpperCase()}</Text>
                   </View>
                 )}
                 <View style={styles.workerInfo}>
