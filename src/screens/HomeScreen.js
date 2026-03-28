@@ -145,7 +145,7 @@ export default function HomeScreen({ navigation }) {
               <Image source={{ uri: currentWorker.photo }} style={styles.profilePhoto} />
             ) : (
               <View style={[styles.profileCircle, { backgroundColor: currentWorker?.color || theme.accent }]}>
-                <Text style={[styles.profileInitial, { color: theme.accentText }]}>
+                <Text style={[styles.profileInitial, { color: '#fff' }]}>
                   {currentWorker?.name?.charAt(0)?.toUpperCase() || '?'}
                 </Text>
               </View>
