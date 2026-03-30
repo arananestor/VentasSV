@@ -87,10 +87,8 @@ export default function OrderBuilderScreen({ route, navigation }) {
   };
 
   const getToppingExtra = (unit) => {
-    const selected = unit.toppings.length;
-    const paidCount = Math.max(0, selected - includedToppings);
-    let extra = 0;
     const paidToppings = unit.toppings.slice(includedToppings);
+    let extra = 0;
     paidToppings.forEach(tName => {
       const t = product.toppings?.find(tp => tp.name === tName);
       if (t && t.price > 0) extra += t.price;
@@ -112,9 +110,12 @@ export default function OrderBuilderScreen({ route, navigation }) {
         quantity: units.length,
         total: calcTotal(),
         units: units.map(u => ({
-          flavors: u.flavors,
+          flavors: u.flavors.map(fn => {
+            const fl = product.flavors?.find(f => f.name === fn);
+            return { name: fn, color: fl?.color || '#888' };
+          }),
           toppings: u.toppings,
-          notes: u.notes,
+          note: u.notes,
         })),
         toppings: [...new Set(units.flatMap(u => u.toppings))],
       },
@@ -123,10 +124,11 @@ export default function OrderBuilderScreen({ route, navigation }) {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.bg }]}>
-      {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity style={[styles.backBtn, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}
-          onPress={() => navigation.goBack()}>
+        <TouchableOpacity
+          style={[styles.backBtn, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}
+          onPress={() => navigation.goBack()}
+        >
           <Text style={[styles.backText, { color: theme.text }]}>‹</Text>
         </TouchableOpacity>
         <Text style={[styles.headerTitle, { color: theme.text }]}>{product.name}</Text>
@@ -135,7 +137,6 @@ export default function OrderBuilderScreen({ route, navigation }) {
         </View>
       </View>
 
-      {/* Size */}
       {product.sizes.length > 1 && (
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.sizeBar}>
           {product.sizes.map((s, i) => (
@@ -151,7 +152,6 @@ export default function OrderBuilderScreen({ route, navigation }) {
         </ScrollView>
       )}
 
-      {/* Unit tabs */}
       <View style={styles.unitWrap}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} ref={scrollRef} contentContainerStyle={styles.unitRow}>
           {units.map((u, i) => {
@@ -173,9 +173,10 @@ export default function OrderBuilderScreen({ route, navigation }) {
               >
                 <Text style={[styles.unitNum, { color: isAct ? theme.text : theme.textMuted }]}>#{u.number}</Text>
                 <View style={styles.dotRow}>
-                  {dots.length > 0 ? dots.map((c, di) => (
-                    <View key={di} style={[styles.dot, { backgroundColor: c }]} />
-                  )) : <View style={[styles.dot, { backgroundColor: theme.cardBorder }]} />}
+                  {dots.length > 0
+                    ? dots.map((c, di) => <View key={di} style={[styles.dot, { backgroundColor: c }]} />)
+                    : <View style={[styles.dot, { backgroundColor: theme.cardBorder }]} />
+                  }
                 </View>
               </TouchableOpacity>
             );
@@ -186,17 +187,17 @@ export default function OrderBuilderScreen({ route, navigation }) {
         </ScrollView>
       </View>
 
-      {/* Builder */}
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.builder}>
         <View style={styles.activeLabelRow}>
           <Text style={[styles.activeLabel, { color: theme.text }]}>{product.name} #{active.number}</Text>
-          <TouchableOpacity style={[styles.dupBtn, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}
-            onPress={duplicateCurrent}>
+          <TouchableOpacity
+            style={[styles.dupBtn, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}
+            onPress={duplicateCurrent}
+          >
             <Text style={[styles.dupText, { color: theme.textSecondary }]}>📋 Duplicar</Text>
           </TouchableOpacity>
         </View>
 
-        {/* Components */}
         {hasFlavors && (
           <View style={styles.section}>
             <View style={styles.sectionHead}>
@@ -225,17 +226,14 @@ export default function OrderBuilderScreen({ route, navigation }) {
           </View>
         )}
 
-        {/* Toppings */}
         {hasToppings && (
           <View style={styles.section}>
             <View style={styles.sectionHead}>
               <Text style={[styles.sectionTitle, { color: theme.textMuted }]}>TOPPINGS</Text>
-              <Text style={[styles.sectionCount, { color: theme.textMuted }]}>
-                {includedToppings} gratis
-              </Text>
+              <Text style={[styles.sectionCount, { color: theme.textMuted }]}>{includedToppings} gratis</Text>
             </View>
             <View style={styles.toppingGrid}>
-              {product.toppings.map((t, tIdx) => {
+              {product.toppings.map((t) => {
                 const sel = active.toppings.includes(t.name);
                 const selIndex = active.toppings.indexOf(t.name);
                 const isPaid = sel && selIndex >= includedToppings;
@@ -247,9 +245,7 @@ export default function OrderBuilderScreen({ route, navigation }) {
                       isPaid && { backgroundColor: '#FF9500', borderColor: '#FF9500' }]}
                     onPress={() => toggleTopping(t.name)}
                   >
-                    <Text style={[styles.toppingName,
-                      { color: theme.textSecondary },
-                      sel && { color: '#FFF' }]}>
+                    <Text style={[styles.toppingName, { color: theme.textSecondary }, sel && { color: '#FFF' }]}>
                       {t.name}
                     </Text>
                     {isPaid && t.price > 0 && (
@@ -262,7 +258,6 @@ export default function OrderBuilderScreen({ route, navigation }) {
           </View>
         )}
 
-        {/* Notes */}
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: theme.textMuted }]}>NOTA RÁPIDA</Text>
           <View style={[styles.notesBox, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
@@ -281,7 +276,6 @@ export default function OrderBuilderScreen({ route, navigation }) {
         </View>
       </ScrollView>
 
-      {/* Bottom */}
       <View style={[styles.bottomBar, { backgroundColor: theme.bg, borderColor: theme.cardBorder }]}>
         <TouchableOpacity style={[styles.cobrarBtn, { backgroundColor: theme.accent }]} onPress={handleCobrar}>
           <Text style={[styles.cobrarText, { color: theme.accentText }]}>COBRAR</Text>
