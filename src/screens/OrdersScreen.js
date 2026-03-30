@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   Animated, PanResponder, Dimensions, useWindowDimensions,
-  Modal, Image,
+  Modal, Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
@@ -10,6 +10,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useApp } from '../context/AppContext';
 import { useTheme } from '../context/ThemeContext';
 
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const STATUS = {
   new:        { label: 'NUEVOS',     color: '#F77F00' },
   processing: { label: 'EN PROCESO', color: '#4361EE' },
@@ -17,16 +18,28 @@ const STATUS = {
 };
 const KEYS = ['new', 'processing', 'done'];
 const MIN_SECTION = 120;
+const LONG_PRESS_DELAY = 600;
 
 // ─── MODAL COCINERO ──────────────────────────────────────
 function CookModal({ sale, visible, onClose, onDone, theme }) {
-  // HOOKS SIEMPRE PRIMERO — nunca después de un return
   const [elapsed, setElapsed] = useState('');
+  const [currentPage, setCurrentPage] = useState(0);
+  const [completedUnits, setCompletedUnits] = useState([]);
+  const [unlocked, setUnlocked] = useState(false);
+  const swipeAnim = useRef(new Animated.Value(0)).current;
+  const swipeBg = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     if (!visible || !sale) return;
-    setElapsed('');
-    if (!sale.processingStartedAt) return;
+    setCurrentPage(0);
+    setCompletedUnits([]);
+    setUnlocked(false);
+    swipeAnim.setValue(0);
+    swipeBg.setValue(0);
+  }, [visible, sale?.id]);
+
+  useEffect(() => {
+    if (!visible || !sale?.processingStartedAt) return;
     const iv = setInterval(() => {
       const diff = Math.floor((Date.now() - new Date(sale.processingStartedAt)) / 1000);
       setElapsed(`${Math.floor(diff/60).toString().padStart(2,'0')}:${(diff%60).toString().padStart(2,'0')}`);
@@ -35,6 +48,54 @@ function CookModal({ sale, visible, onClose, onDone, theme }) {
   }, [visible, sale?.processingStartedAt]);
 
   if (!sale) return null;
+
+  const pages = sale.units?.length > 0
+    ? sale.units
+    : [{ flavors: [], toppings: sale.toppings || [], note: sale.note }];
+  const totalPages = pages.length;
+  const isLastPage = currentPage === totalPages - 1;
+  const currentUnit = pages[currentPage];
+
+  const bgColor = swipeBg.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['transparent', STATUS.done.color],
+  });
+
+  const swipePanResponder = PanResponder.create({
+    onStartShouldSetPanResponder: () => true,
+    onMoveShouldSetPanResponder: (_, gs) => Math.abs(gs.dx) > 10 && gs.dx < 0,
+    onPanResponderMove: (_, gs) => {
+      if (gs.dx < 0) {
+        swipeAnim.setValue(gs.dx);
+        swipeBg.setValue(Math.min(1, Math.abs(gs.dx) / (SCREEN_WIDTH * 0.35)));
+      }
+    },
+    onPanResponderRelease: (_, gs) => {
+      const threshold = -(SCREEN_WIDTH * 0.32);
+      if (gs.dx < threshold) {
+        if (isLastPage) {
+          Animated.sequence([
+            Animated.timing(swipeAnim, { toValue: -SCREEN_WIDTH, duration: 200, useNativeDriver: false }),
+            Animated.timing(swipeAnim, { toValue: 0, duration: 300, useNativeDriver: false }),
+          ]).start(() => {
+            swipeBg.setValue(0);
+            setUnlocked(true);
+            setCompletedUnits(prev => [...prev, currentPage]);
+          });
+        } else {
+          Animated.timing(swipeAnim, { toValue: -SCREEN_WIDTH, duration: 200, useNativeDriver: false }).start(() => {
+            swipeAnim.setValue(0);
+            swipeBg.setValue(0);
+            setCompletedUnits(prev => [...prev, currentPage]);
+            setCurrentPage(p => p + 1);
+          });
+        }
+      } else {
+        Animated.spring(swipeAnim, { toValue: 0, useNativeDriver: false }).start();
+        Animated.timing(swipeBg, { toValue: 0, duration: 200, useNativeDriver: false }).start();
+      }
+    },
+  });
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
@@ -46,113 +107,143 @@ function CookModal({ sale, visible, onClose, onDone, theme }) {
           <View style={[cookStyles.numSection, { borderBottomColor: STATUS.processing.color + '40' }]}>
             <Text style={[cookStyles.numLabel, { color: STATUS.processing.color }]}>PEDIDO EN PREPARACIÓN</Text>
             <Text style={[cookStyles.numBig, { color: theme.text }]}>#{sale.orderNumber || sale.id?.slice(-4)}</Text>
-            {elapsed ? (
-              <Text style={[cookStyles.timer, { color: STATUS.processing.color }]}>⏱ {elapsed}</Text>
-            ) : null}
+            {elapsed ? <Text style={[cookStyles.timer, { color: STATUS.processing.color }]}>⏱ {elapsed}</Text> : null}
           </View>
 
-          <ScrollView contentContainerStyle={cookStyles.scroll} showsVerticalScrollIndicator={false}>
+          {/* Info rápida */}
+          <View style={[cookStyles.infoBar, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+            <View style={cookStyles.infoItem}>
+              <Text style={[cookStyles.infoLabel, { color: theme.textMuted }]}>PRODUCTO</Text>
+              <Text style={[cookStyles.infoValue, { color: theme.text }]} numberOfLines={2}>{sale.productName}</Text>
+            </View>
+            <View style={[cookStyles.infoDivider, { backgroundColor: theme.cardBorder }]} />
+            <View style={cookStyles.infoItem}>
+              <Text style={[cookStyles.infoLabel, { color: theme.textMuted }]}>TAMAÑO</Text>
+              <Text style={[cookStyles.infoValue, { color: theme.text }]}>{sale.size}</Text>
+            </View>
+            <View style={[cookStyles.infoDivider, { backgroundColor: theme.cardBorder }]} />
+            <View style={cookStyles.infoItem}>
+              <Text style={[cookStyles.infoLabel, { color: theme.textMuted }]}>CANT.</Text>
+              <Text style={[cookStyles.infoValueBig, { color: STATUS.processing.color }]}>{sale.quantity}x</Text>
+            </View>
+          </View>
 
-            {/* Info rápida */}
-            <View style={[cookStyles.infoBar, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
-              <View style={cookStyles.infoItem}>
-                <Text style={[cookStyles.infoLabel, { color: theme.textMuted }]}>PRODUCTO</Text>
-                <Text style={[cookStyles.infoValue, { color: theme.text }]}>{sale.productName}</Text>
-              </View>
-              <View style={[cookStyles.infoDivider, { backgroundColor: theme.cardBorder }]} />
-              <View style={cookStyles.infoItem}>
-                <Text style={[cookStyles.infoLabel, { color: theme.textMuted }]}>TAMAÑO</Text>
-                <Text style={[cookStyles.infoValue, { color: theme.text }]}>{sale.size}</Text>
-              </View>
-              <View style={[cookStyles.infoDivider, { backgroundColor: theme.cardBorder }]} />
-              <View style={cookStyles.infoItem}>
-                <Text style={[cookStyles.infoLabel, { color: theme.textMuted }]}>CANT.</Text>
-                <Text style={[cookStyles.infoValueBig, { color: STATUS.processing.color }]}>{sale.quantity}x</Text>
-              </View>
+          {/* Indicador de páginas */}
+          {totalPages > 1 && (
+            <View style={cookStyles.pageIndicator}>
+              {pages.map((_, i) => (
+                <View key={i} style={[
+                  cookStyles.pageDot,
+                  {
+                    backgroundColor: completedUnits.includes(i)
+                      ? STATUS.done.color
+                      : i === currentPage
+                        ? STATUS.processing.color
+                        : theme.cardBorder,
+                    width: i === currentPage ? 20 : 8,
+                  },
+                ]} />
+              ))}
+            </View>
+          )}
+
+          {/* Contenido de la unidad — scroll libre */}
+          <ScrollView
+            style={cookStyles.unitPage}
+            contentContainerStyle={{ paddingBottom: 16 }}
+            showsVerticalScrollIndicator={false}
+          >
+            <View style={[cookStyles.unitHeader, { backgroundColor: STATUS.processing.color }]}>
+              <Text style={cookStyles.unitHeaderText}>
+                {totalPages > 1 ? `UNIDAD ${currentPage + 1} DE ${totalPages}` : 'DETALLE DEL PEDIDO'}
+              </Text>
+              {completedUnits.includes(currentPage) && (
+                <Text style={cookStyles.unitDoneCheck}>✓</Text>
+              )}
             </View>
 
-            {/* Unidades con todos los detalles */}
-            {sale.units?.length > 0 ? (
-              sale.units.map((unit, i) => (
-                <View key={i} style={[cookStyles.unitCard, { borderColor: STATUS.processing.color + '50', backgroundColor: theme.card }]}>
-                  <View style={[cookStyles.unitHeader, { backgroundColor: STATUS.processing.color }]}>
-                    <Text style={cookStyles.unitHeaderText}>UNIDAD {i + 1} DE {sale.units.length}</Text>
-                  </View>
-
-                  {unit.flavors?.length > 0 && (
-                    <View style={cookStyles.flavorsSection}>
-                      <Text style={[cookStyles.sectionLabel, { color: theme.textMuted }]}>
-                        SABORES / COMPONENTES
-                      </Text>
-                      <View style={cookStyles.flavorsGrid}>
-                        {unit.flavors.map((f, fi) => (
-                          <View key={fi} style={[cookStyles.flavorBlock, { backgroundColor: f.color || '#888' }]}>
-                            <Text style={cookStyles.flavorBlockText}>{f.name || f}</Text>
-                          </View>
-                        ))}
-                      </View>
+            {currentUnit.flavors?.length > 0 && (
+              <View style={cookStyles.flavorsSection}>
+                <Text style={[cookStyles.sectionLabel, { color: theme.textMuted }]}>SABORES / COMPONENTES</Text>
+                <View style={cookStyles.flavorsGrid}>
+                  {currentUnit.flavors.map((f, fi) => (
+                    <View key={fi} style={[cookStyles.flavorBlock, { backgroundColor: f.color || '#888' }]}>
+                      <Text style={cookStyles.flavorBlockText}>{f.name || f}</Text>
                     </View>
-                  )}
-
-                  {unit.toppings?.length > 0 && (
-                    <View style={[cookStyles.toppingsSection, { borderTopColor: theme.cardBorder }]}>
-                      <Text style={[cookStyles.sectionLabel, { color: theme.textMuted }]}>EXTRAS</Text>
-                      <View style={cookStyles.toppingsGrid}>
-                        {unit.toppings.map((t, ti) => (
-                          <View key={ti} style={[cookStyles.toppingBlock, { backgroundColor: theme.bg, borderColor: theme.cardBorder }]}>
-                            <Text style={[cookStyles.toppingBlockText, { color: theme.text }]}>{t}</Text>
-                          </View>
-                        ))}
-                      </View>
-                    </View>
-                  )}
-
-                  {unit.note ? (
-                    <View style={cookStyles.noteBox}>
-                      <Text style={cookStyles.noteIcon}>📝</Text>
-                      <Text style={cookStyles.noteText}>{unit.note}</Text>
-                    </View>
-                  ) : null}
+                  ))}
                 </View>
-              ))
-            ) : (
-              // Sin unidades pero con extras globales
-              sale.toppings?.length > 0 && (
-                <View style={[cookStyles.unitCard, { borderColor: STATUS.processing.color + '50', backgroundColor: theme.card }]}>
-                  <View style={[cookStyles.unitHeader, { backgroundColor: STATUS.processing.color }]}>
-                    <Text style={cookStyles.unitHeaderText}>EXTRAS DEL PEDIDO</Text>
-                  </View>
-                  <View style={cookStyles.toppingsSection}>
-                    <View style={cookStyles.toppingsGrid}>
-                      {sale.toppings.map((t, ti) => (
-                        <View key={ti} style={[cookStyles.toppingBlock, { backgroundColor: theme.bg, borderColor: theme.cardBorder }]}>
-                          <Text style={[cookStyles.toppingBlockText, { color: theme.text }]}>{t}</Text>
-                        </View>
-                      ))}
-                    </View>
-                  </View>
-                </View>
-              )
-            )}
-
-            {/* Nota general destacada */}
-            {sale.note && (
-              <View style={cookStyles.generalNote}>
-                <Text style={cookStyles.noteIcon}>⚠️</Text>
-                <Text style={cookStyles.generalNoteText}>{sale.note}</Text>
               </View>
             )}
 
-            <View style={{ height: 16 }} />
+            {currentUnit.toppings?.length > 0 && (
+              <View style={[cookStyles.toppingsSection, {
+                borderTopWidth: currentUnit.flavors?.length > 0 ? 1 : 0,
+                borderTopColor: theme.cardBorder,
+              }]}>
+                <Text style={[cookStyles.sectionLabel, { color: theme.textMuted }]}>EXTRAS</Text>
+                <View style={cookStyles.toppingsGrid}>
+                  {currentUnit.toppings.map((t, ti) => (
+                    <View key={ti} style={[cookStyles.toppingBlock, { backgroundColor: theme.bg, borderColor: theme.cardBorder }]}>
+                      <Text style={[cookStyles.toppingBlockText, { color: theme.text }]}>{t}</Text>
+                    </View>
+                  ))}
+                </View>
+              </View>
+            )}
+
+            {(currentUnit.note || currentUnit.notes) ? (
+              <View style={cookStyles.noteBox}>
+                <Text style={cookStyles.noteIcon}>📝</Text>
+                <Text style={cookStyles.noteText}>{currentUnit.note || currentUnit.notes}</Text>
+              </View>
+            ) : null}
+
+            {!currentUnit.flavors?.length && !currentUnit.toppings?.length && !currentUnit.note && !currentUnit.notes && (
+              <View style={[cookStyles.emptyUnit, { borderColor: theme.cardBorder }]}>
+                <Text style={[cookStyles.emptyUnitText, { color: theme.textMuted }]}>Sin detalles adicionales</Text>
+              </View>
+            )}
+
+            {completedUnits.includes(currentPage) && !isLastPage && (
+              <View style={[cookStyles.unitDoneBanner, { backgroundColor: STATUS.done.color + '20' }]}>
+                <Text style={[cookStyles.unitDoneBannerText, { color: STATUS.done.color }]}>✓ Unidad completada</Text>
+                <TouchableOpacity onPress={() => setCurrentPage(p => p + 1)}>
+                  <Text style={[cookStyles.nextUnitText, { color: STATUS.processing.color }]}>Siguiente →</Text>
+                </TouchableOpacity>
+              </View>
+            )}
           </ScrollView>
 
-          {/* Botón LISTO grande */}
+          {/* Área de swipe — separada del scroll */}
+          {!completedUnits.includes(currentPage) && (
+            <Animated.View
+              style={[cookStyles.swipeArea, { borderColor: theme.cardBorder, backgroundColor: bgColor }]}
+              {...swipePanResponder.panHandlers}
+            >
+              <Animated.View style={{ transform: [{ translateX: swipeAnim }] }}>
+                <Text style={[cookStyles.swipeHintText, { color: theme.textMuted }]}>
+                  {isLastPage ? '← Deslizá para confirmar todo listo' : '← Deslizá cuando esta unidad esté lista'}
+                </Text>
+              </Animated.View>
+            </Animated.View>
+          )}
+
+          {/* Footer — botón LISTO */}
           <View style={[cookStyles.footer, { borderTopColor: theme.cardBorder, backgroundColor: theme.bg }]}>
             <TouchableOpacity
-              style={[cookStyles.doneBtn, { backgroundColor: STATUS.done.color }]}
-              onPress={() => { onDone(sale.id); onClose(); }}
+              style={[cookStyles.doneBtn, {
+                backgroundColor: unlocked ? STATUS.done.color : theme.cardBorder,
+                opacity: unlocked ? 1 : 0.55,
+              }]}
+              onPress={() => { if (unlocked) { onDone(sale.id); onClose(); } }}
+              disabled={!unlocked}
             >
-              <Text style={cookStyles.doneBtnText}>✓  PEDIDO LISTO</Text>
+              {unlocked
+                ? <Text style={cookStyles.doneBtnText}>✓  PEDIDO LISTO</Text>
+                : <Text style={cookStyles.doneBtnLocked}>
+                    🔒  Completá todas las unidades ({completedUnits.length}/{totalPages})
+                  </Text>
+              }
             </TouchableOpacity>
             <TouchableOpacity style={cookStyles.closeLink} onPress={onClose}>
               <Text style={[cookStyles.closeLinkText, { color: theme.textMuted }]}>Cerrar sin marcar como listo</Text>
@@ -166,10 +257,8 @@ function CookModal({ sale, visible, onClose, onDone, theme }) {
 
 // ─── MODAL DETALLE NORMAL ────────────────────────────────
 function OrderDetailModal({ sale, visible, onClose, onMove, theme }) {
-  // HOOKS SIEMPRE PRIMERO
   const status = sale ? (STATUS[sale.orderStatus] || STATUS.new) : STATUS.new;
   const curIdx = sale ? KEYS.indexOf(sale.orderStatus || 'new') : 0;
-
   if (!sale) return null;
 
   return (
@@ -194,12 +283,10 @@ function OrderDetailModal({ sale, visible, onClose, onMove, theme }) {
           </View>
 
           <ScrollView contentContainerStyle={detailStyles.scroll} showsVerticalScrollIndicator={false}>
-
             <View style={[detailStyles.statusBadge, { backgroundColor: status.color + '20', borderColor: status.color + '40' }]}>
               <Text style={[detailStyles.statusBadgeText, { color: status.color }]}>{status.label}</Text>
             </View>
 
-            {/* Info básica */}
             <View style={[detailStyles.section, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
               <Text style={[detailStyles.productName, { color: theme.text }]}>{sale.productName}</Text>
               <View style={[detailStyles.divider, { backgroundColor: theme.cardBorder }]} />
@@ -216,7 +303,6 @@ function OrderDetailModal({ sale, visible, onClose, onMove, theme }) {
               ))}
             </View>
 
-            {/* Unidades */}
             {sale.units?.length > 0 && (
               <View style={{ marginBottom: 16 }}>
                 <Text style={[detailStyles.blockTitle, { color: theme.textMuted }]}>UNIDADES</Text>
@@ -252,9 +338,9 @@ function OrderDetailModal({ sale, visible, onClose, onMove, theme }) {
                         </View>
                       </View>
                     )}
-                    {unit.note ? (
+                    {(unit.note || unit.notes) ? (
                       <View style={[detailStyles.noteBox, { backgroundColor: '#FFF9C4', borderColor: '#F9A825', margin: 12 }]}>
-                        <Text style={{ fontSize: 12, fontWeight: '600', color: '#5D4037' }}>📝 {unit.note}</Text>
+                        <Text style={{ fontSize: 12, fontWeight: '600', color: '#5D4037' }}>📝 {unit.note || unit.notes}</Text>
                       </View>
                     ) : null}
                   </View>
@@ -262,7 +348,6 @@ function OrderDetailModal({ sale, visible, onClose, onMove, theme }) {
               </View>
             )}
 
-            {/* Extras sin unidades */}
             {!sale.units?.length && sale.toppings?.length > 0 && (
               <View style={{ marginBottom: 16 }}>
                 <Text style={[detailStyles.blockTitle, { color: theme.textMuted }]}>EXTRAS</Text>
@@ -284,7 +369,6 @@ function OrderDetailModal({ sale, visible, onClose, onMove, theme }) {
               </View>
             )}
 
-            {/* Acciones */}
             {sale.orderStatus !== 'done' && curIdx < KEYS.length - 1 && (
               <TouchableOpacity
                 style={[detailStyles.actionBtn, { backgroundColor: STATUS[KEYS[curIdx + 1]].color }]}
@@ -295,7 +379,6 @@ function OrderDetailModal({ sale, visible, onClose, onMove, theme }) {
                 </Text>
               </TouchableOpacity>
             )}
-
             <View style={{ height: 40 }} />
           </ScrollView>
         </View>
@@ -304,12 +387,14 @@ function OrderDetailModal({ sale, visible, onClose, onMove, theme }) {
   );
 }
 
-// ─── TARJETA ─────────────────────────────────────────────
+// ─── TARJETA PRINCIPAL ───────────────────────────────────
 function OrderCard({ sale, theme, onTap, onDragStart, onDragMove, onDragEnd }) {
   const [elapsed, setElapsed] = useState('');
   const scale = useRef(new Animated.Value(1)).current;
   const cardRef = useRef(null);
-  const dragging = useRef(false);
+  const longPressTimer = useRef(null);
+  const isDragging = useRef(false);
+  const dragStarted = useRef(false);
 
   useEffect(() => {
     if (sale.orderStatus === 'processing' && sale.processingStartedAt) {
@@ -325,161 +410,185 @@ function OrderCard({ sale, theme, onTap, onDragStart, onDragMove, onDragEnd }) {
     }
   }, [sale.orderStatus]);
 
+  const liftCard = () => Animated.spring(scale, { toValue: 1.05, useNativeDriver: false, tension: 200, friction: 8 }).start();
+  const dropCard = () => Animated.spring(scale, { toValue: 1, useNativeDriver: false }).start();
+
   const panResponder = useRef(PanResponder.create({
-    onStartShouldSetPanResponder: () => false,
-    onMoveShouldSetPanResponder: (_, gs) =>
-      Math.sqrt(gs.dx * gs.dx + gs.dy * gs.dy) > 10,
-    onPanResponderGrant: (e) => {
-      dragging.current = true;
-      Animated.spring(scale, { toValue: 0.95, useNativeDriver: false, tension: 200 }).start();
-      cardRef.current?.measure((x, y, w, h, px, py) => {
-        onDragStart(sale, { x: px, y: py, width: w, height: h });
-      });
+    onStartShouldSetPanResponder: () => true,
+    onMoveShouldSetPanResponder: () => isDragging.current,
+    onPanResponderGrant: () => {
+      dragStarted.current = false;
+      isDragging.current = false;
+      longPressTimer.current = setTimeout(() => {
+        isDragging.current = true;
+        dragStarted.current = true;
+        liftCard();
+        cardRef.current?.measure((x, y, w, h, px, py) => {
+          onDragStart(sale, { x: px, y: py, width: w, height: h });
+        });
+      }, LONG_PRESS_DELAY);
     },
     onPanResponderMove: (e) => {
-      onDragMove(e.nativeEvent.pageX, e.nativeEvent.pageY);
+      if (isDragging.current && dragStarted.current) {
+        onDragMove(e.nativeEvent.pageX, e.nativeEvent.pageY);
+      }
     },
     onPanResponderRelease: (e) => {
-      dragging.current = false;
-      Animated.spring(scale, { toValue: 1, useNativeDriver: false }).start();
-      onDragEnd(sale, e.nativeEvent.pageX, e.nativeEvent.pageY);
+      if (longPressTimer.current) clearTimeout(longPressTimer.current);
+      if (isDragging.current && dragStarted.current) {
+        dropCard();
+        onDragEnd(sale, e.nativeEvent.pageX, e.nativeEvent.pageY);
+      } else {
+        onTap(sale);
+      }
+      isDragging.current = false;
+      dragStarted.current = false;
     },
     onPanResponderTerminate: () => {
-      dragging.current = false;
-      Animated.spring(scale, { toValue: 1, useNativeDriver: false }).start();
+      if (longPressTimer.current) clearTimeout(longPressTimer.current);
+      dropCard();
       onDragEnd(null, 0, 0);
+      isDragging.current = false;
+      dragStarted.current = false;
     },
   })).current;
 
   const status = STATUS[sale.orderStatus] || STATUS.new;
 
   return (
-    <Animated.View ref={cardRef} style={{ transform: [{ scale }] }} {...panResponder.panHandlers}>
-      <TouchableOpacity
-        style={[styles.card, {
-          backgroundColor: theme.card,
-          borderColor: theme.cardBorder,
-          shadowColor: '#000',
-          shadowOffset: { width: 0, height: 2 },
-          shadowOpacity: 0.08,
-          shadowRadius: 6,
-          elevation: 3,
-        }]}
-        onPress={() => { if (!dragging.current) onTap(sale); }}
-        activeOpacity={0.88}
-      >
-        <View style={[styles.cardStripe, { backgroundColor: status.color }]} />
-        <View style={styles.cardBody}>
-          <View style={styles.cardHead}>
-            <View style={{ flex: 1 }}>
-              <Text style={[styles.cardNum, { color: status.color }]}>
-                #{sale.orderNumber || sale.id?.slice(-4)}
-              </Text>
-              <Text style={[styles.cardProduct, { color: theme.text }]} numberOfLines={1}>
-                {sale.productName}
-              </Text>
-              <Text style={[styles.cardMeta, { color: theme.textMuted }]}>
-                {sale.size} · {sale.quantity}x · {sale.workerName}
-              </Text>
-            </View>
-            <View style={{ alignItems: 'flex-end', gap: 4 }}>
-              {elapsed ? (
-                <Text style={[styles.cardTimer, { color: sale.orderStatus === 'processing' ? status.color : theme.textMuted }]}>
-                  ⏱ {elapsed}
-                </Text>
-              ) : null}
-              {/* Puntitos de drag */}
-              <MaterialCommunityIcons name="dots-grid" size={18} color={theme.textMuted} />
-            </View>
-          </View>
-
-          {sale.toppings?.length > 0 && (
-            <Text style={[styles.cardExtras, { color: theme.textMuted }]} numberOfLines={1}>
-              + {sale.toppings.join(', ')}
+    <Animated.View
+      ref={cardRef}
+      style={[styles.card, {
+        backgroundColor: theme.card,
+        borderColor: theme.cardBorder,
+        transform: [{ scale }],
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.08,
+        shadowRadius: 6,
+        elevation: 3,
+      }]}
+      {...panResponder.panHandlers}
+    >
+      <View style={[styles.cardStripe, { backgroundColor: status.color }]} />
+      <View style={styles.cardBody}>
+        <View style={styles.cardHead}>
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.cardNum, { color: status.color }]}>
+              #{sale.orderNumber || sale.id?.slice(-4)}
             </Text>
-          )}
-
-          {sale.units?.length > 0 && (
-            <View style={styles.cardFlavors}>
-              {sale.units.flatMap(u => u.flavors || []).slice(0, 6).map((f, i) => (
-                <View key={i} style={[styles.cardFlavorDot, { backgroundColor: f.color || '#888' }]} />
-              ))}
-              {sale.units.length > 1 && (
-                <Text style={[styles.cardFlavorMore, { color: theme.textMuted }]}>
-                  {sale.units.length} uds
-                </Text>
-              )}
-            </View>
-          )}
+            <Text style={[styles.cardProduct, { color: theme.text }]} numberOfLines={1}>
+              {sale.productName}
+            </Text>
+            <Text style={[styles.cardMeta, { color: theme.textMuted }]}>
+              {sale.size} · {sale.quantity}x · {sale.workerName}
+            </Text>
+          </View>
+          <View style={{ alignItems: 'flex-end', gap: 4 }}>
+            {elapsed ? (
+              <Text style={[styles.cardTimer, { color: sale.orderStatus === 'processing' ? status.color : theme.textMuted }]}>
+                ⏱ {elapsed}
+              </Text>
+            ) : null}
+            <MaterialCommunityIcons name="dots-grid" size={18} color={theme.textMuted} />
+          </View>
         </View>
-      </TouchableOpacity>
+        {sale.toppings?.length > 0 && (
+          <Text style={[styles.cardExtras, { color: theme.textMuted }]} numberOfLines={1}>
+            + {sale.toppings.join(', ')}
+          </Text>
+        )}
+        {sale.units?.length > 0 && (
+          <View style={styles.cardFlavors}>
+            {sale.units.flatMap(u => u.flavors || []).slice(0, 6).map((f, i) => (
+              <View key={i} style={[styles.cardFlavorDot, { backgroundColor: f.color || '#888' }]} />
+            ))}
+            {sale.units.length > 1 && (
+              <Text style={[styles.cardFlavorMore, { color: theme.textMuted }]}>{sale.units.length} uds</Text>
+            )}
+          </View>
+        )}
+      </View>
     </Animated.View>
   );
 }
 
-// ─── TARJETA COMPRIMIDA ───────────────────────────────────
-function CompactCard({ sale, theme, onTap }) {
+// ─── TARJETA COMPRIMIDA (Listos) ─────────────────────────
+function CompactCard({ sale, theme, onTap, onReturn }) {
+  const [expanded, setExpanded] = useState(false);
+
+  const getDuration = () => {
+    if (!sale.processingStartedAt || !sale.completedAt) return null;
+    const diff = Math.floor((new Date(sale.completedAt) - new Date(sale.processingStartedAt)) / 1000);
+    return `${Math.floor(diff/60).toString().padStart(2,'0')}:${(diff%60).toString().padStart(2,'0')}`;
+  };
+
   return (
-    <TouchableOpacity
-      style={[styles.compactCard, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}
-      onPress={() => onTap(sale)}
-      activeOpacity={0.85}
-    >
+    <View style={[styles.compactCard, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
       <View style={[styles.compactStripe, { backgroundColor: STATUS.done.color }]} />
-      <View style={styles.compactBody}>
-        <Text style={[styles.compactNum, { color: STATUS.done.color }]}>
-          #{sale.orderNumber || sale.id?.slice(-4)}
-        </Text>
-        <Text style={[styles.compactName, { color: theme.text }]} numberOfLines={1}>{sale.productName}</Text>
-        <Text style={[styles.compactMeta, { color: theme.textMuted }]}>{sale.quantity}x · {sale.size}</Text>
+      <View style={{ flex: 1 }}>
+        <TouchableOpacity style={styles.compactBody} onPress={() => setExpanded(e => !e)} activeOpacity={0.85}>
+          <View style={styles.compactRow}>
+            <Text style={[styles.compactNum, { color: STATUS.done.color }]}>
+              #{sale.orderNumber || sale.id?.slice(-4)}
+            </Text>
+            <Text style={[styles.compactName, { color: theme.text }]} numberOfLines={1}>{sale.productName}</Text>
+            <Text style={[styles.compactMeta, { color: theme.textMuted }]}>{sale.quantity}x</Text>
+            {getDuration() && <Text style={[styles.compactTimer, { color: STATUS.done.color }]}>{getDuration()}</Text>}
+            <Feather name={expanded ? 'chevron-up' : 'chevron-down'} size={14} color={theme.textMuted} />
+          </View>
+        </TouchableOpacity>
+        {expanded && (
+          <View style={[styles.compactExpanded, { borderTopColor: theme.cardBorder }]}>
+            {sale.toppings?.length > 0 && (
+              <Text style={{ fontSize: 12, color: theme.textMuted, marginBottom: 8 }}>
+                + {sale.toppings.join(', ')}
+              </Text>
+            )}
+            <TouchableOpacity
+              style={[styles.returnBtn, { borderColor: STATUS.processing.color }]}
+              onPress={() => Alert.alert(
+                'Regresar pedido',
+                `¿Regresar el pedido #${sale.orderNumber || sale.id?.slice(-4)} a "En proceso"?`,
+                [
+                  { text: 'Cancelar', style: 'cancel' },
+                  { text: 'Sí, regresar', style: 'destructive', onPress: () => onReturn(sale.id) },
+                ]
+              )}
+            >
+              <Feather name="rotate-ccw" size={13} color={STATUS.processing.color} />
+              <Text style={[styles.returnBtnText, { color: STATUS.processing.color }]}>Regresar a En proceso</Text>
+            </TouchableOpacity>
+          </View>
+        )}
       </View>
-      {sale.processingStartedAt && sale.completedAt && (() => {
-        const diff = Math.floor((new Date(sale.completedAt) - new Date(sale.processingStartedAt)) / 1000);
-        return (
-          <Text style={[styles.compactTimer, { color: STATUS.done.color }]}>
-            {Math.floor(diff/60).toString().padStart(2,'0')}:{(diff%60).toString().padStart(2,'0')}
-          </Text>
-        );
-      })()}
-      <MaterialCommunityIcons name="chevron-right" size={16} color={theme.textMuted} style={{ marginRight: 10 }} />
-    </TouchableOpacity>
+    </View>
   );
 }
 
 // ─── BARRA DIVISORA ───────────────────────────────────────
 function DividerBar({ label, color, theme, isLandscape, onDrag, onLayout }) {
   const lastPos = useRef(0);
-
   const panResponder = useRef(PanResponder.create({
     onStartShouldSetPanResponder: () => true,
     onMoveShouldSetPanResponder: () => true,
-    onPanResponderGrant: (_, gs) => {
-      lastPos.current = isLandscape ? gs.x0 : gs.y0;
-    },
+    onPanResponderGrant: (_, gs) => { lastPos.current = isLandscape ? gs.x0 : gs.y0; },
     onPanResponderMove: (_, gs) => {
       const current = isLandscape ? gs.moveX : gs.moveY;
-      const delta = current - lastPos.current;
+      onDrag(current - lastPos.current);
       lastPos.current = current;
-      onDrag(delta);
     },
     onPanResponderRelease: () => { lastPos.current = 0; },
   })).current;
 
   return (
     <View
-      style={[
-        styles.dividerBar,
-        isLandscape ? styles.dividerV : styles.dividerH,
-        { backgroundColor: color + '18', borderColor: color + '40' },
-      ]}
+      style={[styles.dividerBar, isLandscape ? styles.dividerV : styles.dividerH, { backgroundColor: color + '18', borderColor: color + '40' }]}
       onLayout={onLayout}
       {...panResponder.panHandlers}
     >
       <View style={[styles.dividerGrip, { backgroundColor: color }]}>
-        <MaterialCommunityIcons
-          name={isLandscape ? 'drag-vertical' : 'drag-horizontal'}
-          size={14} color="#fff"
-        />
+        <MaterialCommunityIcons name={isLandscape ? 'drag-vertical' : 'drag-horizontal'} size={14} color="#fff" />
       </View>
       <Text style={[styles.dividerLabel, { color }]}>{label}</Text>
     </View>
@@ -502,17 +611,13 @@ export default function OrdersScreen() {
   const [sec0, setSec0] = useState(defaultSize);
   const [sec1, setSec1] = useState(defaultSize);
 
-  // Drag state
   const [dragSale, setDragSale] = useState(null);
   const [ghostPos, setGhostPos] = useState(null);
-
-  // Posiciones de barras
   const bar0Y = useRef(0);
   const bar1Y = useRef(0);
   const bar0X = useRef(0);
   const bar1X = useRef(0);
 
-  // Modals
   const [cookSale, setCookSale] = useState(null);
   const [showCook, setShowCook] = useState(false);
   const [detailSale, setDetailSale] = useState(null);
@@ -523,13 +628,8 @@ export default function OrdersScreen() {
   const [activeIdx, setActiveIdx] = useState(0);
 
   const handleTap = (sale) => {
-    if (sale.orderStatus === 'processing') {
-      setCookSale(sale);
-      setShowCook(true);
-    } else {
-      setDetailSale(sale);
-      setShowDetail(true);
-    }
+    if (sale.orderStatus === 'processing') { setCookSale(sale); setShowCook(true); }
+    else { setDetailSale(sale); setShowDetail(true); }
   };
 
   const handleDragStart = (sale, layout) => {
@@ -538,21 +638,15 @@ export default function OrdersScreen() {
   };
 
   const handleDragMove = (pageX, pageY) => {
-    setGhostPos(prev => prev ? {
-      ...prev,
-      x: pageX - prev.width / 2,
-      y: pageY - prev.height / 2,
-    } : prev);
+    setGhostPos(prev => prev ? { ...prev, x: pageX - prev.width / 2, y: pageY - prev.height / 2 } : prev);
   };
 
   const handleDragEnd = (sale, pageX, pageY) => {
     setDragSale(null);
     setGhostPos(null);
     if (!sale) return;
-
     const curIdx = KEYS.indexOf(sale.orderStatus || 'new');
     let targetIdx = curIdx;
-
     if (isLandscape) {
       if (pageX > bar1X.current) targetIdx = 2;
       else if (pageX > bar0X.current) targetIdx = 1;
@@ -562,10 +656,7 @@ export default function OrdersScreen() {
       else if (pageY > bar0Y.current) targetIdx = 1;
       else targetIdx = 0;
     }
-
-    if (targetIdx !== curIdx) {
-      updateSaleStatus(sale.id, KEYS[targetIdx]);
-    }
+    if (targetIdx !== curIdx) updateSaleStatus(sale.id, KEYS[targetIdx]);
   };
 
   const scrollToSection = (idx) => {
@@ -592,38 +683,28 @@ export default function OrdersScreen() {
             </Text>
           </View>
         ) : key === 'done' ? (
-          orders.map(s => <CompactCard key={s.id} sale={s} theme={theme} onTap={handleTap} />)
+          orders.map(s => (
+            <CompactCard key={s.id} sale={s} theme={theme} onTap={handleTap} onReturn={(id) => updateSaleStatus(id, 'processing')} />
+          ))
         ) : (
           orders.map(s => (
-            <OrderCard
-              key={s.id}
-              sale={s}
-              theme={theme}
-              onTap={handleTap}
-              onDragStart={handleDragStart}
-              onDragMove={handleDragMove}
-              onDragEnd={handleDragEnd}
-            />
+            <OrderCard key={s.id} sale={s} theme={theme} onTap={handleTap} onDragStart={handleDragStart} onDragMove={handleDragMove} onDragEnd={handleDragEnd} />
           ))
         )}
       </View>
     );
   };
 
-  const status = dragSale ? (STATUS[dragSale.orderStatus] || STATUS.new) : STATUS.new;
+  const ghostStatus = dragSale ? (STATUS[dragSale.orderStatus] || STATUS.new) : STATUS.new;
 
   return (
     <View style={{ flex: 1 }}>
       <SafeAreaView style={[styles.container, { backgroundColor: theme.bg }]} edges={['top']}>
-
-        {/* HEADER */}
         <View style={[styles.header, { borderBottomColor: theme.cardBorder }]}>
           <Text style={[styles.headerTitle, { color: theme.text }]}>PEDIDOS</Text>
           <View style={styles.headerIndex}>
             {KEYS.map((key, i) => {
-              const count = key === 'new' ? newOrders.length
-                : key === 'processing' ? processingOrders.length
-                : doneOrders.length;
+              const count = key === 'new' ? newOrders.length : key === 'processing' ? processingOrders.length : doneOrders.length;
               const isActive = activeIdx === i;
               return (
                 <TouchableOpacity key={key} style={styles.indexBtn} onPress={() => scrollToSection(i)}>
@@ -639,93 +720,42 @@ export default function OrdersScreen() {
 
         <View style={[styles.hint, { backgroundColor: theme.card, borderBottomColor: theme.cardBorder }]}>
           <MaterialCommunityIcons name="dots-grid" size={13} color={theme.textMuted} />
-          <Text style={[styles.hintText, { color: theme.textMuted }]}>
-            Arrastrá · Tocá para ver detalle completo
-          </Text>
+          <Text style={[styles.hintText, { color: theme.textMuted }]}>Presioná 1 seg para arrastrar · Tocá para ver detalle</Text>
         </View>
 
         {isLandscape ? (
           <View style={styles.landscapeContainer}>
             {renderSection('new', newOrders)}
-            <DividerBar
-              label={STATUS.processing.label} color={STATUS.processing.color}
-              theme={theme} isLandscape
-              onDrag={d => setSec0(p => Math.max(MIN_SECTION, p + d))}
-              onLayout={e => { bar0X.current = e.nativeEvent.layout.x; }}
-            />
+            <DividerBar label={STATUS.processing.label} color={STATUS.processing.color} theme={theme} isLandscape onDrag={d => setSec0(p => Math.max(MIN_SECTION, p + d))} onLayout={e => { bar0X.current = e.nativeEvent.layout.x; }} />
             {renderSection('processing', processingOrders)}
-            <DividerBar
-              label={STATUS.done.label} color={STATUS.done.color}
-              theme={theme} isLandscape
-              onDrag={d => setSec1(p => Math.max(MIN_SECTION, p + d))}
-              onLayout={e => { bar1X.current = e.nativeEvent.layout.x; }}
-            />
+            <DividerBar label={STATUS.done.label} color={STATUS.done.color} theme={theme} isLandscape onDrag={d => setSec1(p => Math.max(MIN_SECTION, p + d))} onLayout={e => { bar1X.current = e.nativeEvent.layout.x; }} />
             {renderSection('done', doneOrders)}
           </View>
         ) : (
           <ScrollView ref={scrollRef} contentContainerStyle={styles.portraitContainer} showsVerticalScrollIndicator={false}>
             {renderSection('new', newOrders)}
-            <DividerBar
-              label={STATUS.processing.label} color={STATUS.processing.color}
-              theme={theme} isLandscape={false}
-              onDrag={d => setSec0(p => Math.max(MIN_SECTION, p + d))}
-              onLayout={e => { bar0Y.current = e.nativeEvent.layout.y; }}
-            />
+            <DividerBar label={STATUS.processing.label} color={STATUS.processing.color} theme={theme} isLandscape={false} onDrag={d => setSec0(p => Math.max(MIN_SECTION, p + d))} onLayout={e => { bar0Y.current = e.nativeEvent.layout.y; }} />
             {renderSection('processing', processingOrders)}
-            <DividerBar
-              label={STATUS.done.label} color={STATUS.done.color}
-              theme={theme} isLandscape={false}
-              onDrag={d => setSec1(p => Math.max(MIN_SECTION, p + d))}
-              onLayout={e => { bar1Y.current = e.nativeEvent.layout.y; }}
-            />
+            <DividerBar label={STATUS.done.label} color={STATUS.done.color} theme={theme} isLandscape={false} onDrag={d => setSec1(p => Math.max(MIN_SECTION, p + d))} onLayout={e => { bar1Y.current = e.nativeEvent.layout.y; }} />
             {renderSection('done', doneOrders)}
             <View style={{ height: 100 }} />
           </ScrollView>
         )}
 
-        {/* Ghost card — flota sobre todo */}
         {dragSale && ghostPos && (
-          <View
-            pointerEvents="none"
-            style={[styles.ghost, {
-              top: ghostPos.y,
-              left: ghostPos.x,
-              width: ghostPos.width,
-              backgroundColor: theme.card,
-              borderColor: status.color,
-            }]}
-          >
-            <View style={[styles.cardStripe, { backgroundColor: status.color }]} />
+          <View pointerEvents="none" style={[styles.ghost, { top: ghostPos.y, left: ghostPos.x, width: ghostPos.width, backgroundColor: theme.card, borderColor: ghostStatus.color }]}>
+            <View style={[styles.cardStripe, { backgroundColor: ghostStatus.color }]} />
             <View style={styles.cardBody}>
-              <Text style={[styles.cardNum, { color: status.color }]}>
-                #{dragSale.orderNumber || dragSale.id?.slice(-4)}
-              </Text>
-              <Text style={[styles.cardProduct, { color: theme.text }]} numberOfLines={1}>
-                {dragSale.productName}
-              </Text>
-              <Text style={[styles.cardMeta, { color: theme.textMuted }]}>
-                {dragSale.size} · {dragSale.quantity}x
-              </Text>
+              <Text style={[styles.cardNum, { color: ghostStatus.color }]}>#{dragSale.orderNumber || dragSale.id?.slice(-4)}</Text>
+              <Text style={[styles.cardProduct, { color: theme.text }]} numberOfLines={1}>{dragSale.productName}</Text>
+              <Text style={[styles.cardMeta, { color: theme.textMuted }]}>{dragSale.size} · {dragSale.quantity}x</Text>
             </View>
           </View>
         )}
-
       </SafeAreaView>
 
-      <CookModal
-        sale={cookSale}
-        visible={showCook}
-        onClose={() => setShowCook(false)}
-        onDone={(id) => updateSaleStatus(id, 'done')}
-        theme={theme}
-      />
-      <OrderDetailModal
-        sale={detailSale}
-        visible={showDetail}
-        onClose={() => setShowDetail(false)}
-        onMove={updateSaleStatus}
-        theme={theme}
-      />
+      <CookModal sale={cookSale} visible={showCook} onClose={() => setShowCook(false)} onDone={(id) => updateSaleStatus(id, 'done')} theme={theme} />
+      <OrderDetailModal sale={detailSale} visible={showDetail} onClose={() => setShowDetail(false)} onMove={updateSaleStatus} theme={theme} />
     </View>
   );
 }
@@ -763,61 +793,63 @@ const styles = StyleSheet.create({
   cardFlavors: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 8 },
   cardFlavorDot: { width: 10, height: 10, borderRadius: 5 },
   cardFlavorMore: { fontSize: 10, fontWeight: '600' },
-  ghost: {
-    position: 'absolute', zIndex: 9999,
-    borderRadius: 14, borderWidth: 2,
-    flexDirection: 'row', overflow: 'hidden',
-    transform: [{ rotate: '2deg' }, { scale: 1.04 }],
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.3,
-    shadowRadius: 16,
-    elevation: 20,
-  },
-  compactCard: { flexDirection: 'row', alignItems: 'center', borderRadius: 10, borderWidth: 1, overflow: 'hidden' },
+  ghost: { position: 'absolute', zIndex: 9999, borderRadius: 14, borderWidth: 2, flexDirection: 'row', overflow: 'hidden', transform: [{ rotate: '2deg' }, { scale: 1.05 }], shadowColor: '#000', shadowOffset: { width: 0, height: 12 }, shadowOpacity: 0.3, shadowRadius: 16, elevation: 20 },
+  compactCard: { flexDirection: 'row', borderRadius: 10, borderWidth: 1, overflow: 'hidden' },
   compactStripe: { width: 3, alignSelf: 'stretch' },
-  compactBody: { flex: 1, paddingHorizontal: 10, paddingVertical: 8 },
+  compactBody: { paddingHorizontal: 10, paddingVertical: 10 },
+  compactRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   compactNum: { fontSize: 9, fontWeight: '800', letterSpacing: 0.5 },
-  compactName: { fontSize: 13, fontWeight: '700' },
+  compactName: { flex: 1, fontSize: 13, fontWeight: '700' },
   compactMeta: { fontSize: 11, fontWeight: '500' },
-  compactTimer: { fontSize: 11, fontWeight: '700', marginRight: 8 },
+  compactTimer: { fontSize: 11, fontWeight: '700', marginRight: 4 },
+  compactExpanded: { paddingHorizontal: 10, paddingBottom: 10, borderTopWidth: 1, paddingTop: 8, gap: 8 },
+  returnBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, borderWidth: 1, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, alignSelf: 'flex-start' },
+  returnBtnText: { fontSize: 12, fontWeight: '700' },
 });
 
 const cookStyles = StyleSheet.create({
   overlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.65)' },
   sheet: { borderTopLeftRadius: 28, borderTopRightRadius: 28, maxHeight: '95%' },
-  handle: { width: 40, height: 4, borderRadius: 2, alignSelf: 'center', marginTop: 12, marginBottom: 0 },
-  numSection: { alignItems: 'center', paddingVertical: 20, borderBottomWidth: 2, marginHorizontal: 20 },
+  handle: { width: 40, height: 4, borderRadius: 2, alignSelf: 'center', marginTop: 12 },
+  numSection: { alignItems: 'center', paddingVertical: 16, borderBottomWidth: 2, marginHorizontal: 20 },
   numLabel: { fontSize: 11, fontWeight: '800', letterSpacing: 4, marginBottom: 4 },
   numBig: { fontSize: 72, fontWeight: '900', letterSpacing: -4 },
   timer: { fontSize: 20, fontWeight: '800', marginTop: 4 },
-  scroll: { paddingHorizontal: 16, paddingTop: 16 },
-  infoBar: { flexDirection: 'row', borderRadius: 14, borderWidth: 1, marginBottom: 16, overflow: 'hidden' },
-  infoItem: { flex: 1, padding: 14, alignItems: 'center' },
+  infoBar: { flexDirection: 'row', marginHorizontal: 16, marginTop: 12, borderRadius: 14, borderWidth: 1, overflow: 'hidden' },
+  infoItem: { flex: 1, padding: 12, alignItems: 'center' },
   infoDivider: { width: 1 },
   infoLabel: { fontSize: 9, fontWeight: '800', letterSpacing: 2, marginBottom: 4 },
   infoValue: { fontSize: 13, fontWeight: '700', textAlign: 'center' },
   infoValueBig: { fontSize: 24, fontWeight: '900' },
-  unitCard: { borderRadius: 16, borderWidth: 1.5, marginBottom: 12, overflow: 'hidden' },
-  unitHeader: { paddingHorizontal: 16, paddingVertical: 10 },
-  unitHeaderText: { color: '#fff', fontSize: 11, fontWeight: '900', letterSpacing: 2 },
-  sectionLabel: { fontSize: 10, fontWeight: '800', letterSpacing: 2, marginBottom: 8 },
-  flavorsSection: { padding: 14 },
-  flavorsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  flavorBlock: { paddingHorizontal: 18, paddingVertical: 12, borderRadius: 10, minWidth: 80, alignItems: 'center' },
-  flavorBlockText: { color: '#fff', fontSize: 14, fontWeight: '800' },
-  toppingsSection: { paddingHorizontal: 14, paddingBottom: 14, paddingTop: 10, borderTopWidth: 1 },
+  pageIndicator: { flexDirection: 'row', justifyContent: 'center', gap: 6, paddingVertical: 10 },
+  pageDot: { height: 8, borderRadius: 4 },
+  unitPage: { flex: 1, marginHorizontal: 16, marginTop: 8 },
+  unitHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, borderRadius: 12, marginBottom: 4 },
+  unitHeaderText: { color: '#fff', fontSize: 12, fontWeight: '900', letterSpacing: 2 },
+  unitDoneCheck: { color: '#fff', fontSize: 16, fontWeight: '900' },
+  sectionLabel: { fontSize: 10, fontWeight: '800', letterSpacing: 2, marginBottom: 10 },
+  flavorsSection: { padding: 16 },
+  flavorsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  flavorBlock: { paddingHorizontal: 20, paddingVertical: 14, borderRadius: 12, minWidth: 90, alignItems: 'center' },
+  flavorBlockText: { color: '#fff', fontSize: 15, fontWeight: '800' },
+  toppingsSection: { paddingHorizontal: 16, paddingBottom: 16, paddingTop: 12 },
   toppingsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  toppingBlock: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 10, borderWidth: 1 },
+  toppingBlock: { paddingHorizontal: 14, paddingVertical: 10, borderRadius: 10, borderWidth: 1 },
   toppingBlockText: { fontSize: 13, fontWeight: '700' },
-  noteBox: { margin: 14, borderRadius: 10, padding: 12, flexDirection: 'row', gap: 8, backgroundColor: '#FFF9C4', borderColor: '#F9A825', borderWidth: 1 },
+  noteBox: { margin: 16, borderRadius: 10, padding: 12, flexDirection: 'row', gap: 8, backgroundColor: '#FFF9C4', borderColor: '#F9A825', borderWidth: 1 },
   noteIcon: { fontSize: 16 },
   noteText: { fontSize: 13, fontWeight: '600', flex: 1, color: '#5D4037' },
-  generalNote: { borderRadius: 12, padding: 14, flexDirection: 'row', gap: 8, marginBottom: 12, backgroundColor: '#FFF3E0', borderColor: '#FF9800', borderWidth: 1 },
-  generalNoteText: { fontSize: 14, fontWeight: '700', flex: 1, color: '#E65100' },
+  emptyUnit: { margin: 16, borderRadius: 10, padding: 20, borderWidth: 1, borderStyle: 'dashed', alignItems: 'center' },
+  emptyUnitText: { fontSize: 13, fontWeight: '500' },
+  unitDoneBanner: { marginHorizontal: 16, marginTop: 8, borderRadius: 10, padding: 12, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  unitDoneBannerText: { fontSize: 13, fontWeight: '700' },
+  nextUnitText: { fontSize: 13, fontWeight: '700' },
+  swipeArea: { marginHorizontal: 16, marginBottom: 8, borderRadius: 12, borderWidth: 1, borderStyle: 'dashed', paddingVertical: 16, alignItems: 'center', justifyContent: 'center', minHeight: 52 },
+  swipeHintText: { fontSize: 13, fontWeight: '600' },
   footer: { padding: 16, paddingBottom: 32, borderTopWidth: 1, gap: 8 },
   doneBtn: { borderRadius: 16, paddingVertical: 20, alignItems: 'center' },
   doneBtnText: { color: '#fff', fontSize: 18, fontWeight: '900', letterSpacing: 2 },
+  doneBtnLocked: { color: '#fff', fontSize: 14, fontWeight: '700' },
   closeLink: { paddingVertical: 8, alignItems: 'center' },
   closeLinkText: { fontSize: 13, fontWeight: '500' },
 });
