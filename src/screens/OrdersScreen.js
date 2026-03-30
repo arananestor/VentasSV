@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  Animated, PanResponder, Dimensions,
+  Animated, PanResponder, Dimensions, useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
@@ -9,429 +9,581 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useApp } from '../context/AppContext';
 import { useTheme } from '../context/ThemeContext';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
-
 const STATUS = {
-  new: { label: 'NUEVO', color: '#F77F00', next: 'processing' },
-  processing: { label: 'EN PROCESO', color: '#4361EE', next: 'done' },
-  done: { label: 'LISTO', color: '#2B9348', next: null },
+  new:        { label: 'NUEVOS',     color: '#F77F00' },
+  processing: { label: 'EN PROCESO', color: '#4361EE' },
+  done:       { label: 'LISTOS',     color: '#2B9348' },
 };
+const KEYS = ['new', 'processing', 'done'];
+const MIN_SECTION = 80;
 
-const SECTIONS = [
-  { key: 'new', label: 'Nuevos' },
-  { key: 'processing', label: 'En proceso' },
-  { key: 'done', label: 'Listos' },
-];
-
-function CompactCard({ sale, theme }) {
-  return (
-    <View style={[styles.compactCard, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
-      <View style={[styles.compactBar, { backgroundColor: STATUS.done.color }]} />
-      <View style={styles.compactContent}>
-        <Text style={[styles.compactOrder, { color: theme.textMuted }]}>
-          #{sale.orderNumber || sale.id?.slice(-4)}
-        </Text>
-        <Text style={[styles.compactName, { color: theme.text }]} numberOfLines={1}>
-          {sale.productName}
-        </Text>
-        <Text style={[styles.compactSub, { color: theme.textMuted }]}>
-          {sale.quantity}x · {sale.size}
-        </Text>
-      </View>
-      {sale.processingStartedAt && sale.completedAt && (() => {
-        const diff = Math.floor((new Date(sale.completedAt) - new Date(sale.processingStartedAt)) / 1000);
-        const m = Math.floor(diff / 60).toString().padStart(2, '0');
-        const s = (diff % 60).toString().padStart(2, '0');
-        return (
-          <Text style={[styles.compactTime, { color: STATUS.done.color }]}>⏱ {m}:{s}</Text>
-        );
-      })()}
-    </View>
-  );
-}
-
-function OrderCard({ sale, theme, onStatusChange }) {
+// ─── TARJETA ────────────────────────────────────────────
+function OrderCard({ sale, theme, onMoveToSection, currentSection }) {
   const [expanded, setExpanded] = useState(false);
   const [elapsed, setElapsed] = useState('');
+  const cardScale = useRef(new Animated.Value(1)).current;
+  const cardOpacity = useRef(new Animated.Value(1)).current;
   const pan = useRef(new Animated.ValueXY()).current;
+  const dragging = useRef(false);
 
   useEffect(() => {
     if (sale.orderStatus === 'processing' && sale.processingStartedAt) {
-      const interval = setInterval(() => {
+      const iv = setInterval(() => {
         const diff = Math.floor((Date.now() - new Date(sale.processingStartedAt)) / 1000);
-        const m = Math.floor(diff / 60).toString().padStart(2, '0');
-        const s = (diff % 60).toString().padStart(2, '0');
-        setElapsed(`${m}:${s}`);
+        setElapsed(`${Math.floor(diff/60).toString().padStart(2,'0')}:${(diff%60).toString().padStart(2,'0')}`);
       }, 1000);
-      return () => clearInterval(interval);
+      return () => clearInterval(iv);
     }
     if (sale.orderStatus === 'done' && sale.processingStartedAt && sale.completedAt) {
       const diff = Math.floor((new Date(sale.completedAt) - new Date(sale.processingStartedAt)) / 1000);
-      const m = Math.floor(diff / 60).toString().padStart(2, '0');
-      const s = (diff % 60).toString().padStart(2, '0');
-      setElapsed(`${m}:${s}`);
+      setElapsed(`${Math.floor(diff/60).toString().padStart(2,'0')}:${(diff%60).toString().padStart(2,'0')}`);
     }
-  }, [sale.orderStatus, sale.processingStartedAt]);
+  }, [sale.orderStatus]);
 
-  const panResponder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => false,
-      onMoveShouldSetPanResponder: (_, gs) => Math.abs(gs.dx) > 10 && Math.abs(gs.dx) > Math.abs(gs.dy),
-      onPanResponderGrant: () => {
-        pan.setOffset({ x: pan.x._value, y: 0 });
-        pan.setValue({ x: 0, y: 0 });
-      },
-      onPanResponderMove: Animated.event([null, { dx: pan.x }], { useNativeDriver: false }),
-      onPanResponderRelease: (_, gs) => {
-        pan.flattenOffset();
-        const threshold = SCREEN_WIDTH * 0.28;
-        if (gs.dx > threshold && STATUS[sale.orderStatus]?.next) {
-          Animated.spring(pan, { toValue: { x: SCREEN_WIDTH, y: 0 }, useNativeDriver: false }).start(() => {
-            pan.setValue({ x: 0, y: 0 });
-            onStatusChange(sale.id, STATUS[sale.orderStatus].next);
-          });
-        } else if (gs.dx < -threshold && sale.orderStatus === 'processing') {
-          Animated.spring(pan, { toValue: { x: -SCREEN_WIDTH, y: 0 }, useNativeDriver: false }).start(() => {
-            pan.setValue({ x: 0, y: 0 });
-            onStatusChange(sale.id, 'new');
-          });
-        } else {
-          Animated.spring(pan, { toValue: { x: 0, y: 0 }, useNativeDriver: false, tension: 80 }).start();
-        }
-      },
-    })
-  ).current;
+  const panResponder = useRef(PanResponder.create({
+    onStartShouldSetPanResponder: () => false,
+    onMoveShouldSetPanResponder: (_, gs) =>
+      Math.abs(gs.dx) > 12 || Math.abs(gs.dy) > 12,
+    onPanResponderGrant: () => {
+      dragging.current = true;
+      pan.setOffset({ x: pan.x._value, y: pan.y._value });
+      pan.setValue({ x: 0, y: 0 });
+      Animated.parallel([
+        Animated.spring(cardScale, { toValue: 1.06, useNativeDriver: true }),
+        Animated.timing(cardOpacity, { toValue: 0.92, duration: 150, useNativeDriver: true }),
+      ]).start();
+    },
+    onPanResponderMove: Animated.event(
+      [null, { dx: pan.x, dy: pan.y }],
+      { useNativeDriver: false }
+    ),
+    onPanResponderRelease: (_, gs) => {
+      dragging.current = false;
+      pan.flattenOffset();
+      Animated.parallel([
+        Animated.spring(cardScale, { toValue: 1, useNativeDriver: true }),
+        Animated.timing(cardOpacity, { toValue: 1, duration: 150, useNativeDriver: true }),
+        Animated.spring(pan, { toValue: { x: 0, y: 0 }, useNativeDriver: false, tension: 80, friction: 10 }),
+      ]).start();
+
+      // Detectar dirección del swipe para cambiar sección
+      const threshold = 60;
+      const curIdx = KEYS.indexOf(currentSection);
+      if (gs.dx > threshold && curIdx < KEYS.length - 1) {
+        onMoveToSection(sale.id, KEYS[curIdx + 1]);
+      } else if (gs.dx < -threshold && curIdx > 0) {
+        onMoveToSection(sale.id, KEYS[curIdx - 1]);
+      } else if (gs.dy < -threshold && curIdx > 0) {
+        onMoveToSection(sale.id, KEYS[curIdx - 1]);
+      } else if (gs.dy > threshold && curIdx < KEYS.length - 1) {
+        onMoveToSection(sale.id, KEYS[curIdx + 1]);
+      }
+    },
+  })).current;
 
   const status = STATUS[sale.orderStatus] || STATUS.new;
 
-  const cardBg = pan.x.interpolate({
-    inputRange: [-SCREEN_WIDTH * 0.3, 0, SCREEN_WIDTH * 0.3],
-    outputRange: ['#4361EE18', theme.card, `${STATUS[status.next]?.color || status.color}18`],
-    extrapolate: 'clamp',
-  });
-
   return (
     <Animated.View
-      style={[styles.card, { backgroundColor: cardBg, borderColor: theme.cardBorder, transform: [{ translateX: pan.x }] }]}
+      style={[
+        styles.card,
+        {
+          backgroundColor: theme.card,
+          borderColor: theme.cardBorder,
+          transform: [...pan.getTranslateTransform(), { scale: cardScale }],
+          opacity: cardOpacity,
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 3 },
+          shadowOpacity: 0.1,
+          shadowRadius: 6,
+          elevation: 4,
+          zIndex: dragging.current ? 999 : 1,
+        },
+      ]}
       {...panResponder.panHandlers}
     >
-      <Animated.View style={[styles.dragHintRight, {
-        backgroundColor: STATUS[status.next]?.color || status.color,
-        opacity: pan.x.interpolate({ inputRange: [0, 80], outputRange: [0, 1], extrapolate: 'clamp' }),
-      }]}>
-        <Feather name="chevron-right" size={13} color="#fff" />
-        <Text style={styles.dragHintText}>{status.next === 'processing' ? 'Iniciar' : 'Listo'}</Text>
-      </Animated.View>
+      {/* Franja lateral de color */}
+      <View style={[styles.cardStripe, { backgroundColor: status.color }]} />
 
-      {sale.orderStatus === 'processing' && (
-        <Animated.View style={[styles.dragHintLeft, {
-          backgroundColor: STATUS.new.color,
-          opacity: pan.x.interpolate({ inputRange: [-80, 0], outputRange: [1, 0], extrapolate: 'clamp' }),
-        }]}>
-          <Feather name="chevron-left" size={13} color="#fff" />
-          <Text style={styles.dragHintText}>Nuevo</Text>
-        </Animated.View>
-      )}
-
-      <View style={[styles.cardStatusBar, { backgroundColor: status.color }]} />
-
-      <TouchableOpacity style={styles.cardMain} onPress={() => setExpanded(!expanded)} activeOpacity={0.9}>
-        <View style={styles.cardHeader}>
-          <View style={styles.cardHeaderLeft}>
-            <Text style={[styles.cardOrder, { color: theme.textMuted }]}>
+      <TouchableOpacity
+        style={styles.cardBody}
+        onPress={() => setExpanded(e => !e)}
+        activeOpacity={0.9}
+      >
+        {/* Cabecera */}
+        <View style={styles.cardHead}>
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.cardNum, { color: status.color }]}>
               #{sale.orderNumber || sale.id?.slice(-4)}
             </Text>
-            <Text style={[styles.cardProduct, { color: theme.text }]} numberOfLines={1}>
+            <Text style={[styles.cardProduct, { color: theme.text }]} numberOfLines={expanded ? 4 : 1}>
               {sale.productName}
             </Text>
-            <Text style={[styles.cardSub, { color: theme.textMuted }]}>
+            <Text style={[styles.cardMeta, { color: theme.textMuted }]}>
               {sale.size} · {sale.quantity}x · {sale.workerName}
             </Text>
           </View>
-          <View style={styles.cardHeaderRight}>
-            <View style={[styles.statusPill, { backgroundColor: status.color + '20' }]}>
-              <Text style={[styles.statusPillText, { color: status.color }]}>{status.label}</Text>
-            </View>
+          <View style={{ alignItems: 'flex-end', gap: 4 }}>
             {elapsed ? (
-              <Text style={[styles.elapsed, { color: sale.orderStatus === 'processing' ? status.color : theme.textMuted }]}>
+              <Text style={[styles.cardTimer, { color: sale.orderStatus === 'processing' ? status.color : theme.textMuted }]}>
                 ⏱ {elapsed}
               </Text>
             ) : null}
-            <Feather name={expanded ? 'chevron-up' : 'chevron-down'} size={16} color={theme.textMuted} />
+            <Feather name={expanded ? 'chevron-up' : 'chevron-down'} size={15} color={theme.textMuted} />
           </View>
         </View>
+
+        {/* Extras resumidos */}
         {!expanded && sale.toppings?.length > 0 && (
-          <Text style={[styles.cardToppings, { color: theme.textMuted }]} numberOfLines={1}>
+          <Text style={[styles.cardExtras, { color: theme.textMuted }]} numberOfLines={1}>
             + {sale.toppings.join(', ')}
           </Text>
         )}
-      </TouchableOpacity>
 
-      {expanded && (
-        <View style={[styles.cardDetail, { borderTopColor: theme.cardBorder }]}>
-          {sale.units?.length > 0 && (
-            <View style={styles.detailSection}>
-              <Text style={[styles.detailLabel, { color: theme.textMuted }]}>UNIDADES</Text>
-              {sale.units.map((unit, i) => (
-                <View key={i} style={[styles.unitRow, { backgroundColor: theme.bg, borderColor: theme.cardBorder }]}>
-                  <Text style={[styles.unitNum, { color: theme.textMuted }]}>{i + 1}</Text>
-                  <View style={styles.unitInfo}>
-                    {unit.flavors?.length > 0 && (
-                      <View style={styles.flavorsRow}>
-                        {unit.flavors.map((f, fi) => (
-                          <View key={fi} style={[styles.flavorChip, { backgroundColor: f.color || '#888' }]}>
-                            <Text style={styles.flavorChipText}>{f.name}</Text>
-                          </View>
-                        ))}
-                      </View>
-                    )}
-                    {unit.toppings?.length > 0 && (
-                      <Text style={[styles.unitToppings, { color: theme.textSecondary }]}>
-                        + {unit.toppings.join(', ')}
-                      </Text>
-                    )}
-                    {unit.note ? (
-                      <Text style={[styles.unitNote, { color: theme.textMuted }]}>📝 {unit.note}</Text>
-                    ) : null}
-                  </View>
-                </View>
-              ))}
-            </View>
-          )}
+        {/* Detalle expandido */}
+        {expanded && (
+          <View style={[styles.cardExpanded, { borderTopColor: theme.cardBorder }]}>
 
-          {!sale.units?.length && sale.toppings?.length > 0 && (
-            <View style={styles.detailSection}>
-              <Text style={[styles.detailLabel, { color: theme.textMuted }]}>EXTRAS</Text>
-              <View style={styles.toppingsWrap}>
-                {sale.toppings.map((t, i) => (
-                  <View key={i} style={[styles.toppingChip, { backgroundColor: theme.bg, borderColor: theme.cardBorder }]}>
-                    <Text style={[styles.toppingChipText, { color: theme.text }]}>{t}</Text>
+            {sale.units?.length > 0 && (
+              <View style={{ gap: 6 }}>
+                <Text style={[styles.expandLabel, { color: theme.textMuted }]}>UNIDADES</Text>
+                {sale.units.map((unit, i) => (
+                  <View key={i} style={[styles.unitRow, { backgroundColor: theme.bg, borderColor: theme.cardBorder }]}>
+                    <View style={[styles.unitBadge, { backgroundColor: status.color }]}>
+                      <Text style={styles.unitBadgeText}>{i + 1}</Text>
+                    </View>
+                    <View style={{ flex: 1, gap: 4 }}>
+                      {unit.flavors?.length > 0 && (
+                        <View style={styles.flavorsWrap}>
+                          {unit.flavors.map((f, fi) => (
+                            <View key={fi} style={[styles.flavorChip, { backgroundColor: f.color || '#888' }]}>
+                              <Text style={styles.flavorChipText}>{f.name || f}</Text>
+                            </View>
+                          ))}
+                        </View>
+                      )}
+                      {unit.toppings?.length > 0 && (
+                        <Text style={[styles.unitToppings, { color: theme.textSecondary }]}>
+                          + {unit.toppings.join(', ')}
+                        </Text>
+                      )}
+                      {unit.note ? (
+                        <Text style={[styles.unitNote, { color: theme.textMuted }]}>📝 {unit.note}</Text>
+                      ) : null}
+                    </View>
                   </View>
                 ))}
               </View>
-            </View>
-          )}
+            )}
 
-          {sale.note ? (
-            <View style={[styles.noteBox, { backgroundColor: theme.bg, borderColor: theme.cardBorder }]}>
-              <Feather name="file-text" size={13} color={theme.textMuted} />
-              <Text style={[styles.noteText, { color: theme.textSecondary }]}>{sale.note}</Text>
-            </View>
-          ) : null}
+            {!sale.units?.length && sale.toppings?.length > 0 && (
+              <View style={{ gap: 6 }}>
+                <Text style={[styles.expandLabel, { color: theme.textMuted }]}>EXTRAS</Text>
+                <View style={styles.toppingsWrap}>
+                  {sale.toppings.map((t, i) => (
+                    <View key={i} style={[styles.toppingChip, { backgroundColor: theme.bg, borderColor: theme.cardBorder }]}>
+                      <Text style={[{ fontSize: 12, fontWeight: '600', color: theme.text }]}>{t}</Text>
+                    </View>
+                  ))}
+                </View>
+              </View>
+            )}
 
-          {status.next && (
-            <TouchableOpacity
-              style={[styles.actionBtn, { backgroundColor: STATUS[status.next].color }]}
-              onPress={() => onStatusChange(sale.id, status.next)}
-            >
-              <Text style={styles.actionBtnText}>
-                {status.next === 'processing' ? 'Iniciar preparación →' : 'Marcar como listo →'}
-              </Text>
-            </TouchableOpacity>
-          )}
-        </View>
-      )}
+            {sale.note ? (
+              <View style={[styles.noteBox, { backgroundColor: theme.bg, borderColor: theme.cardBorder }]}>
+                <Feather name="file-text" size={13} color={theme.textMuted} />
+                <Text style={[styles.noteText, { color: theme.textSecondary }]}>{sale.note}</Text>
+              </View>
+            ) : null}
+
+            {/* Botón de acción */}
+            {STATUS[sale.orderStatus]?.next !== undefined && sale.orderStatus !== 'done' && (
+              <TouchableOpacity
+                style={[styles.actionBtn, { backgroundColor: STATUS[KEYS[KEYS.indexOf(sale.orderStatus) + 1]]?.color }]}
+                onPress={() => onMoveToSection(sale.id, KEYS[KEYS.indexOf(sale.orderStatus) + 1])}
+              >
+                <Text style={styles.actionBtnText}>
+                  {sale.orderStatus === 'new' ? 'Iniciar preparación →' : 'Marcar como listo →'}
+                </Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
+      </TouchableOpacity>
     </Animated.View>
   );
 }
 
+// ── TARJETA COMPRIMIDA (listos) ──────────────────────────
+function CompactCard({ sale, theme }) {
+  const [expanded, setExpanded] = useState(false);
+  return (
+    <TouchableOpacity
+      style={[styles.compactCard, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}
+      onPress={() => setExpanded(e => !e)}
+      activeOpacity={0.85}
+    >
+      <View style={[styles.compactStripe, { backgroundColor: STATUS.done.color }]} />
+      <View style={styles.compactBody}>
+        <View style={styles.compactRow}>
+          <Text style={[styles.compactNum, { color: STATUS.done.color }]}>
+            #{sale.orderNumber || sale.id?.slice(-4)}
+          </Text>
+          <Text style={[styles.compactName, { color: theme.text }]} numberOfLines={1}>
+            {sale.productName}
+          </Text>
+          <Text style={[styles.compactMeta, { color: theme.textMuted }]}>
+            {sale.quantity}x
+          </Text>
+          {sale.processingStartedAt && sale.completedAt && (() => {
+            const diff = Math.floor((new Date(sale.completedAt) - new Date(sale.processingStartedAt)) / 1000);
+            return (
+              <Text style={[styles.compactTimer, { color: STATUS.done.color }]}>
+                {Math.floor(diff/60).toString().padStart(2,'0')}:{(diff%60).toString().padStart(2,'0')}
+              </Text>
+            );
+          })()}
+          <Feather name={expanded ? 'chevron-up' : 'chevron-down'} size={13} color={theme.textMuted} />
+        </View>
+        {expanded && sale.toppings?.length > 0 && (
+          <Text style={[{ fontSize: 11, color: theme.textMuted, marginTop: 4, paddingLeft: 2 }]}>
+            + {sale.toppings.join(', ')}
+          </Text>
+        )}
+      </View>
+    </TouchableOpacity>
+  );
+}
+
+// ── BARRA DIVISORA ARTICULADA ────────────────────────────
+function DividerBar({ label, color, theme, isLandscape, onDrag }) {
+  const pan = useRef(new Animated.Value(0)).current;
+  const isDragging = useRef(false);
+
+  const panResponder = useRef(PanResponder.create({
+    onStartShouldSetPanResponder: () => true,
+    onPanResponderGrant: () => { isDragging.current = true; },
+    onPanResponderMove: (_, gs) => {
+      const delta = isLandscape ? gs.dx : gs.dy;
+      onDrag(delta);
+    },
+    onPanResponderRelease: () => { isDragging.current = false; },
+  })).current;
+
+  return (
+    <View
+      style={[
+        styles.dividerBar,
+        isLandscape ? styles.dividerBarVertical : styles.dividerBarHorizontal,
+        { backgroundColor: color + '22', borderColor: color + '55' },
+      ]}
+      {...panResponder.panHandlers}
+    >
+      <View style={[styles.dividerGrip, { backgroundColor: color }]}>
+        <MaterialCommunityIcons
+          name={isLandscape ? 'drag-vertical' : 'drag-horizontal'}
+          size={16}
+          color="#fff"
+        />
+      </View>
+      <Text style={[styles.dividerLabel, { color }]}>{label}</Text>
+    </View>
+  );
+}
+
+// ── SCREEN PRINCIPAL ─────────────────────────────────────
 export default function OrdersScreen() {
   const { getTodaySales, updateSaleStatus } = useApp();
   const { theme } = useTheme();
-  const scrollRef = useRef(null);
-  const sectionRefs = useRef({});
-  const [activeSection, setActiveSection] = useState('new');
+  const { width, height } = useWindowDimensions();
+  const isLandscape = width > height;
 
   const sales = getTodaySales().reverse();
   const newOrders = sales.filter(s => (s.orderStatus || 'new') === 'new');
   const processingOrders = sales.filter(s => s.orderStatus === 'processing');
   const doneOrders = sales.filter(s => s.orderStatus === 'done');
 
-  const scrollToSection = (key) => {
-    setActiveSection(key);
-    sectionRefs.current[key]?.measureLayout(
+  // Tamaños de sección ajustables
+  const totalSpace = isLandscape ? width : height * 0.75;
+  const defaultSize = Math.floor(totalSpace / 3);
+  const [sizes, setSizes] = useState([defaultSize, defaultSize, defaultSize]);
+
+  const adjustSize = (barIndex, delta) => {
+    setSizes(prev => {
+      const next = [...prev];
+      const a = next[barIndex];
+      const b = next[barIndex + 1];
+      const newA = Math.max(MIN_SECTION, a + delta);
+      const newB = Math.max(MIN_SECTION, b - delta);
+      if (newA + newB === a + b) {
+        next[barIndex] = newA;
+        next[barIndex + 1] = newB;
+      }
+      return next;
+    });
+  };
+
+  const scrollRef = useRef(null);
+  const sectionRefs = useRef({});
+  const [activeIdx, setActiveIdx] = useState(0);
+
+  const scrollToSection = (idx) => {
+    setActiveIdx(idx);
+    sectionRefs.current[KEYS[idx]]?.measureLayout(
       scrollRef.current,
       (_, y) => scrollRef.current?.scrollTo({ y: y - 56, animated: true }),
       () => {}
     );
   };
 
+  const handleMoveToSection = (saleId, newStatus) => {
+    updateSaleStatus(saleId, newStatus);
+  };
+
+  const renderSection = (key, orders, sectionSize) => {
+    const status = STATUS[key];
+    const isDone = key === 'done';
+
+    return (
+      <View
+        key={key}
+        ref={ref => sectionRefs.current[key] = ref}
+        style={[
+          styles.section,
+          isLandscape
+            ? { width: sectionSize, minHeight: '100%' }
+            : { minHeight: sectionSize },
+        ]}
+      >
+        {orders.length === 0 ? (
+          <View style={[styles.emptySection, { borderColor: theme.cardBorder }]}>
+            <MaterialCommunityIcons name="clipboard-text-outline" size={28} color={theme.textMuted} />
+            <Text style={[styles.emptyText, { color: theme.textMuted }]}>
+              {key === 'new' ? 'Sin pedidos nuevos' : key === 'processing' ? 'Nada en proceso' : 'Ninguno listo'}
+            </Text>
+          </View>
+        ) : isDone ? (
+          orders.map(sale => (
+            <CompactCard key={sale.id} sale={sale} theme={theme} />
+          ))
+        ) : (
+          orders.map(sale => (
+            <OrderCard
+              key={sale.id}
+              sale={sale}
+              theme={theme}
+              currentSection={key}
+              onMoveToSection={handleMoveToSection}
+            />
+          ))
+        )}
+      </View>
+    );
+  };
+
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.bg }]} edges={['top']}>
 
-      <View style={[styles.header, { backgroundColor: theme.bg, borderBottomColor: theme.cardBorder }]}>
+      {/* HEADER */}
+      <View style={[styles.header, { borderBottomColor: theme.cardBorder }]}>
         <Text style={[styles.headerTitle, { color: theme.text }]}>PEDIDOS</Text>
         <View style={styles.headerIndex}>
-          {SECTIONS.map(s => {
-            const count = s.key === 'new' ? newOrders.length
-              : s.key === 'processing' ? processingOrders.length
+          {KEYS.map((key, i) => {
+            const count = key === 'new' ? newOrders.length
+              : key === 'processing' ? processingOrders.length
               : doneOrders.length;
-            const isActive = activeSection === s.key;
+            const isActive = activeIdx === i;
             return (
-              <TouchableOpacity key={s.key} style={styles.indexBtn} onPress={() => scrollToSection(s.key)}>
+              <TouchableOpacity key={key} style={styles.indexBtn} onPress={() => scrollToSection(i)}>
                 <Text style={[styles.indexText, { color: isActive ? theme.text : theme.textMuted }]}>
-                  {s.label}{count > 0 ? ` · ${count}` : ''}
+                  {STATUS[key].label}
+                  {count > 0 ? ` · ${count}` : ''}
                 </Text>
-                {isActive && <View style={[styles.indexUnderline, { backgroundColor: STATUS[s.key].color }]} />}
+                {isActive && <View style={[styles.indexLine, { backgroundColor: STATUS[key].color }]} />}
               </TouchableOpacity>
             );
           })}
         </View>
       </View>
 
+      {/* HINT */}
       {(newOrders.length > 0 || processingOrders.length > 0) && (
-        <View style={[styles.hintBanner, { backgroundColor: theme.card, borderBottomColor: theme.cardBorder }]}>
+        <View style={[styles.hint, { backgroundColor: theme.card, borderBottomColor: theme.cardBorder }]}>
           <MaterialCommunityIcons name="gesture-swipe-horizontal" size={13} color={theme.textMuted} />
-          <Text style={[styles.hintText, { color: theme.textMuted }]}>Deslizá para cambiar el estado</Text>
+          <Text style={[styles.hintText, { color: theme.textMuted }]}>
+            Deslizá la tarjeta para cambiar estado · Arrastrá la barra para redimensionar
+          </Text>
         </View>
       )}
 
-      <ScrollView
-        ref={scrollRef}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* NUEVOS */}
-        <View ref={ref => sectionRefs.current['new'] = ref} style={styles.section}>
-          <View style={[styles.sectionHeader, { borderLeftColor: STATUS.new.color }]}>
-            <Text style={[styles.sectionTitle, { color: theme.text }]}>Nuevos</Text>
-            <Text style={[styles.sectionCount, { color: STATUS.new.color }]}>{newOrders.length}</Text>
+      {/* CONTENIDO */}
+      {isLandscape ? (
+        // ── LANDSCAPE: columnas lado a lado ──
+        <ScrollView
+          horizontal={false}
+          ref={scrollRef}
+          contentContainerStyle={{ flex: 1 }}
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.landscapeContainer}>
+            {renderSection('new', newOrders, sizes[0])}
+            <DividerBar
+              label={STATUS.processing.label}
+              color={STATUS.processing.color}
+              theme={theme}
+              isLandscape={true}
+              onDrag={delta => adjustSize(0, delta)}
+            />
+            {renderSection('processing', processingOrders, sizes[1])}
+            <DividerBar
+              label={STATUS.done.label}
+              color={STATUS.done.color}
+              theme={theme}
+              isLandscape={true}
+              onDrag={delta => adjustSize(1, delta)}
+            />
+            {renderSection('done', doneOrders, sizes[2])}
           </View>
-          {newOrders.length === 0
-            ? <View style={[styles.emptySection, { borderColor: theme.cardBorder }]}>
-                <Text style={[styles.emptyText, { color: theme.textMuted }]}>Sin pedidos nuevos</Text>
-              </View>
-            : newOrders.map(sale => (
-                <OrderCard key={sale.id} sale={sale} theme={theme} onStatusChange={updateSaleStatus} />
-              ))
-          }
-        </View>
+        </ScrollView>
+      ) : (
+        // ── PORTRAIT: secciones en fila vertical ──
+        <ScrollView
+          ref={scrollRef}
+          contentContainerStyle={styles.portraitContainer}
+          showsVerticalScrollIndicator={false}
+        >
+          {renderSection('new', newOrders, sizes[0])}
 
-        <View style={[styles.divider, { backgroundColor: theme.cardBorder }]} />
+          <DividerBar
+            label={STATUS.processing.label}
+            color={STATUS.processing.color}
+            theme={theme}
+            isLandscape={false}
+            onDrag={delta => adjustSize(0, delta)}
+          />
 
-        {/* EN PROCESO */}
-        <View ref={ref => sectionRefs.current['processing'] = ref} style={styles.section}>
-          <View style={[styles.sectionHeader, { borderLeftColor: STATUS.processing.color }]}>
-            <Text style={[styles.sectionTitle, { color: theme.text }]}>En proceso</Text>
-            <Text style={[styles.sectionCount, { color: STATUS.processing.color }]}>{processingOrders.length}</Text>
-          </View>
-          {processingOrders.length === 0
-            ? <View style={[styles.emptySection, { borderColor: theme.cardBorder }]}>
-                <Text style={[styles.emptyText, { color: theme.textMuted }]}>Nada en proceso</Text>
-              </View>
-            : processingOrders.map(sale => (
-                <OrderCard key={sale.id} sale={sale} theme={theme} onStatusChange={updateSaleStatus} />
-              ))
-          }
-        </View>
+          {renderSection('processing', processingOrders, sizes[1])}
 
-        <View style={[styles.divider, { backgroundColor: theme.cardBorder }]} />
+          <DividerBar
+            label={STATUS.done.label}
+            color={STATUS.done.color}
+            theme={theme}
+            isLandscape={false}
+            onDrag={delta => adjustSize(1, delta)}
+          />
 
-        {/* LISTOS */}
-        <View ref={ref => sectionRefs.current['done'] = ref} style={styles.section}>
-          <View style={[styles.sectionHeader, { borderLeftColor: STATUS.done.color }]}>
-            <Text style={[styles.sectionTitle, { color: theme.text }]}>Listos</Text>
-            <Text style={[styles.sectionCount, { color: STATUS.done.color }]}>{doneOrders.length}</Text>
-          </View>
-          {doneOrders.length === 0
-            ? <View style={[styles.emptySection, { borderColor: theme.cardBorder }]}>
-                <Text style={[styles.emptyText, { color: theme.textMuted }]}>Ninguno listo aún</Text>
-              </View>
-            : doneOrders.map(sale => (
-                <CompactCard key={sale.id} sale={sale} theme={theme} />
-              ))
-          }
-        </View>
+          {renderSection('done', doneOrders, sizes[2])}
 
-        <View style={{ height: 100 }} />
-      </ScrollView>
+          <View style={{ height: 100 }} />
+        </ScrollView>
+      )}
+
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
+
+  // Header
   header: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 0, borderBottomWidth: 1 },
-  headerTitle: { fontSize: 14, fontWeight: '800', letterSpacing: 3, marginBottom: 12 },
+  headerTitle: { fontSize: 14, fontWeight: '800', letterSpacing: 3, marginBottom: 10 },
   headerIndex: { flexDirection: 'row' },
   indexBtn: { paddingRight: 20, paddingBottom: 10, position: 'relative' },
-  indexText: { fontSize: 13, fontWeight: '700' },
-  indexUnderline: { position: 'absolute', bottom: 0, left: 0, right: 20, height: 2, borderRadius: 1 },
-  hintBanner: {
+  indexText: { fontSize: 12, fontWeight: '700' },
+  indexLine: { position: 'absolute', bottom: 0, left: 0, right: 20, height: 2, borderRadius: 1 },
+
+  // Hint
+  hint: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
     paddingHorizontal: 16, paddingVertical: 7, borderBottomWidth: 1,
   },
-  hintText: { fontSize: 11, fontWeight: '500' },
-  scrollContent: { paddingTop: 8 },
-  section: { paddingHorizontal: 16, paddingVertical: 16, gap: 10 },
-  sectionHeader: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingLeft: 10, borderLeftWidth: 3, marginBottom: 4,
+  hintText: { fontSize: 11, fontWeight: '500', flex: 1 },
+
+  // Layout
+  portraitContainer: { paddingTop: 8 },
+  landscapeContainer: { flex: 1, flexDirection: 'row' },
+
+  // Sección
+  section: { padding: 12, gap: 10 },
+
+  // Barra divisora
+  dividerBar: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 8, borderWidth: 1,
   },
-  sectionTitle: { fontSize: 13, fontWeight: '800', letterSpacing: 0.5 },
-  sectionCount: { fontSize: 13, fontWeight: '800' },
-  divider: { height: 6 },
-  emptySection: {
-    borderRadius: 12, borderWidth: 1, borderStyle: 'dashed',
-    paddingVertical: 20, alignItems: 'center',
+  dividerBarHorizontal: {
+    height: 36, marginHorizontal: 0, borderRadius: 0,
+    borderLeftWidth: 0, borderRightWidth: 0,
   },
-  emptyText: { fontSize: 13, fontWeight: '500' },
-  card: { borderRadius: 16, borderWidth: 1, overflow: 'hidden', marginBottom: 2 },
-  cardStatusBar: { height: 3 },
-  cardMain: { padding: 14 },
-  cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
-  cardHeaderLeft: { flex: 1, marginRight: 10 },
-  cardHeaderRight: { alignItems: 'flex-end', gap: 4 },
-  cardOrder: { fontSize: 10, fontWeight: '700', letterSpacing: 1, marginBottom: 3 },
+  dividerBarVertical: {
+    width: 36, flexDirection: 'column',
+    borderTopWidth: 0, borderBottomWidth: 0,
+  },
+  dividerGrip: {
+    width: 28, height: 28, borderRadius: 14,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  dividerLabel: { fontSize: 10, fontWeight: '800', letterSpacing: 1.5 },
+
+  // Card
+  card: {
+    borderRadius: 14, borderWidth: 1,
+    flexDirection: 'row', overflow: 'hidden',
+  },
+  cardStripe: { width: 4 },
+  cardBody: { flex: 1, padding: 12 },
+  cardHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
+  cardNum: { fontSize: 10, fontWeight: '800', letterSpacing: 1, marginBottom: 3 },
   cardProduct: { fontSize: 15, fontWeight: '800' },
-  cardSub: { fontSize: 11, fontWeight: '500', marginTop: 2 },
-  statusPill: { borderRadius: 6, paddingHorizontal: 7, paddingVertical: 3 },
-  statusPillText: { fontSize: 9, fontWeight: '800', letterSpacing: 0.5 },
-  elapsed: { fontSize: 11, fontWeight: '700' },
-  cardToppings: { fontSize: 11, fontWeight: '500', marginTop: 6 },
-  dragHintRight: {
-    position: 'absolute', right: 10, top: '50%', marginTop: -13,
-    flexDirection: 'row', alignItems: 'center', gap: 3,
-    borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4, zIndex: 10,
-  },
-  dragHintLeft: {
-    position: 'absolute', left: 10, top: '50%', marginTop: -13,
-    flexDirection: 'row', alignItems: 'center', gap: 3,
-    borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4, zIndex: 10,
-  },
-  dragHintText: { color: '#fff', fontSize: 11, fontWeight: '700' },
-  cardDetail: { borderTopWidth: 1, padding: 14, gap: 10 },
-  detailSection: { gap: 8 },
-  detailLabel: { fontSize: 10, fontWeight: '800', letterSpacing: 2 },
+  cardMeta: { fontSize: 11, fontWeight: '500', marginTop: 2 },
+  cardTimer: { fontSize: 11, fontWeight: '800' },
+  cardExtras: { fontSize: 11, fontWeight: '500', marginTop: 6 },
+  cardExpanded: { borderTopWidth: 1, marginTop: 10, paddingTop: 10, gap: 10 },
+
+  // Detalle expandido
+  expandLabel: { fontSize: 10, fontWeight: '800', letterSpacing: 2 },
   unitRow: {
     flexDirection: 'row', alignItems: 'flex-start', gap: 10,
     borderRadius: 10, padding: 10, borderWidth: 1,
   },
-  unitNum: { fontSize: 12, fontWeight: '800', marginTop: 2 },
-  unitInfo: { flex: 1, gap: 4 },
-  flavorsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  unitBadge: {
+    width: 22, height: 22, borderRadius: 11,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  unitBadgeText: { color: '#fff', fontSize: 11, fontWeight: '800' },
+  flavorsWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 5 },
   flavorChip: { borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3 },
-  flavorChipText: { fontSize: 12, fontWeight: '700', color: '#fff' },
-  unitToppings: { fontSize: 12, fontWeight: '500' },
-  unitNote: { fontSize: 12, fontWeight: '500', fontStyle: 'italic' },
+  flavorChipText: { fontSize: 11, fontWeight: '700', color: '#fff' },
+  unitToppings: { fontSize: 11, fontWeight: '500' },
+  unitNote: { fontSize: 11, fontWeight: '500', fontStyle: 'italic' },
   toppingsWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
-  toppingChip: { borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4, borderWidth: 1 },
-  toppingChipText: { fontSize: 12, fontWeight: '600' },
+  toppingChip: { borderRadius: 8, paddingHorizontal: 9, paddingVertical: 4, borderWidth: 1 },
   noteBox: {
     flexDirection: 'row', alignItems: 'center', gap: 8,
     borderRadius: 10, padding: 10, borderWidth: 1,
   },
-  noteText: { fontSize: 13, fontWeight: '500', flex: 1 },
-  actionBtn: { borderRadius: 12, paddingVertical: 14, alignItems: 'center' },
-  actionBtnText: { color: '#fff', fontSize: 14, fontWeight: '800', letterSpacing: 0.5 },
+  noteText: { fontSize: 12, fontWeight: '500', flex: 1 },
+  actionBtn: { borderRadius: 10, paddingVertical: 12, alignItems: 'center', marginTop: 4 },
+  actionBtnText: { color: '#fff', fontSize: 13, fontWeight: '800' },
+
+  // Compact card (listos)
   compactCard: {
-    flexDirection: 'row', alignItems: 'center',
-    borderRadius: 12, borderWidth: 1, overflow: 'hidden', marginBottom: 2,
+    flexDirection: 'row', borderRadius: 10,
+    borderWidth: 1, overflow: 'hidden',
   },
-  compactBar: { width: 3, alignSelf: 'stretch' },
-  compactContent: { flex: 1, paddingHorizontal: 12, paddingVertical: 10 },
-  compactOrder: { fontSize: 9, fontWeight: '700', letterSpacing: 1 },
-  compactName: { fontSize: 13, fontWeight: '700', marginTop: 1 },
-  compactSub: { fontSize: 11, fontWeight: '500', marginTop: 1 },
-  compactTime: { fontSize: 11, fontWeight: '700', paddingRight: 12 },
+  compactStripe: { width: 3 },
+  compactBody: { flex: 1, paddingHorizontal: 10, paddingVertical: 8 },
+  compactRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  compactNum: { fontSize: 10, fontWeight: '800', letterSpacing: 0.5 },
+  compactName: { flex: 1, fontSize: 13, fontWeight: '700' },
+  compactMeta: { fontSize: 11, fontWeight: '500' },
+  compactTimer: { fontSize: 11, fontWeight: '700' },
+
+  // Empty
+  emptySection: {
+    borderRadius: 12, borderWidth: 1, borderStyle: 'dashed',
+    paddingVertical: 30, alignItems: 'center', gap: 8,
+  },
+  emptyText: { fontSize: 13, fontWeight: '500' },
 });
