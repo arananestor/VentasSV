@@ -18,121 +18,243 @@ const STATUS = {
 const KEYS = ['new', 'processing', 'done'];
 const MIN_SECTION = 120;
 
-// ─── MODAL DE DETALLE COMPLETO ──────────────────────────
-function OrderDetailModal({ sale, visible, onClose, onMove, theme }) {
+// ─── MODAL COCINERO ──────────────────────────────────────
+function CookModal({ sale, visible, onClose, onDone, theme }) {
+  // HOOKS SIEMPRE PRIMERO — nunca después de un return
+  const [elapsed, setElapsed] = useState('');
+
+  useEffect(() => {
+    if (!visible || !sale) return;
+    setElapsed('');
+    if (!sale.processingStartedAt) return;
+    const iv = setInterval(() => {
+      const diff = Math.floor((Date.now() - new Date(sale.processingStartedAt)) / 1000);
+      setElapsed(`${Math.floor(diff/60).toString().padStart(2,'0')}:${(diff%60).toString().padStart(2,'0')}`);
+    }, 1000);
+    return () => clearInterval(iv);
+  }, [visible, sale?.processingStartedAt]);
+
   if (!sale) return null;
-  const status = STATUS[sale.orderStatus] || STATUS.new;
-  const curIdx = KEYS.indexOf(sale.orderStatus || 'new');
-
-  const formatTime = (ts) => {
-    if (!ts) return '—';
-    const d = new Date(ts);
-    const h = d.getHours() % 12 || 12;
-    const m = d.getMinutes().toString().padStart(2, '0');
-    return `${h}:${m} ${d.getHours() >= 12 ? 'PM' : 'AM'}`;
-  };
-
-  const getDuration = () => {
-    if (!sale.processingStartedAt || !sale.completedAt) return null;
-    const diff = Math.floor((new Date(sale.completedAt) - new Date(sale.processingStartedAt)) / 1000);
-    return `${Math.floor(diff / 60).toString().padStart(2, '0')}:${(diff % 60).toString().padStart(2, '0')}`;
-  };
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <View style={[modalStyles.overlay, { backgroundColor: theme.overlay }]}>
-        <View style={[modalStyles.sheet, { backgroundColor: theme.bg }]}>
+      <View style={cookStyles.overlay}>
+        <View style={[cookStyles.sheet, { backgroundColor: theme.bg }]}>
+          <View style={[cookStyles.handle, { backgroundColor: theme.cardBorder }]} />
 
-          {/* Handle */}
-          <View style={[modalStyles.handle, { backgroundColor: theme.cardBorder }]} />
+          {/* Número ENORME */}
+          <View style={[cookStyles.numSection, { borderBottomColor: STATUS.processing.color + '40' }]}>
+            <Text style={[cookStyles.numLabel, { color: STATUS.processing.color }]}>PEDIDO EN PREPARACIÓN</Text>
+            <Text style={[cookStyles.numBig, { color: theme.text }]}>#{sale.orderNumber || sale.id?.slice(-4)}</Text>
+            {elapsed ? (
+              <Text style={[cookStyles.timer, { color: STATUS.processing.color }]}>⏱ {elapsed}</Text>
+            ) : null}
+          </View>
 
-          {/* Header */}
-          <View style={[modalStyles.header, { borderBottomColor: theme.cardBorder }]}>
-            <View style={modalStyles.headerLeft}>
-              <View style={[modalStyles.statusDot, { backgroundColor: status.color }]} />
-              <Text style={[modalStyles.orderNum, { color: theme.text }]}>
-                Pedido #{sale.orderNumber || sale.id?.slice(-4)}
+          <ScrollView contentContainerStyle={cookStyles.scroll} showsVerticalScrollIndicator={false}>
+
+            {/* Info rápida */}
+            <View style={[cookStyles.infoBar, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+              <View style={cookStyles.infoItem}>
+                <Text style={[cookStyles.infoLabel, { color: theme.textMuted }]}>PRODUCTO</Text>
+                <Text style={[cookStyles.infoValue, { color: theme.text }]}>{sale.productName}</Text>
+              </View>
+              <View style={[cookStyles.infoDivider, { backgroundColor: theme.cardBorder }]} />
+              <View style={cookStyles.infoItem}>
+                <Text style={[cookStyles.infoLabel, { color: theme.textMuted }]}>TAMAÑO</Text>
+                <Text style={[cookStyles.infoValue, { color: theme.text }]}>{sale.size}</Text>
+              </View>
+              <View style={[cookStyles.infoDivider, { backgroundColor: theme.cardBorder }]} />
+              <View style={cookStyles.infoItem}>
+                <Text style={[cookStyles.infoLabel, { color: theme.textMuted }]}>CANT.</Text>
+                <Text style={[cookStyles.infoValueBig, { color: STATUS.processing.color }]}>{sale.quantity}x</Text>
+              </View>
+            </View>
+
+            {/* Unidades con todos los detalles */}
+            {sale.units?.length > 0 ? (
+              sale.units.map((unit, i) => (
+                <View key={i} style={[cookStyles.unitCard, { borderColor: STATUS.processing.color + '50', backgroundColor: theme.card }]}>
+                  <View style={[cookStyles.unitHeader, { backgroundColor: STATUS.processing.color }]}>
+                    <Text style={cookStyles.unitHeaderText}>UNIDAD {i + 1} DE {sale.units.length}</Text>
+                  </View>
+
+                  {unit.flavors?.length > 0 && (
+                    <View style={cookStyles.flavorsSection}>
+                      <Text style={[cookStyles.sectionLabel, { color: theme.textMuted }]}>
+                        SABORES / COMPONENTES
+                      </Text>
+                      <View style={cookStyles.flavorsGrid}>
+                        {unit.flavors.map((f, fi) => (
+                          <View key={fi} style={[cookStyles.flavorBlock, { backgroundColor: f.color || '#888' }]}>
+                            <Text style={cookStyles.flavorBlockText}>{f.name || f}</Text>
+                          </View>
+                        ))}
+                      </View>
+                    </View>
+                  )}
+
+                  {unit.toppings?.length > 0 && (
+                    <View style={[cookStyles.toppingsSection, { borderTopColor: theme.cardBorder }]}>
+                      <Text style={[cookStyles.sectionLabel, { color: theme.textMuted }]}>EXTRAS</Text>
+                      <View style={cookStyles.toppingsGrid}>
+                        {unit.toppings.map((t, ti) => (
+                          <View key={ti} style={[cookStyles.toppingBlock, { backgroundColor: theme.bg, borderColor: theme.cardBorder }]}>
+                            <Text style={[cookStyles.toppingBlockText, { color: theme.text }]}>{t}</Text>
+                          </View>
+                        ))}
+                      </View>
+                    </View>
+                  )}
+
+                  {unit.note ? (
+                    <View style={cookStyles.noteBox}>
+                      <Text style={cookStyles.noteIcon}>📝</Text>
+                      <Text style={cookStyles.noteText}>{unit.note}</Text>
+                    </View>
+                  ) : null}
+                </View>
+              ))
+            ) : (
+              // Sin unidades pero con extras globales
+              sale.toppings?.length > 0 && (
+                <View style={[cookStyles.unitCard, { borderColor: STATUS.processing.color + '50', backgroundColor: theme.card }]}>
+                  <View style={[cookStyles.unitHeader, { backgroundColor: STATUS.processing.color }]}>
+                    <Text style={cookStyles.unitHeaderText}>EXTRAS DEL PEDIDO</Text>
+                  </View>
+                  <View style={cookStyles.toppingsSection}>
+                    <View style={cookStyles.toppingsGrid}>
+                      {sale.toppings.map((t, ti) => (
+                        <View key={ti} style={[cookStyles.toppingBlock, { backgroundColor: theme.bg, borderColor: theme.cardBorder }]}>
+                          <Text style={[cookStyles.toppingBlockText, { color: theme.text }]}>{t}</Text>
+                        </View>
+                      ))}
+                    </View>
+                  </View>
+                </View>
+              )
+            )}
+
+            {/* Nota general destacada */}
+            {sale.note && (
+              <View style={cookStyles.generalNote}>
+                <Text style={cookStyles.noteIcon}>⚠️</Text>
+                <Text style={cookStyles.generalNoteText}>{sale.note}</Text>
+              </View>
+            )}
+
+            <View style={{ height: 16 }} />
+          </ScrollView>
+
+          {/* Botón LISTO grande */}
+          <View style={[cookStyles.footer, { borderTopColor: theme.cardBorder, backgroundColor: theme.bg }]}>
+            <TouchableOpacity
+              style={[cookStyles.doneBtn, { backgroundColor: STATUS.done.color }]}
+              onPress={() => { onDone(sale.id); onClose(); }}
+            >
+              <Text style={cookStyles.doneBtnText}>✓  PEDIDO LISTO</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={cookStyles.closeLink} onPress={onClose}>
+              <Text style={[cookStyles.closeLinkText, { color: theme.textMuted }]}>Cerrar sin marcar como listo</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+// ─── MODAL DETALLE NORMAL ────────────────────────────────
+function OrderDetailModal({ sale, visible, onClose, onMove, theme }) {
+  // HOOKS SIEMPRE PRIMERO
+  const status = sale ? (STATUS[sale.orderStatus] || STATUS.new) : STATUS.new;
+  const curIdx = sale ? KEYS.indexOf(sale.orderStatus || 'new') : 0;
+
+  if (!sale) return null;
+
+  return (
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+      <View style={[detailStyles.overlay, { backgroundColor: 'rgba(0,0,0,0.5)' }]}>
+        <View style={[detailStyles.sheet, { backgroundColor: theme.bg }]}>
+          <View style={[detailStyles.handle, { backgroundColor: theme.cardBorder }]} />
+
+          <View style={[detailStyles.header, { borderBottomColor: theme.cardBorder }]}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+              <View style={[detailStyles.statusDot, { backgroundColor: status.color }]} />
+              <Text style={[detailStyles.orderNum, { color: theme.text }]}>
+                #{sale.orderNumber || sale.id?.slice(-4)}
               </Text>
             </View>
-            <TouchableOpacity onPress={onClose} style={[modalStyles.closeBtn, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+            <TouchableOpacity
+              style={[detailStyles.closeBtn, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}
+              onPress={onClose}
+            >
               <Feather name="x" size={18} color={theme.text} />
             </TouchableOpacity>
           </View>
 
-          <ScrollView contentContainerStyle={modalStyles.scroll} showsVerticalScrollIndicator={false}>
+          <ScrollView contentContainerStyle={detailStyles.scroll} showsVerticalScrollIndicator={false}>
 
-            {/* Estado badge */}
-            <View style={[modalStyles.statusBadge, { backgroundColor: status.color + '20', borderColor: status.color + '40' }]}>
-              <Text style={[modalStyles.statusBadgeText, { color: status.color }]}>{status.label}</Text>
+            <View style={[detailStyles.statusBadge, { backgroundColor: status.color + '20', borderColor: status.color + '40' }]}>
+              <Text style={[detailStyles.statusBadgeText, { color: status.color }]}>{status.label}</Text>
             </View>
 
             {/* Info básica */}
-            <View style={[modalStyles.section, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
-              <Text style={[modalStyles.productName, { color: theme.text }]}>{sale.productName}</Text>
-              <View style={[modalStyles.divider, { backgroundColor: theme.cardBorder }]} />
+            <View style={[detailStyles.section, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+              <Text style={[detailStyles.productName, { color: theme.text }]}>{sale.productName}</Text>
+              <View style={[detailStyles.divider, { backgroundColor: theme.cardBorder }]} />
               {[
                 { l: 'Tamaño', v: sale.size },
                 { l: 'Cantidad', v: `${sale.quantity}x` },
                 { l: 'Cajero', v: sale.workerName || '—' },
-                { l: 'Hora', v: formatTime(sale.timestamp) },
+                { l: 'Total', v: `$${sale.total?.toFixed(2) || '0.00'}` },
               ].map((r, i) => (
-                <View key={i} style={modalStyles.infoRow}>
-                  <Text style={[modalStyles.infoLabel, { color: theme.textMuted }]}>{r.l}</Text>
-                  <Text style={[modalStyles.infoValue, { color: theme.text }]}>{r.v}</Text>
+                <View key={i} style={detailStyles.row}>
+                  <Text style={[detailStyles.rowLabel, { color: theme.textMuted }]}>{r.l}</Text>
+                  <Text style={[detailStyles.rowValue, { color: theme.text }]}>{r.v}</Text>
                 </View>
               ))}
-              {getDuration() && (
-                <View style={modalStyles.infoRow}>
-                  <Text style={[modalStyles.infoLabel, { color: theme.textMuted }]}>Duración</Text>
-                  <Text style={[modalStyles.infoValue, { color: STATUS.done.color }]}>⏱ {getDuration()}</Text>
-                </View>
-              )}
             </View>
 
-            {/* Unidades con componentes */}
+            {/* Unidades */}
             {sale.units?.length > 0 && (
-              <View style={modalStyles.block}>
-                <Text style={[modalStyles.blockTitle, { color: theme.textMuted }]}>UNIDADES</Text>
+              <View style={{ marginBottom: 16 }}>
+                <Text style={[detailStyles.blockTitle, { color: theme.textMuted }]}>UNIDADES</Text>
                 {sale.units.map((unit, i) => (
-                  <View key={i} style={[modalStyles.unitCard, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
-                    <View style={[modalStyles.unitHeader, { borderBottomColor: theme.cardBorder }]}>
-                      <View style={[modalStyles.unitBadge, { backgroundColor: status.color }]}>
-                        <Text style={modalStyles.unitBadgeText}>{i + 1}</Text>
+                  <View key={i} style={[detailStyles.unitCard, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+                    <View style={[detailStyles.unitHeader, { borderBottomColor: theme.cardBorder }]}>
+                      <View style={[detailStyles.unitBadge, { backgroundColor: status.color }]}>
+                        <Text style={detailStyles.unitBadgeText}>{i + 1}</Text>
                       </View>
-                      <Text style={[modalStyles.unitTitle, { color: theme.text }]}>Unidad {i + 1}</Text>
+                      <Text style={[detailStyles.unitTitle, { color: theme.text }]}>Unidad {i + 1}</Text>
                     </View>
-
                     {unit.flavors?.length > 0 && (
-                      <View style={modalStyles.flavorsSection}>
-                        <Text style={[modalStyles.subLabel, { color: theme.textMuted }]}>SABORES</Text>
-                        <View style={modalStyles.flavorsWrap}>
+                      <View style={{ padding: 12, gap: 8 }}>
+                        <Text style={[detailStyles.subLabel, { color: theme.textMuted }]}>SABORES</Text>
+                        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
                           {unit.flavors.map((f, fi) => (
-                            <View key={fi} style={[modalStyles.flavorChip, { backgroundColor: f.color || '#888' }]}>
-                              <View style={[modalStyles.flavorDot, { backgroundColor: 'rgba(255,255,255,0.3)' }]} />
-                              <Text style={modalStyles.flavorChipText}>{f.name || f}</Text>
+                            <View key={fi} style={[detailStyles.flavorChip, { backgroundColor: f.color || '#888' }]}>
+                              <Text style={detailStyles.flavorChipText}>{f.name || f}</Text>
                             </View>
                           ))}
                         </View>
                       </View>
                     )}
-
                     {unit.toppings?.length > 0 && (
-                      <View style={modalStyles.toppingsSection}>
-                        <Text style={[modalStyles.subLabel, { color: theme.textMuted }]}>EXTRAS</Text>
-                        <View style={modalStyles.toppingsWrap}>
+                      <View style={{ paddingHorizontal: 12, paddingBottom: 12, gap: 6 }}>
+                        <Text style={[detailStyles.subLabel, { color: theme.textMuted }]}>EXTRAS</Text>
+                        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
                           {unit.toppings.map((t, ti) => (
-                            <View key={ti} style={[modalStyles.toppingChip, { backgroundColor: theme.bg, borderColor: theme.cardBorder }]}>
-                              <Text style={[modalStyles.toppingText, { color: theme.text }]}>{t}</Text>
+                            <View key={ti} style={[detailStyles.toppingChip, { backgroundColor: theme.bg, borderColor: theme.cardBorder }]}>
+                              <Text style={{ fontSize: 12, fontWeight: '600', color: theme.text }}>{t}</Text>
                             </View>
                           ))}
                         </View>
                       </View>
                     )}
-
                     {unit.note ? (
-                      <View style={[modalStyles.noteBox, { backgroundColor: theme.bg, borderColor: theme.cardBorder }]}>
-                        <Feather name="file-text" size={13} color={theme.textMuted} />
-                        <Text style={[modalStyles.noteText, { color: theme.textSecondary }]}>{unit.note}</Text>
+                      <View style={[detailStyles.noteBox, { backgroundColor: '#FFF9C4', borderColor: '#F9A825', margin: 12 }]}>
+                        <Text style={{ fontSize: 12, fontWeight: '600', color: '#5D4037' }}>📝 {unit.note}</Text>
                       </View>
                     ) : null}
                   </View>
@@ -142,13 +264,13 @@ function OrderDetailModal({ sale, visible, onClose, onMove, theme }) {
 
             {/* Extras sin unidades */}
             {!sale.units?.length && sale.toppings?.length > 0 && (
-              <View style={modalStyles.block}>
-                <Text style={[modalStyles.blockTitle, { color: theme.textMuted }]}>EXTRAS</Text>
-                <View style={[modalStyles.section, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
-                  <View style={modalStyles.toppingsWrap}>
+              <View style={{ marginBottom: 16 }}>
+                <Text style={[detailStyles.blockTitle, { color: theme.textMuted }]}>EXTRAS</Text>
+                <View style={[detailStyles.section, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
                     {sale.toppings.map((t, i) => (
-                      <View key={i} style={[modalStyles.toppingChip, { backgroundColor: theme.bg, borderColor: theme.cardBorder }]}>
-                        <Text style={[modalStyles.toppingText, { color: theme.text }]}>{t}</Text>
+                      <View key={i} style={[detailStyles.toppingChip, { backgroundColor: theme.bg, borderColor: theme.cardBorder }]}>
+                        <Text style={{ fontSize: 12, fontWeight: '600', color: theme.text }}>{t}</Text>
                       </View>
                     ))}
                   </View>
@@ -156,48 +278,22 @@ function OrderDetailModal({ sale, visible, onClose, onMove, theme }) {
               </View>
             )}
 
-            {/* Nota general */}
             {sale.note && (
-              <View style={modalStyles.block}>
-                <Text style={[modalStyles.blockTitle, { color: theme.textMuted }]}>NOTA</Text>
-                <View style={[modalStyles.section, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
-                  <Text style={[modalStyles.noteText, { color: theme.text }]}>{sale.note}</Text>
-                </View>
+              <View style={[detailStyles.section, { backgroundColor: '#FFF9C4', borderColor: '#F9A825', marginBottom: 16 }]}>
+                <Text style={{ fontSize: 13, fontWeight: '600', color: '#5D4037' }}>📝 {sale.note}</Text>
               </View>
             )}
 
-            {/* Comprobante */}
-            {sale.voucherImage && (
-              <View style={modalStyles.block}>
-                <Text style={[modalStyles.blockTitle, { color: theme.textMuted }]}>COMPROBANTE</Text>
-                <Image source={{ uri: sale.voucherImage }} style={modalStyles.voucherImg} />
-              </View>
-            )}
-
-            {/* Acciones de estado */}
-            {sale.orderStatus !== 'done' && (
-              <View style={modalStyles.actions}>
-                {curIdx < KEYS.length - 1 && (
-                  <TouchableOpacity
-                    style={[modalStyles.actionBtn, { backgroundColor: STATUS[KEYS[curIdx + 1]].color }]}
-                    onPress={() => { onMove(sale.id, KEYS[curIdx + 1]); onClose(); }}
-                  >
-                    <Text style={modalStyles.actionBtnText}>
-                      {sale.orderStatus === 'new' ? 'Iniciar preparación →' : 'Marcar como listo →'}
-                    </Text>
-                  </TouchableOpacity>
-                )}
-                {curIdx > 0 && (
-                  <TouchableOpacity
-                    style={[modalStyles.actionBtnSecondary, { borderColor: theme.cardBorder }]}
-                    onPress={() => { onMove(sale.id, KEYS[curIdx - 1]); onClose(); }}
-                  >
-                    <Text style={[modalStyles.actionBtnSecondaryText, { color: theme.textSecondary }]}>
-                      ← Regresar a {STATUS[KEYS[curIdx - 1]].label.toLowerCase()}
-                    </Text>
-                  </TouchableOpacity>
-                )}
-              </View>
+            {/* Acciones */}
+            {sale.orderStatus !== 'done' && curIdx < KEYS.length - 1 && (
+              <TouchableOpacity
+                style={[detailStyles.actionBtn, { backgroundColor: STATUS[KEYS[curIdx + 1]].color }]}
+                onPress={() => { onMove(sale.id, KEYS[curIdx + 1]); onClose(); }}
+              >
+                <Text style={detailStyles.actionBtnText}>
+                  {sale.orderStatus === 'new' ? 'Iniciar preparación →' : 'Marcar como listo →'}
+                </Text>
+              </TouchableOpacity>
             )}
 
             <View style={{ height: 40 }} />
@@ -208,148 +304,125 @@ function OrderDetailModal({ sale, visible, onClose, onMove, theme }) {
   );
 }
 
-// ─── TARJETA ────────────────────────────────────────────
-function OrderCard({ sale, theme, onMoveToSection, currentSection, onOpenDetail }) {
-  const pan = useRef(new Animated.ValueXY()).current;
-  const cardScale = useRef(new Animated.Value(1)).current;
-  const cardOpacity = useRef(new Animated.Value(1)).current;
-  const isDragging = useRef(false);
+// ─── TARJETA ─────────────────────────────────────────────
+function OrderCard({ sale, theme, onTap, onDragStart, onDragMove, onDragEnd }) {
   const [elapsed, setElapsed] = useState('');
+  const scale = useRef(new Animated.Value(1)).current;
+  const cardRef = useRef(null);
+  const dragging = useRef(false);
 
   useEffect(() => {
     if (sale.orderStatus === 'processing' && sale.processingStartedAt) {
       const iv = setInterval(() => {
         const diff = Math.floor((Date.now() - new Date(sale.processingStartedAt)) / 1000);
-        setElapsed(`${Math.floor(diff / 60).toString().padStart(2, '0')}:${(diff % 60).toString().padStart(2, '0')}`);
+        setElapsed(`${Math.floor(diff/60).toString().padStart(2,'0')}:${(diff%60).toString().padStart(2,'0')}`);
       }, 1000);
       return () => clearInterval(iv);
     }
     if (sale.orderStatus === 'done' && sale.processingStartedAt && sale.completedAt) {
       const diff = Math.floor((new Date(sale.completedAt) - new Date(sale.processingStartedAt)) / 1000);
-      setElapsed(`${Math.floor(diff / 60).toString().padStart(2, '0')}:${(diff % 60).toString().padStart(2, '0')}`);
+      setElapsed(`${Math.floor(diff/60).toString().padStart(2,'0')}:${(diff%60).toString().padStart(2,'0')}`);
     }
   }, [sale.orderStatus]);
 
   const panResponder = useRef(PanResponder.create({
     onStartShouldSetPanResponder: () => false,
     onMoveShouldSetPanResponder: (_, gs) =>
-      Math.abs(gs.dx) > 10 && Math.abs(gs.dx) > Math.abs(gs.dy) * 0.8,
-    onPanResponderGrant: () => {
-      isDragging.current = true;
-      pan.setOffset({ x: pan.x._value, y: 0 });
-      pan.setValue({ x: 0, y: 0 });
-      Animated.parallel([
-        Animated.spring(cardScale, { toValue: 1.03, useNativeDriver: false }),
-        Animated.timing(cardOpacity, { toValue: 0.9, duration: 120, useNativeDriver: false }),
-      ]).start();
+      Math.sqrt(gs.dx * gs.dx + gs.dy * gs.dy) > 10,
+    onPanResponderGrant: (e) => {
+      dragging.current = true;
+      Animated.spring(scale, { toValue: 0.95, useNativeDriver: false, tension: 200 }).start();
+      cardRef.current?.measure((x, y, w, h, px, py) => {
+        onDragStart(sale, { x: px, y: py, width: w, height: h });
+      });
     },
-    onPanResponderMove: Animated.event(
-      [null, { dx: pan.x }],
-      { useNativeDriver: false }
-    ),
-    onPanResponderRelease: (_, gs) => {
-      isDragging.current = false;
-      pan.flattenOffset();
-      Animated.parallel([
-        Animated.spring(cardScale, { toValue: 1, useNativeDriver: false }),
-        Animated.timing(cardOpacity, { toValue: 1, duration: 150, useNativeDriver: false }),
-        Animated.spring(pan, {
-          toValue: { x: 0, y: 0 },
-          useNativeDriver: false,
-          tension: 120,
-          friction: 8,
-        }),
-      ]).start();
-
-      const threshold = 70;
-      const curIdx = KEYS.indexOf(currentSection);
-      if (gs.dx > threshold && curIdx < KEYS.length - 1) {
-        onMoveToSection(sale.id, KEYS[curIdx + 1]);
-      } else if (gs.dx < -threshold && curIdx > 0) {
-        onMoveToSection(sale.id, KEYS[curIdx - 1]);
-      }
+    onPanResponderMove: (e) => {
+      onDragMove(e.nativeEvent.pageX, e.nativeEvent.pageY);
+    },
+    onPanResponderRelease: (e) => {
+      dragging.current = false;
+      Animated.spring(scale, { toValue: 1, useNativeDriver: false }).start();
+      onDragEnd(sale, e.nativeEvent.pageX, e.nativeEvent.pageY);
+    },
+    onPanResponderTerminate: () => {
+      dragging.current = false;
+      Animated.spring(scale, { toValue: 1, useNativeDriver: false }).start();
+      onDragEnd(null, 0, 0);
     },
   })).current;
 
   const status = STATUS[sale.orderStatus] || STATUS.new;
 
   return (
-    <Animated.View
-      style={[
-        styles.card,
-        {
+    <Animated.View ref={cardRef} style={{ transform: [{ scale }] }} {...panResponder.panHandlers}>
+      <TouchableOpacity
+        style={[styles.card, {
           backgroundColor: theme.card,
           borderColor: theme.cardBorder,
-          transform: [{ translateX: pan.x }, { scale: cardScale }],
-          opacity: cardOpacity,
           shadowColor: '#000',
           shadowOffset: { width: 0, height: 2 },
           shadowOpacity: 0.08,
           shadowRadius: 6,
           elevation: 3,
-        },
-      ]}
-      {...panResponder.panHandlers}
-    >
-      <View style={[styles.cardStripe, { backgroundColor: status.color }]} />
-
-      <TouchableOpacity
-        style={styles.cardBody}
-        onPress={() => onOpenDetail(sale)}
+        }]}
+        onPress={() => { if (!dragging.current) onTap(sale); }}
         activeOpacity={0.88}
       >
-        <View style={styles.cardHead}>
-          <View style={{ flex: 1 }}>
-            <Text style={[styles.cardNum, { color: status.color }]}>
-              #{sale.orderNumber || sale.id?.slice(-4)}
-            </Text>
-            <Text style={[styles.cardProduct, { color: theme.text }]} numberOfLines={1}>
-              {sale.productName}
-            </Text>
-            <Text style={[styles.cardMeta, { color: theme.textMuted }]}>
-              {sale.size} · {sale.quantity}x · {sale.workerName}
-            </Text>
-          </View>
-          <View style={{ alignItems: 'flex-end', gap: 4 }}>
-            {elapsed ? (
-              <Text style={[styles.cardTimer, { color: sale.orderStatus === 'processing' ? status.color : theme.textMuted }]}>
-                ⏱ {elapsed}
+        <View style={[styles.cardStripe, { backgroundColor: status.color }]} />
+        <View style={styles.cardBody}>
+          <View style={styles.cardHead}>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.cardNum, { color: status.color }]}>
+                #{sale.orderNumber || sale.id?.slice(-4)}
               </Text>
-            ) : null}
-            <MaterialCommunityIcons name="chevron-right" size={18} color={theme.textMuted} />
+              <Text style={[styles.cardProduct, { color: theme.text }]} numberOfLines={1}>
+                {sale.productName}
+              </Text>
+              <Text style={[styles.cardMeta, { color: theme.textMuted }]}>
+                {sale.size} · {sale.quantity}x · {sale.workerName}
+              </Text>
+            </View>
+            <View style={{ alignItems: 'flex-end', gap: 4 }}>
+              {elapsed ? (
+                <Text style={[styles.cardTimer, { color: sale.orderStatus === 'processing' ? status.color : theme.textMuted }]}>
+                  ⏱ {elapsed}
+                </Text>
+              ) : null}
+              {/* Puntitos de drag */}
+              <MaterialCommunityIcons name="dots-grid" size={18} color={theme.textMuted} />
+            </View>
           </View>
+
+          {sale.toppings?.length > 0 && (
+            <Text style={[styles.cardExtras, { color: theme.textMuted }]} numberOfLines={1}>
+              + {sale.toppings.join(', ')}
+            </Text>
+          )}
+
+          {sale.units?.length > 0 && (
+            <View style={styles.cardFlavors}>
+              {sale.units.flatMap(u => u.flavors || []).slice(0, 6).map((f, i) => (
+                <View key={i} style={[styles.cardFlavorDot, { backgroundColor: f.color || '#888' }]} />
+              ))}
+              {sale.units.length > 1 && (
+                <Text style={[styles.cardFlavorMore, { color: theme.textMuted }]}>
+                  {sale.units.length} uds
+                </Text>
+              )}
+            </View>
+          )}
         </View>
-
-        {sale.toppings?.length > 0 && (
-          <Text style={[styles.cardExtras, { color: theme.textMuted }]} numberOfLines={1}>
-            + {sale.toppings.join(', ')}
-          </Text>
-        )}
-
-        {/* Chips de sabores */}
-        {sale.units?.length > 0 && sale.units[0].flavors?.length > 0 && (
-          <View style={styles.cardFlavors}>
-            {sale.units[0].flavors.slice(0, 3).map((f, i) => (
-              <View key={i} style={[styles.cardFlavorDot, { backgroundColor: f.color || '#888' }]} />
-            ))}
-            {sale.units.length > 1 && (
-              <Text style={[styles.cardFlavorMore, { color: theme.textMuted }]}>
-                +{sale.units.length - 1} más
-              </Text>
-            )}
-          </View>
-        )}
       </TouchableOpacity>
     </Animated.View>
   );
 }
 
-// ─── TARJETA COMPRIMIDA ──────────────────────────────────
-function CompactCard({ sale, theme, onOpenDetail }) {
+// ─── TARJETA COMPRIMIDA ───────────────────────────────────
+function CompactCard({ sale, theme, onTap }) {
   return (
     <TouchableOpacity
       style={[styles.compactCard, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}
-      onPress={() => onOpenDetail(sale)}
+      onPress={() => onTap(sale)}
       activeOpacity={0.85}
     >
       <View style={[styles.compactStripe, { backgroundColor: STATUS.done.color }]} />
@@ -364,7 +437,7 @@ function CompactCard({ sale, theme, onOpenDetail }) {
         const diff = Math.floor((new Date(sale.completedAt) - new Date(sale.processingStartedAt)) / 1000);
         return (
           <Text style={[styles.compactTimer, { color: STATUS.done.color }]}>
-            {Math.floor(diff / 60).toString().padStart(2, '0')}:{(diff % 60).toString().padStart(2, '0')}
+            {Math.floor(diff/60).toString().padStart(2,'0')}:{(diff%60).toString().padStart(2,'0')}
           </Text>
         );
       })()}
@@ -373,8 +446,8 @@ function CompactCard({ sale, theme, onOpenDetail }) {
   );
 }
 
-// ─── BARRA DIVISORA ──────────────────────────────────────
-function DividerBar({ label, color, theme, isLandscape, onDrag }) {
+// ─── BARRA DIVISORA ───────────────────────────────────────
+function DividerBar({ label, color, theme, isLandscape, onDrag, onLayout }) {
   const lastPos = useRef(0);
 
   const panResponder = useRef(PanResponder.create({
@@ -389,9 +462,7 @@ function DividerBar({ label, color, theme, isLandscape, onDrag }) {
       lastPos.current = current;
       onDrag(delta);
     },
-    onPanResponderRelease: () => {
-      lastPos.current = 0;
-    },
+    onPanResponderRelease: () => { lastPos.current = 0; },
   })).current;
 
   return (
@@ -401,13 +472,13 @@ function DividerBar({ label, color, theme, isLandscape, onDrag }) {
         isLandscape ? styles.dividerV : styles.dividerH,
         { backgroundColor: color + '18', borderColor: color + '40' },
       ]}
+      onLayout={onLayout}
       {...panResponder.panHandlers}
     >
       <View style={[styles.dividerGrip, { backgroundColor: color }]}>
         <MaterialCommunityIcons
           name={isLandscape ? 'drag-vertical' : 'drag-horizontal'}
-          size={14}
-          color="#fff"
+          size={14} color="#fff"
         />
       </View>
       <Text style={[styles.dividerLabel, { color }]}>{label}</Text>
@@ -415,7 +486,7 @@ function DividerBar({ label, color, theme, isLandscape, onDrag }) {
   );
 }
 
-// ─── SCREEN ──────────────────────────────────────────────
+// ─── SCREEN ───────────────────────────────────────────────
 export default function OrdersScreen() {
   const { getTodaySales, updateSaleStatus } = useApp();
   const { theme } = useTheme();
@@ -427,11 +498,23 @@ export default function OrdersScreen() {
   const processingOrders = sales.filter(s => s.orderStatus === 'processing');
   const doneOrders = sales.filter(s => s.orderStatus === 'done');
 
-  const defaultSize = Math.floor((isLandscape ? width : height * 0.8) / 3);
+  const defaultSize = Math.floor((isLandscape ? width : height * 0.75) / 3);
   const [sec0, setSec0] = useState(defaultSize);
   const [sec1, setSec1] = useState(defaultSize);
-  const [sec2, setSec2] = useState(defaultSize);
 
+  // Drag state
+  const [dragSale, setDragSale] = useState(null);
+  const [ghostPos, setGhostPos] = useState(null);
+
+  // Posiciones de barras
+  const bar0Y = useRef(0);
+  const bar1Y = useRef(0);
+  const bar0X = useRef(0);
+  const bar1X = useRef(0);
+
+  // Modals
+  const [cookSale, setCookSale] = useState(null);
+  const [showCook, setShowCook] = useState(false);
   const [detailSale, setDetailSale] = useState(null);
   const [showDetail, setShowDetail] = useState(false);
 
@@ -439,10 +522,51 @@ export default function OrdersScreen() {
   const sectionRefs = useRef({});
   const [activeIdx, setActiveIdx] = useState(0);
 
-  const openDetail = (sale) => { setDetailSale(sale); setShowDetail(true); };
-  const closeDetail = () => setShowDetail(false);
+  const handleTap = (sale) => {
+    if (sale.orderStatus === 'processing') {
+      setCookSale(sale);
+      setShowCook(true);
+    } else {
+      setDetailSale(sale);
+      setShowDetail(true);
+    }
+  };
 
-  const handleMove = (saleId, newStatus) => updateSaleStatus(saleId, newStatus);
+  const handleDragStart = (sale, layout) => {
+    setDragSale(sale);
+    setGhostPos({ x: layout.x, y: layout.y, width: layout.width, height: layout.height });
+  };
+
+  const handleDragMove = (pageX, pageY) => {
+    setGhostPos(prev => prev ? {
+      ...prev,
+      x: pageX - prev.width / 2,
+      y: pageY - prev.height / 2,
+    } : prev);
+  };
+
+  const handleDragEnd = (sale, pageX, pageY) => {
+    setDragSale(null);
+    setGhostPos(null);
+    if (!sale) return;
+
+    const curIdx = KEYS.indexOf(sale.orderStatus || 'new');
+    let targetIdx = curIdx;
+
+    if (isLandscape) {
+      if (pageX > bar1X.current) targetIdx = 2;
+      else if (pageX > bar0X.current) targetIdx = 1;
+      else targetIdx = 0;
+    } else {
+      if (pageY > bar1Y.current) targetIdx = 2;
+      else if (pageY > bar0Y.current) targetIdx = 1;
+      else targetIdx = 0;
+    }
+
+    if (targetIdx !== curIdx) {
+      updateSaleStatus(sale.id, KEYS[targetIdx]);
+    }
+  };
 
   const scrollToSection = (idx) => {
     setActiveIdx(idx);
@@ -453,46 +577,32 @@ export default function OrdersScreen() {
     );
   };
 
-  const adjustSec0 = (delta) => {
-    setSec0(prev => Math.max(MIN_SECTION, prev + delta));
-  };
-  const adjustSec1 = (delta) => {
-    setSec1(prev => Math.max(MIN_SECTION, prev + delta));
-  };
-
   const renderSection = (key, orders) => {
     const sizeStyle = isLandscape
-      ? { width: key === 'new' ? sec0 : key === 'processing' ? sec1 : sec2 }
-      : { minHeight: key === 'new' ? sec0 : key === 'processing' ? sec1 : sec2 };
+      ? { width: key === 'new' ? sec0 : key === 'processing' ? sec1 : undefined, flex: key === 'done' ? 1 : undefined }
+      : { minHeight: key === 'new' ? sec0 : key === 'processing' ? sec1 : MIN_SECTION };
 
     return (
-      <View
-        key={key}
-        ref={ref => sectionRefs.current[key] = ref}
-        style={[styles.section, sizeStyle]}
-      >
+      <View key={key} ref={ref => sectionRefs.current[key] = ref} style={[styles.section, sizeStyle]}>
         {orders.length === 0 ? (
           <View style={[styles.emptySection, { borderColor: theme.cardBorder }]}>
             <MaterialCommunityIcons name="clipboard-text-outline" size={26} color={theme.textMuted} />
             <Text style={[styles.emptyText, { color: theme.textMuted }]}>
-              {key === 'new' ? 'Sin pedidos nuevos'
-                : key === 'processing' ? 'Nada en proceso'
-                : 'Ninguno listo aún'}
+              {key === 'new' ? 'Sin pedidos nuevos' : key === 'processing' ? 'Nada en proceso' : 'Ninguno listo aún'}
             </Text>
           </View>
         ) : key === 'done' ? (
-          orders.map(s => (
-            <CompactCard key={s.id} sale={s} theme={theme} onOpenDetail={openDetail} />
-          ))
+          orders.map(s => <CompactCard key={s.id} sale={s} theme={theme} onTap={handleTap} />)
         ) : (
           orders.map(s => (
             <OrderCard
               key={s.id}
               sale={s}
               theme={theme}
-              currentSection={key}
-              onMoveToSection={handleMove}
-              onOpenDetail={openDetail}
+              onTap={handleTap}
+              onDragStart={handleDragStart}
+              onDragMove={handleDragMove}
+              onDragEnd={handleDragEnd}
             />
           ))
         )}
@@ -500,70 +610,127 @@ export default function OrdersScreen() {
     );
   };
 
+  const status = dragSale ? (STATUS[dragSale.orderStatus] || STATUS.new) : STATUS.new;
+
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: theme.bg }]} edges={['top']}>
+    <View style={{ flex: 1 }}>
+      <SafeAreaView style={[styles.container, { backgroundColor: theme.bg }]} edges={['top']}>
 
-      {/* HEADER */}
-      <View style={[styles.header, { borderBottomColor: theme.cardBorder }]}>
-        <Text style={[styles.headerTitle, { color: theme.text }]}>PEDIDOS</Text>
-        <View style={styles.headerIndex}>
-          {KEYS.map((key, i) => {
-            const count = key === 'new' ? newOrders.length
-              : key === 'processing' ? processingOrders.length
-              : doneOrders.length;
-            const isActive = activeIdx === i;
-            return (
-              <TouchableOpacity key={key} style={styles.indexBtn} onPress={() => scrollToSection(i)}>
-                <Text style={[styles.indexText, { color: isActive ? theme.text : theme.textMuted }]}>
-                  {STATUS[key].label}{count > 0 ? ` · ${count}` : ''}
-                </Text>
-                {isActive && <View style={[styles.indexLine, { backgroundColor: STATUS[key].color }]} />}
-              </TouchableOpacity>
-            );
-          })}
+        {/* HEADER */}
+        <View style={[styles.header, { borderBottomColor: theme.cardBorder }]}>
+          <Text style={[styles.headerTitle, { color: theme.text }]}>PEDIDOS</Text>
+          <View style={styles.headerIndex}>
+            {KEYS.map((key, i) => {
+              const count = key === 'new' ? newOrders.length
+                : key === 'processing' ? processingOrders.length
+                : doneOrders.length;
+              const isActive = activeIdx === i;
+              return (
+                <TouchableOpacity key={key} style={styles.indexBtn} onPress={() => scrollToSection(i)}>
+                  <Text style={[styles.indexText, { color: isActive ? theme.text : theme.textMuted }]}>
+                    {STATUS[key].label}{count > 0 ? ` · ${count}` : ''}
+                  </Text>
+                  {isActive && <View style={[styles.indexLine, { backgroundColor: STATUS[key].color }]} />}
+                </TouchableOpacity>
+              );
+            })}
+          </View>
         </View>
-      </View>
 
-      {(newOrders.length > 0 || processingOrders.length > 0) && (
         <View style={[styles.hint, { backgroundColor: theme.card, borderBottomColor: theme.cardBorder }]}>
-          <MaterialCommunityIcons name="gesture-swipe-horizontal" size={13} color={theme.textMuted} />
+          <MaterialCommunityIcons name="dots-grid" size={13} color={theme.textMuted} />
           <Text style={[styles.hintText, { color: theme.textMuted }]}>
-            Deslizá para cambiar estado · Tocá para ver detalle
+            Arrastrá · Tocá para ver detalle completo
           </Text>
         </View>
-      )}
 
-      {isLandscape ? (
-        <View style={styles.landscapeContainer}>
-          {renderSection('new', newOrders)}
-          <DividerBar label={STATUS.processing.label} color={STATUS.processing.color} theme={theme} isLandscape onDrag={adjustSec0} />
-          {renderSection('processing', processingOrders)}
-          <DividerBar label={STATUS.done.label} color={STATUS.done.color} theme={theme} isLandscape onDrag={adjustSec1} />
-          {renderSection('done', doneOrders)}
-        </View>
-      ) : (
-        <ScrollView ref={scrollRef} contentContainerStyle={styles.portraitContainer} showsVerticalScrollIndicator={false}>
-          {renderSection('new', newOrders)}
-          <DividerBar label={STATUS.processing.label} color={STATUS.processing.color} theme={theme} isLandscape={false} onDrag={adjustSec0} />
-          {renderSection('processing', processingOrders)}
-          <DividerBar label={STATUS.done.label} color={STATUS.done.color} theme={theme} isLandscape={false} onDrag={adjustSec1} />
-          {renderSection('done', doneOrders)}
-          <View style={{ height: 100 }} />
-        </ScrollView>
-      )}
+        {isLandscape ? (
+          <View style={styles.landscapeContainer}>
+            {renderSection('new', newOrders)}
+            <DividerBar
+              label={STATUS.processing.label} color={STATUS.processing.color}
+              theme={theme} isLandscape
+              onDrag={d => setSec0(p => Math.max(MIN_SECTION, p + d))}
+              onLayout={e => { bar0X.current = e.nativeEvent.layout.x; }}
+            />
+            {renderSection('processing', processingOrders)}
+            <DividerBar
+              label={STATUS.done.label} color={STATUS.done.color}
+              theme={theme} isLandscape
+              onDrag={d => setSec1(p => Math.max(MIN_SECTION, p + d))}
+              onLayout={e => { bar1X.current = e.nativeEvent.layout.x; }}
+            />
+            {renderSection('done', doneOrders)}
+          </View>
+        ) : (
+          <ScrollView ref={scrollRef} contentContainerStyle={styles.portraitContainer} showsVerticalScrollIndicator={false}>
+            {renderSection('new', newOrders)}
+            <DividerBar
+              label={STATUS.processing.label} color={STATUS.processing.color}
+              theme={theme} isLandscape={false}
+              onDrag={d => setSec0(p => Math.max(MIN_SECTION, p + d))}
+              onLayout={e => { bar0Y.current = e.nativeEvent.layout.y; }}
+            />
+            {renderSection('processing', processingOrders)}
+            <DividerBar
+              label={STATUS.done.label} color={STATUS.done.color}
+              theme={theme} isLandscape={false}
+              onDrag={d => setSec1(p => Math.max(MIN_SECTION, p + d))}
+              onLayout={e => { bar1Y.current = e.nativeEvent.layout.y; }}
+            />
+            {renderSection('done', doneOrders)}
+            <View style={{ height: 100 }} />
+          </ScrollView>
+        )}
 
+        {/* Ghost card — flota sobre todo */}
+        {dragSale && ghostPos && (
+          <View
+            pointerEvents="none"
+            style={[styles.ghost, {
+              top: ghostPos.y,
+              left: ghostPos.x,
+              width: ghostPos.width,
+              backgroundColor: theme.card,
+              borderColor: status.color,
+            }]}
+          >
+            <View style={[styles.cardStripe, { backgroundColor: status.color }]} />
+            <View style={styles.cardBody}>
+              <Text style={[styles.cardNum, { color: status.color }]}>
+                #{dragSale.orderNumber || dragSale.id?.slice(-4)}
+              </Text>
+              <Text style={[styles.cardProduct, { color: theme.text }]} numberOfLines={1}>
+                {dragSale.productName}
+              </Text>
+              <Text style={[styles.cardMeta, { color: theme.textMuted }]}>
+                {dragSale.size} · {dragSale.quantity}x
+              </Text>
+            </View>
+          </View>
+        )}
+
+      </SafeAreaView>
+
+      <CookModal
+        sale={cookSale}
+        visible={showCook}
+        onClose={() => setShowCook(false)}
+        onDone={(id) => updateSaleStatus(id, 'done')}
+        theme={theme}
+      />
       <OrderDetailModal
         sale={detailSale}
         visible={showDetail}
-        onClose={closeDetail}
-        onMove={handleMove}
+        onClose={() => setShowDetail(false)}
+        onMove={updateSaleStatus}
         theme={theme}
       />
-    </SafeAreaView>
+    </View>
   );
 }
 
-// ─── STYLES ──────────────────────────────────────────────
+// ─── STYLES ───────────────────────────────────────────────
 const styles = StyleSheet.create({
   container: { flex: 1 },
   header: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 0, borderBottomWidth: 1 },
@@ -588,14 +755,25 @@ const styles = StyleSheet.create({
   cardStripe: { width: 4 },
   cardBody: { flex: 1, padding: 12 },
   cardHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
-  cardNum: { fontSize: 10, fontWeight: '800', letterSpacing: 1, marginBottom: 3 },
+  cardNum: { fontSize: 11, fontWeight: '900', letterSpacing: 1, marginBottom: 3 },
   cardProduct: { fontSize: 15, fontWeight: '800' },
   cardMeta: { fontSize: 11, fontWeight: '500', marginTop: 2 },
   cardTimer: { fontSize: 11, fontWeight: '800' },
   cardExtras: { fontSize: 11, fontWeight: '500', marginTop: 6 },
   cardFlavors: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 8 },
-  cardFlavorDot: { width: 12, height: 12, borderRadius: 6 },
+  cardFlavorDot: { width: 10, height: 10, borderRadius: 5 },
   cardFlavorMore: { fontSize: 10, fontWeight: '600' },
+  ghost: {
+    position: 'absolute', zIndex: 9999,
+    borderRadius: 14, borderWidth: 2,
+    flexDirection: 'row', overflow: 'hidden',
+    transform: [{ rotate: '2deg' }, { scale: 1.04 }],
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.3,
+    shadowRadius: 16,
+    elevation: 20,
+  },
   compactCard: { flexDirection: 'row', alignItems: 'center', borderRadius: 10, borderWidth: 1, overflow: 'hidden' },
   compactStripe: { width: 3, alignSelf: 'stretch' },
   compactBody: { flex: 1, paddingHorizontal: 10, paddingVertical: 8 },
@@ -605,15 +783,50 @@ const styles = StyleSheet.create({
   compactTimer: { fontSize: 11, fontWeight: '700', marginRight: 8 },
 });
 
-const modalStyles = StyleSheet.create({
+const cookStyles = StyleSheet.create({
+  overlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.65)' },
+  sheet: { borderTopLeftRadius: 28, borderTopRightRadius: 28, maxHeight: '95%' },
+  handle: { width: 40, height: 4, borderRadius: 2, alignSelf: 'center', marginTop: 12, marginBottom: 0 },
+  numSection: { alignItems: 'center', paddingVertical: 20, borderBottomWidth: 2, marginHorizontal: 20 },
+  numLabel: { fontSize: 11, fontWeight: '800', letterSpacing: 4, marginBottom: 4 },
+  numBig: { fontSize: 72, fontWeight: '900', letterSpacing: -4 },
+  timer: { fontSize: 20, fontWeight: '800', marginTop: 4 },
+  scroll: { paddingHorizontal: 16, paddingTop: 16 },
+  infoBar: { flexDirection: 'row', borderRadius: 14, borderWidth: 1, marginBottom: 16, overflow: 'hidden' },
+  infoItem: { flex: 1, padding: 14, alignItems: 'center' },
+  infoDivider: { width: 1 },
+  infoLabel: { fontSize: 9, fontWeight: '800', letterSpacing: 2, marginBottom: 4 },
+  infoValue: { fontSize: 13, fontWeight: '700', textAlign: 'center' },
+  infoValueBig: { fontSize: 24, fontWeight: '900' },
+  unitCard: { borderRadius: 16, borderWidth: 1.5, marginBottom: 12, overflow: 'hidden' },
+  unitHeader: { paddingHorizontal: 16, paddingVertical: 10 },
+  unitHeaderText: { color: '#fff', fontSize: 11, fontWeight: '900', letterSpacing: 2 },
+  sectionLabel: { fontSize: 10, fontWeight: '800', letterSpacing: 2, marginBottom: 8 },
+  flavorsSection: { padding: 14 },
+  flavorsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  flavorBlock: { paddingHorizontal: 18, paddingVertical: 12, borderRadius: 10, minWidth: 80, alignItems: 'center' },
+  flavorBlockText: { color: '#fff', fontSize: 14, fontWeight: '800' },
+  toppingsSection: { paddingHorizontal: 14, paddingBottom: 14, paddingTop: 10, borderTopWidth: 1 },
+  toppingsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  toppingBlock: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 10, borderWidth: 1 },
+  toppingBlockText: { fontSize: 13, fontWeight: '700' },
+  noteBox: { margin: 14, borderRadius: 10, padding: 12, flexDirection: 'row', gap: 8, backgroundColor: '#FFF9C4', borderColor: '#F9A825', borderWidth: 1 },
+  noteIcon: { fontSize: 16 },
+  noteText: { fontSize: 13, fontWeight: '600', flex: 1, color: '#5D4037' },
+  generalNote: { borderRadius: 12, padding: 14, flexDirection: 'row', gap: 8, marginBottom: 12, backgroundColor: '#FFF3E0', borderColor: '#FF9800', borderWidth: 1 },
+  generalNoteText: { fontSize: 14, fontWeight: '700', flex: 1, color: '#E65100' },
+  footer: { padding: 16, paddingBottom: 32, borderTopWidth: 1, gap: 8 },
+  doneBtn: { borderRadius: 16, paddingVertical: 20, alignItems: 'center' },
+  doneBtnText: { color: '#fff', fontSize: 18, fontWeight: '900', letterSpacing: 2 },
+  closeLink: { paddingVertical: 8, alignItems: 'center' },
+  closeLinkText: { fontSize: 13, fontWeight: '500' },
+});
+
+const detailStyles = StyleSheet.create({
   overlay: { flex: 1, justifyContent: 'flex-end' },
   sheet: { borderTopLeftRadius: 24, borderTopRightRadius: 24, maxHeight: '90%' },
   handle: { width: 40, height: 4, borderRadius: 2, alignSelf: 'center', marginTop: 12, marginBottom: 4 },
-  header: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 20, paddingVertical: 16, borderBottomWidth: 1,
-  },
-  headerLeft: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingVertical: 16, borderBottomWidth: 1 },
   statusDot: { width: 10, height: 10, borderRadius: 5 },
   orderNum: { fontSize: 16, fontWeight: '900' },
   closeBtn: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', borderWidth: 1 },
@@ -623,32 +836,20 @@ const modalStyles = StyleSheet.create({
   section: { borderRadius: 16, padding: 16, borderWidth: 1, marginBottom: 16 },
   productName: { fontSize: 18, fontWeight: '900', marginBottom: 12 },
   divider: { height: 1, marginBottom: 10 },
-  infoRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
-  infoLabel: { fontSize: 13, fontWeight: '600' },
-  infoValue: { fontSize: 13, fontWeight: '700' },
-  block: { marginBottom: 16 },
+  row: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
+  rowLabel: { fontSize: 13, fontWeight: '600' },
+  rowValue: { fontSize: 13, fontWeight: '700' },
   blockTitle: { fontSize: 10, fontWeight: '800', letterSpacing: 2, marginBottom: 10 },
   unitCard: { borderRadius: 14, borderWidth: 1, marginBottom: 8, overflow: 'hidden' },
   unitHeader: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, borderBottomWidth: 1 },
   unitBadge: { width: 24, height: 24, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
   unitBadgeText: { color: '#fff', fontSize: 12, fontWeight: '800' },
   unitTitle: { fontSize: 14, fontWeight: '700' },
-  flavorsSection: { padding: 12, gap: 8 },
-  toppingsSection: { paddingHorizontal: 12, paddingBottom: 12, gap: 8 },
   subLabel: { fontSize: 10, fontWeight: '800', letterSpacing: 2 },
-  flavorsWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
-  flavorChip: { flexDirection: 'row', alignItems: 'center', gap: 6, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 5 },
-  flavorDot: { width: 8, height: 8, borderRadius: 4 },
+  flavorChip: { borderRadius: 8, paddingHorizontal: 10, paddingVertical: 5 },
   flavorChipText: { color: '#fff', fontSize: 12, fontWeight: '700' },
-  toppingsWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   toppingChip: { borderRadius: 8, paddingHorizontal: 10, paddingVertical: 5, borderWidth: 1 },
-  toppingText: { fontSize: 12, fontWeight: '600' },
-  noteBox: { flexDirection: 'row', alignItems: 'center', gap: 8, margin: 12, borderRadius: 10, padding: 10, borderWidth: 1 },
-  noteText: { fontSize: 13, fontWeight: '500', flex: 1 },
-  voucherImg: { width: '100%', height: 200, borderRadius: 14, resizeMode: 'cover' },
-  actions: { gap: 10, marginTop: 8 },
-  actionBtn: { borderRadius: 14, paddingVertical: 16, alignItems: 'center' },
+  noteBox: { borderRadius: 10, padding: 10, borderWidth: 1 },
+  actionBtn: { borderRadius: 14, paddingVertical: 16, alignItems: 'center', marginBottom: 8 },
   actionBtnText: { color: '#fff', fontSize: 15, fontWeight: '800' },
-  actionBtnSecondary: { borderRadius: 14, paddingVertical: 14, alignItems: 'center', borderWidth: 1 },
-  actionBtnSecondaryText: { fontSize: 14, fontWeight: '600' },
 });
