@@ -26,16 +26,22 @@ function CookModal({ sale, visible, onClose, onDone, theme }) {
   const [currentPage, setCurrentPage] = useState(0);
   const [completedUnits, setCompletedUnits] = useState([]);
   const [unlocked, setUnlocked] = useState(false);
+  const [showScrollBtn, setShowScrollBtn] = useState(false);
   const swipeAnim = useRef(new Animated.Value(0)).current;
-  const swipeBg = useRef(new Animated.Value(0)).current;
+  const greenAnim = useRef(new Animated.Value(0)).current;
+  const checkAnim = useRef(new Animated.Value(0)).current;
+  const scrollRef = useRef(null);
+  const scrollBtnAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     if (!visible || !sale) return;
     setCurrentPage(0);
     setCompletedUnits([]);
     setUnlocked(false);
+    setShowScrollBtn(false);
     swipeAnim.setValue(0);
-    swipeBg.setValue(0);
+    greenAnim.setValue(0);
+    checkAnim.setValue(0);
   }, [visible, sale?.id]);
 
   useEffect(() => {
@@ -47,6 +53,13 @@ function CookModal({ sale, visible, onClose, onDone, theme }) {
     return () => clearInterval(iv);
   }, [visible, sale?.processingStartedAt]);
 
+  useEffect(() => {
+    if (unlocked) {
+      setShowScrollBtn(true);
+      Animated.spring(scrollBtnAnim, { toValue: 1, useNativeDriver: true, tension: 120, friction: 8 }).start();
+    }
+  }, [unlocked]);
+
   if (!sale) return null;
 
   const pages = sale.units?.length > 0
@@ -56,10 +69,25 @@ function CookModal({ sale, visible, onClose, onDone, theme }) {
   const isLastPage = currentPage === totalPages - 1;
   const currentUnit = pages[currentPage];
 
-  const bgColor = swipeBg.interpolate({
-    inputRange: [0, 1],
-    outputRange: ['transparent', STATUS.done.color],
-  });
+  const runLastPageAnimation = (onDone) => {
+    // Verde llena el espacio
+    Animated.timing(greenAnim, { toValue: 1, duration: 300, useNativeDriver: false }).start(() => {
+      // Check aparece
+      Animated.spring(checkAnim, { toValue: 1, useNativeDriver: true, tension: 120, friction: 6 }).start(() => {
+        // Espera un momento
+        setTimeout(() => {
+          // Todo vuelve
+          Animated.parallel([
+            Animated.timing(greenAnim, { toValue: 0, duration: 250, useNativeDriver: false }),
+            Animated.timing(checkAnim, { toValue: 0, duration: 200, useNativeDriver: true }),
+            Animated.spring(swipeAnim, { toValue: 0, useNativeDriver: false }),
+          ]).start(() => {
+            onDone();
+          });
+        }, 600);
+      });
+    });
+  };
 
   const swipePanResponder = PanResponder.create({
     onStartShouldSetPanResponder: () => true,
@@ -67,35 +95,46 @@ function CookModal({ sale, visible, onClose, onDone, theme }) {
     onPanResponderMove: (_, gs) => {
       if (gs.dx < 0) {
         swipeAnim.setValue(gs.dx);
-        swipeBg.setValue(Math.min(1, Math.abs(gs.dx) / (SCREEN_WIDTH * 0.35)));
       }
     },
     onPanResponderRelease: (_, gs) => {
-      const threshold = -(SCREEN_WIDTH * 0.32);
+      const threshold = -(SCREEN_WIDTH * 0.3);
       if (gs.dx < threshold) {
         if (isLastPage) {
-          Animated.sequence([
-            Animated.timing(swipeAnim, { toValue: -SCREEN_WIDTH, duration: 200, useNativeDriver: false }),
-            Animated.timing(swipeAnim, { toValue: 0, duration: 300, useNativeDriver: false }),
-          ]).start(() => {
-            swipeBg.setValue(0);
-            setUnlocked(true);
-            setCompletedUnits(prev => [...prev, currentPage]);
+          // Animar a izquierda, luego efecto verde+check
+          Animated.timing(swipeAnim, { toValue: -SCREEN_WIDTH, duration: 200, useNativeDriver: false }).start(() => {
+            runLastPageAnimation(() => {
+              setCompletedUnits(prev => [...prev, currentPage]);
+              setUnlocked(true);
+            });
           });
         } else {
+          // Pasar a siguiente unidad
           Animated.timing(swipeAnim, { toValue: -SCREEN_WIDTH, duration: 200, useNativeDriver: false }).start(() => {
-            swipeAnim.setValue(0);
-            swipeBg.setValue(0);
+            swipeAnim.setValue(SCREEN_WIDTH);
             setCompletedUnits(prev => [...prev, currentPage]);
             setCurrentPage(p => p + 1);
+            Animated.spring(swipeAnim, { toValue: 0, useNativeDriver: false, tension: 120, friction: 10 }).start();
           });
         }
       } else {
-        Animated.spring(swipeAnim, { toValue: 0, useNativeDriver: false }).start();
-        Animated.timing(swipeBg, { toValue: 0, duration: 200, useNativeDriver: false }).start();
+        Animated.spring(swipeAnim, { toValue: 0, useNativeDriver: false, tension: 150 }).start();
       }
     },
   });
+
+  const greenBg = greenAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['transparent', STATUS.done.color],
+  });
+
+  const checkScale = checkAnim.interpolate({ inputRange: [0, 1], outputRange: [0, 1] });
+  const checkOpacity = checkAnim;
+
+  const scrollToBottom = () => {
+    scrollRef.current?.scrollToEnd({ animated: true });
+    Animated.timing(scrollBtnAnim, { toValue: 0, duration: 200, useNativeDriver: true }).start(() => setShowScrollBtn(false));
+  };
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
@@ -147,84 +186,95 @@ function CookModal({ sale, visible, onClose, onDone, theme }) {
             </View>
           )}
 
-          {/* Contenido de la unidad — scroll libre */}
-          <ScrollView
-            style={cookStyles.unitPage}
-            contentContainerStyle={{ paddingBottom: 16 }}
-            showsVerticalScrollIndicator={false}
-          >
-            <View style={[cookStyles.unitHeader, { backgroundColor: STATUS.processing.color }]}>
-              <Text style={cookStyles.unitHeaderText}>
-                {totalPages > 1 ? `UNIDAD ${currentPage + 1} DE ${totalPages}` : 'DETALLE DEL PEDIDO'}
-              </Text>
-              {completedUnits.includes(currentPage) && (
-                <Text style={cookStyles.unitDoneCheck}>✓</Text>
-              )}
-            </View>
+          {/* Área de swipe con contenido — fondo verde animado */}
+          <Animated.View style={[cookStyles.swipeZone, { backgroundColor: greenBg }]}>
 
-            {currentUnit.flavors?.length > 0 && (
-              <View style={cookStyles.flavorsSection}>
-                <Text style={[cookStyles.sectionLabel, { color: theme.textMuted }]}>SABORES / COMPONENTES</Text>
-                <View style={cookStyles.flavorsGrid}>
-                  {currentUnit.flavors.map((f, fi) => (
-                    <View key={fi} style={[cookStyles.flavorBlock, { backgroundColor: f.color || '#888' }]}>
-                      <Text style={cookStyles.flavorBlockText}>{f.name || f}</Text>
-                    </View>
-                  ))}
+            {/* Check animado centrado (solo en último momento) */}
+            <Animated.View style={[cookStyles.checkOverlay, { opacity: checkOpacity, transform: [{ scale: checkScale }] }]} pointerEvents="none">
+              <View style={cookStyles.checkCircle}>
+                <Feather name="check" size={48} color="#fff" />
+              </View>
+            </Animated.View>
+
+            {/* Contenido de la unidad — deslizable */}
+            <Animated.View style={[cookStyles.unitSlide, { transform: [{ translateX: swipeAnim }] }]} {...swipePanResponder.panHandlers}>
+              <ScrollView
+                ref={scrollRef}
+                showsVerticalScrollIndicator={false}
+                scrollEnabled={true}
+                contentContainerStyle={{ paddingBottom: 20 }}
+              >
+                {/* Header de unidad */}
+                <View style={[cookStyles.unitHeader, { backgroundColor: STATUS.processing.color }]}>
+                  <Text style={cookStyles.unitHeaderText}>
+                    {totalPages > 1 ? `UNIDAD ${currentPage + 1} DE ${totalPages}` : 'PREPARAR'}
+                  </Text>
+                  <Text style={[cookStyles.swipeHintSmall, { color: 'rgba(255,255,255,0.8)' }]}>
+                    ← deslizá para confirmar
+                  </Text>
                 </View>
-              </View>
-            )}
 
-            {currentUnit.toppings?.length > 0 && (
-              <View style={[cookStyles.toppingsSection, {
-                borderTopWidth: currentUnit.flavors?.length > 0 ? 1 : 0,
-                borderTopColor: theme.cardBorder,
-              }]}>
-                <Text style={[cookStyles.sectionLabel, { color: theme.textMuted }]}>EXTRAS</Text>
-                <View style={cookStyles.toppingsGrid}>
-                  {currentUnit.toppings.map((t, ti) => (
-                    <View key={ti} style={[cookStyles.toppingBlock, { backgroundColor: theme.bg, borderColor: theme.cardBorder }]}>
-                      <Text style={[cookStyles.toppingBlockText, { color: theme.text }]}>{t}</Text>
+                {/* Componentes/sabores — GRANDES y con color */}
+                {currentUnit.flavors?.length > 0 ? (
+                  <View style={cookStyles.flavorsSection}>
+                    <Text style={[cookStyles.sectionLabel, { color: theme.textMuted }]}>
+                      COMPONENTES
+                    </Text>
+                    <View style={cookStyles.flavorsGrid}>
+                      {currentUnit.flavors.map((f, fi) => (
+                        <View key={fi} style={[cookStyles.flavorBlock, { backgroundColor: f.color || '#888' }]}>
+                          <Text style={cookStyles.flavorBlockText}>{f.name || f}</Text>
+                        </View>
+                      ))}
                     </View>
-                  ))}
-                </View>
-              </View>
-            )}
+                  </View>
+                ) : (
+                  <View style={[cookStyles.noComponentsBox, { borderColor: theme.cardBorder }]}>
+                    <Text style={[cookStyles.noComponentsText, { color: theme.textMuted }]}>Sin componentes</Text>
+                  </View>
+                )}
 
-            {(currentUnit.note || currentUnit.notes) ? (
-              <View style={cookStyles.noteBox}>
-                <Text style={cookStyles.noteIcon}>📝</Text>
-                <Text style={cookStyles.noteText}>{currentUnit.note || currentUnit.notes}</Text>
-              </View>
-            ) : null}
+                {/* Extras */}
+                {currentUnit.toppings?.length > 0 && (
+                  <View style={[cookStyles.toppingsSection, { borderTopColor: theme.cardBorder }]}>
+                    <Text style={[cookStyles.sectionLabel, { color: theme.textMuted }]}>EXTRAS</Text>
+                    <View style={cookStyles.toppingsGrid}>
+                      {currentUnit.toppings.map((t, ti) => (
+                        <View key={ti} style={[cookStyles.toppingBlock, { backgroundColor: theme.bg, borderColor: theme.cardBorder }]}>
+                          <Text style={[cookStyles.toppingBlockText, { color: theme.text }]}>{t}</Text>
+                        </View>
+                      ))}
+                    </View>
+                  </View>
+                )}
 
-            {!currentUnit.flavors?.length && !currentUnit.toppings?.length && !currentUnit.note && !currentUnit.notes && (
-              <View style={[cookStyles.emptyUnit, { borderColor: theme.cardBorder }]}>
-                <Text style={[cookStyles.emptyUnitText, { color: theme.textMuted }]}>Sin detalles adicionales</Text>
-              </View>
-            )}
+                {/* Nota */}
+                {(currentUnit.note || currentUnit.notes) ? (
+                  <View style={cookStyles.noteBox}>
+                    <Text style={cookStyles.noteIcon}>📝</Text>
+                    <Text style={cookStyles.noteText}>{currentUnit.note || currentUnit.notes}</Text>
+                  </View>
+                ) : null}
 
-            {completedUnits.includes(currentPage) && !isLastPage && (
-              <View style={[cookStyles.unitDoneBanner, { backgroundColor: STATUS.done.color + '20' }]}>
-                <Text style={[cookStyles.unitDoneBannerText, { color: STATUS.done.color }]}>✓ Unidad completada</Text>
-                <TouchableOpacity onPress={() => setCurrentPage(p => p + 1)}>
-                  <Text style={[cookStyles.nextUnitText, { color: STATUS.processing.color }]}>Siguiente →</Text>
-                </TouchableOpacity>
-              </View>
-            )}
-          </ScrollView>
+                {/* Sin nada */}
+                {!currentUnit.flavors?.length && !currentUnit.toppings?.length && !currentUnit.note && !currentUnit.notes && (
+                  <View style={[cookStyles.emptyUnit, { borderColor: theme.cardBorder }]}>
+                    <Text style={[cookStyles.emptyUnitText, { color: theme.textMuted }]}>Sin detalles adicionales</Text>
+                  </View>
+                )}
 
-          {/* Área de swipe — separada del scroll */}
-          {!completedUnits.includes(currentPage) && (
-            <Animated.View
-              style={[cookStyles.swipeArea, { borderColor: theme.cardBorder, backgroundColor: bgColor }]}
-              {...swipePanResponder.panHandlers}
-            >
-              <Animated.View style={{ transform: [{ translateX: swipeAnim }] }}>
-                <Text style={[cookStyles.swipeHintText, { color: theme.textMuted }]}>
-                  {isLastPage ? '← Deslizá para confirmar todo listo' : '← Deslizá cuando esta unidad esté lista'}
-                </Text>
-              </Animated.View>
+                {/* Spacer para que se vea el botón */}
+                <View style={{ height: 60 }} />
+              </ScrollView>
+            </Animated.View>
+          </Animated.View>
+
+          {/* Botón scroll hacia abajo — burbuja */}
+          {showScrollBtn && (
+            <Animated.View style={[cookStyles.scrollBtn, { opacity: scrollBtnAnim, transform: [{ scale: scrollBtnAnim }] }]}>
+              <TouchableOpacity style={[cookStyles.scrollBtnInner, { backgroundColor: STATUS.done.color }]} onPress={scrollToBottom}>
+                <Feather name="chevron-down" size={20} color="#fff" />
+              </TouchableOpacity>
             </Animated.View>
           )}
 
@@ -233,7 +283,7 @@ function CookModal({ sale, visible, onClose, onDone, theme }) {
             <TouchableOpacity
               style={[cookStyles.doneBtn, {
                 backgroundColor: unlocked ? STATUS.done.color : theme.cardBorder,
-                opacity: unlocked ? 1 : 0.55,
+                opacity: unlocked ? 1 : 0.5,
               }]}
               onPress={() => { if (unlocked) { onDone(sale.id); onClose(); } }}
               disabled={!unlocked}
@@ -241,7 +291,7 @@ function CookModal({ sale, visible, onClose, onDone, theme }) {
               {unlocked
                 ? <Text style={cookStyles.doneBtnText}>✓  PEDIDO LISTO</Text>
                 : <Text style={cookStyles.doneBtnLocked}>
-                    🔒  Completá todas las unidades ({completedUnits.length}/{totalPages})
+                    🔒  Confirmá todas las unidades ({completedUnits.length}/{totalPages})
                   </Text>
               }
             </TouchableOpacity>
@@ -266,7 +316,6 @@ function OrderDetailModal({ sale, visible, onClose, onMove, theme }) {
       <View style={[detailStyles.overlay, { backgroundColor: 'rgba(0,0,0,0.5)' }]}>
         <View style={[detailStyles.sheet, { backgroundColor: theme.bg }]}>
           <View style={[detailStyles.handle, { backgroundColor: theme.cardBorder }]} />
-
           <View style={[detailStyles.header, { borderBottomColor: theme.cardBorder }]}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
               <View style={[detailStyles.statusDot, { backgroundColor: status.color }]} />
@@ -316,7 +365,7 @@ function OrderDetailModal({ sale, visible, onClose, onMove, theme }) {
                     </View>
                     {unit.flavors?.length > 0 && (
                       <View style={{ padding: 12, gap: 8 }}>
-                        <Text style={[detailStyles.subLabel, { color: theme.textMuted }]}>SABORES</Text>
+                        <Text style={[detailStyles.subLabel, { color: theme.textMuted }]}>COMPONENTES</Text>
                         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
                           {unit.flavors.map((f, fi) => (
                             <View key={fi} style={[detailStyles.flavorChip, { backgroundColor: f.color || '#888' }]}>
@@ -549,7 +598,7 @@ function CompactCard({ sale, theme, onTap, onReturn }) {
               style={[styles.returnBtn, { borderColor: STATUS.processing.color }]}
               onPress={() => Alert.alert(
                 'Regresar pedido',
-                `¿Regresar el pedido #${sale.orderNumber || sale.id?.slice(-4)} a "En proceso"?`,
+                `¿Regresar #${sale.orderNumber || sale.id?.slice(-4)} a "En proceso"?`,
                 [
                   { text: 'Cancelar', style: 'cancel' },
                   { text: 'Sí, regresar', style: 'destructive', onPress: () => onReturn(sale.id) },
@@ -760,7 +809,6 @@ export default function OrdersScreen() {
   );
 }
 
-// ─── STYLES ───────────────────────────────────────────────
 const styles = StyleSheet.create({
   container: { flex: 1 },
   header: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 0, borderBottomWidth: 1 },
@@ -809,30 +857,38 @@ const styles = StyleSheet.create({
 
 const cookStyles = StyleSheet.create({
   overlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.65)' },
-  sheet: { borderTopLeftRadius: 28, borderTopRightRadius: 28, maxHeight: '95%' },
-  handle: { width: 40, height: 4, borderRadius: 2, alignSelf: 'center', marginTop: 12 },
-  numSection: { alignItems: 'center', paddingVertical: 16, borderBottomWidth: 2, marginHorizontal: 20 },
-  numLabel: { fontSize: 11, fontWeight: '800', letterSpacing: 4, marginBottom: 4 },
-  numBig: { fontSize: 72, fontWeight: '900', letterSpacing: -4 },
-  timer: { fontSize: 20, fontWeight: '800', marginTop: 4 },
-  infoBar: { flexDirection: 'row', marginHorizontal: 16, marginTop: 12, borderRadius: 14, borderWidth: 1, overflow: 'hidden' },
-  infoItem: { flex: 1, padding: 12, alignItems: 'center' },
+  sheet: { borderTopLeftRadius: 28, borderTopRightRadius: 28, maxHeight: '95%', overflow: 'hidden' },
+  handle: { width: 40, height: 4, borderRadius: 2, alignSelf: 'center', marginTop: 12, marginBottom: 4 },
+  numSection: { alignItems: 'center', paddingVertical: 14, borderBottomWidth: 2, marginHorizontal: 20 },
+  numLabel: { fontSize: 10, fontWeight: '800', letterSpacing: 4, marginBottom: 2 },
+  numBig: { fontSize: 68, fontWeight: '900', letterSpacing: -4 },
+  timer: { fontSize: 18, fontWeight: '800', marginTop: 2 },
+  infoBar: { flexDirection: 'row', marginHorizontal: 16, marginTop: 10, borderRadius: 14, borderWidth: 1, overflow: 'hidden' },
+  infoItem: { flex: 1, padding: 10, alignItems: 'center' },
   infoDivider: { width: 1 },
-  infoLabel: { fontSize: 9, fontWeight: '800', letterSpacing: 2, marginBottom: 4 },
-  infoValue: { fontSize: 13, fontWeight: '700', textAlign: 'center' },
-  infoValueBig: { fontSize: 24, fontWeight: '900' },
-  pageIndicator: { flexDirection: 'row', justifyContent: 'center', gap: 6, paddingVertical: 10 },
+  infoLabel: { fontSize: 9, fontWeight: '800', letterSpacing: 2, marginBottom: 3 },
+  infoValue: { fontSize: 12, fontWeight: '700', textAlign: 'center' },
+  infoValueBig: { fontSize: 22, fontWeight: '900' },
+  pageIndicator: { flexDirection: 'row', justifyContent: 'center', gap: 6, paddingVertical: 8 },
   pageDot: { height: 8, borderRadius: 4 },
-  unitPage: { flex: 1, marginHorizontal: 16, marginTop: 8 },
-  unitHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, borderRadius: 12, marginBottom: 4 },
-  unitHeaderText: { color: '#fff', fontSize: 12, fontWeight: '900', letterSpacing: 2 },
-  unitDoneCheck: { color: '#fff', fontSize: 16, fontWeight: '900' },
+  // Zona de swipe — ocupa el espacio central del modal
+  swipeZone: { flex: 1, marginHorizontal: 16, marginBottom: 8, borderRadius: 16, overflow: 'hidden', position: 'relative' },
+  // Check overlay centrado
+  checkOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center', zIndex: 10 },
+  checkCircle: { width: 80, height: 80, borderRadius: 40, backgroundColor: 'rgba(255,255,255,0.3)', alignItems: 'center', justifyContent: 'center', borderWidth: 3, borderColor: '#fff' },
+  // Slide de contenido
+  unitSlide: { flex: 1 },
+  unitHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 10, borderRadius: 12, margin: 4, marginBottom: 0 },
+  unitHeaderText: { color: '#fff', fontSize: 11, fontWeight: '900', letterSpacing: 2 },
+  swipeHintSmall: { fontSize: 10, fontWeight: '600' },
   sectionLabel: { fontSize: 10, fontWeight: '800', letterSpacing: 2, marginBottom: 10 },
   flavorsSection: { padding: 16 },
   flavorsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-  flavorBlock: { paddingHorizontal: 20, paddingVertical: 14, borderRadius: 12, minWidth: 90, alignItems: 'center' },
+  flavorBlock: { paddingHorizontal: 20, paddingVertical: 14, borderRadius: 12, minWidth: 80, alignItems: 'center' },
   flavorBlockText: { color: '#fff', fontSize: 15, fontWeight: '800' },
-  toppingsSection: { paddingHorizontal: 16, paddingBottom: 16, paddingTop: 12 },
+  noComponentsBox: { margin: 16, borderRadius: 10, padding: 16, borderWidth: 1, borderStyle: 'dashed', alignItems: 'center' },
+  noComponentsText: { fontSize: 13, fontWeight: '500' },
+  toppingsSection: { paddingHorizontal: 16, paddingBottom: 16, paddingTop: 12, borderTopWidth: 1 },
   toppingsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   toppingBlock: { paddingHorizontal: 14, paddingVertical: 10, borderRadius: 10, borderWidth: 1 },
   toppingBlockText: { fontSize: 13, fontWeight: '700' },
@@ -841,17 +897,15 @@ const cookStyles = StyleSheet.create({
   noteText: { fontSize: 13, fontWeight: '600', flex: 1, color: '#5D4037' },
   emptyUnit: { margin: 16, borderRadius: 10, padding: 20, borderWidth: 1, borderStyle: 'dashed', alignItems: 'center' },
   emptyUnitText: { fontSize: 13, fontWeight: '500' },
-  unitDoneBanner: { marginHorizontal: 16, marginTop: 8, borderRadius: 10, padding: 12, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  unitDoneBannerText: { fontSize: 13, fontWeight: '700' },
-  nextUnitText: { fontSize: 13, fontWeight: '700' },
-  swipeArea: { marginHorizontal: 16, marginBottom: 8, borderRadius: 12, borderWidth: 1, borderStyle: 'dashed', paddingVertical: 16, alignItems: 'center', justifyContent: 'center', minHeight: 52 },
-  swipeHintText: { fontSize: 13, fontWeight: '600' },
-  footer: { padding: 16, paddingBottom: 32, borderTopWidth: 1, gap: 8 },
-  doneBtn: { borderRadius: 16, paddingVertical: 20, alignItems: 'center' },
+  // Burbuja scroll
+  scrollBtn: { position: 'absolute', bottom: 90, right: 24, zIndex: 100 },
+  scrollBtnInner: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 8, elevation: 8 },
+  footer: { padding: 16, paddingBottom: 28, borderTopWidth: 1, gap: 6 },
+  doneBtn: { borderRadius: 16, paddingVertical: 18, alignItems: 'center' },
   doneBtnText: { color: '#fff', fontSize: 18, fontWeight: '900', letterSpacing: 2 },
-  doneBtnLocked: { color: '#fff', fontSize: 14, fontWeight: '700' },
-  closeLink: { paddingVertical: 8, alignItems: 'center' },
-  closeLinkText: { fontSize: 13, fontWeight: '500' },
+  doneBtnLocked: { color: '#fff', fontSize: 13, fontWeight: '700' },
+  closeLink: { paddingVertical: 6, alignItems: 'center' },
+  closeLinkText: { fontSize: 12, fontWeight: '500' },
 });
 
 const detailStyles = StyleSheet.create({
