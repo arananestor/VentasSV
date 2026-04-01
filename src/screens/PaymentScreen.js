@@ -79,6 +79,7 @@ export default function PaymentScreen({ route, navigation }) {
       productName: order.product.name,
       size: order.size.name,
       toppings: order.toppings,
+      units: order.units,
       quantity: order.quantity,
       total: order.total,
       paymentMethod,
