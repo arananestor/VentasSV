@@ -101,16 +101,17 @@ export default function SalesScreen({ navigation }) {
       setExporting(true);
       const today = new Date().toISOString().slice(0, 10);
       const filename = `ventas_${today}.csv`;
-      const path = FileSystem.cacheDirectory + filename;
+      const path = FileSystem.documentDirectory + filename;
       const csv = buildCSV(sales);
       await FileSystem.writeAsStringAsync(path, csv, { encoding: FileSystem.EncodingType.UTF8 });
-      await Sharing.shareAsync(path, {
-        mimeType: 'text/csv',
-        dialogTitle: `Ventas ${today}`,
-        UTI: 'public.comma-separated-values-text',
-      });
+      const canShare = await Sharing.isAvailableAsync();
+      if (!canShare) {
+        Alert.alert('Error', 'Compartir no está disponible en este dispositivo.');
+        return;
+      }
+      await Sharing.shareAsync(path);
     } catch (e) {
-      Alert.alert('Error', 'No se pudo generar el archivo.');
+      Alert.alert('Error', e.message || 'No se pudo generar el archivo.');
     } finally {
       setExporting(false);
     }
@@ -283,29 +284,3 @@ const styles = StyleSheet.create({
   empty: { alignItems: 'center', marginTop: 60 },
   emptyText: { fontSize: 15, fontWeight: '700' },
 });
-```
-
----
-
-**Commits — en este orden:**
-```
-feat(payment): capture geolocation on sale completion
-
-Request foreground location permission on mount.
-Call getCurrentPositionAsync (Balanced accuracy) in handleComplete.
-Store { latitude, longitude, accuracy } as `geo` in saleData.
-Falls back to null silently if permission denied or unavailable.
-```
-```
-feat(sales): export daily geo CSV with download button
-
-Add buildCSV util — columns: pedido, hora, producto, tamaño,
-cantidad, total, método, cajero, latitud, longitud, precisión.
-Header button with geo badge showing count of located sales.
-Uses expo-file-system + expo-sharing, works on Android & iOS.
-Pin icon on each sale row that has geo captured.
-```
-```
-feat(payment): persist units from OrderBuilder into sale
-
-Add `units: order.units` to saleData in handleComplete.
