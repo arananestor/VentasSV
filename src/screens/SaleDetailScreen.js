@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
-  View, Text, StyleSheet,  TouchableOpacity,
-  Image, ScrollView, ActivityIndicator, Linking,
+  View, Text, StyleSheet, TouchableOpacity,
+  Image, ScrollView, ActivityIndicator, Linking, Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
@@ -15,6 +15,7 @@ import {
 
 const SHARE_COLOR = '#0A84FF';
 const WA_COLOR = '#25D366';
+const MAPS_COLOR = '#4361EE';
 
 export default function SaleDetailScreen({ route, navigation }) {
   const { sale } = route.params;
@@ -61,11 +62,49 @@ export default function SaleDetailScreen({ route, navigation }) {
     Linking.openURL(`https://wa.me/503${waNumber}?text=${message}`);
   });
 
+  const handleOpenMap = () => {
+    if (!sale.geo?.latitude) return;
+    const { latitude, longitude } = sale.geo;
+    const label = `Pedido ${sale.orderNumber || sale.id.slice(-4)}`;
+
+    const wazeUrl = `waze://?ll=${latitude},${longitude}&navigate=yes`;
+    const googleUrl = `geo:${latitude},${longitude}?q=${latitude},${longitude}(${label})`;
+    const googleFallback = `https://maps.google.com/?q=${latitude},${longitude}`;
+
+    Alert.alert(
+      'Abrir ubicación',
+      `Pedido tomado en:\n${latitude.toFixed(6)}, ${longitude.toFixed(6)}`,
+      [
+        {
+          text: 'Waze',
+          onPress: async () => {
+            const canWaze = await Linking.canOpenURL(wazeUrl);
+            if (canWaze) {
+              Linking.openURL(wazeUrl);
+            } else {
+              Alert.alert('Waze no instalado', 'Abriendo en Google Maps.');
+              Linking.openURL(googleFallback);
+            }
+          },
+        },
+        {
+          text: 'Google Maps',
+          onPress: async () => {
+            const canGeo = await Linking.canOpenURL(googleUrl);
+            Linking.openURL(canGeo ? googleUrl : googleFallback);
+          },
+        },
+        { text: 'Cancelar', style: 'cancel' },
+      ]
+    );
+  };
+
   const methodLabel = {
     cash: 'Efectivo', transfer: 'Transferencia', card: 'Tarjeta',
   }[sale.paymentMethod] || sale.paymentMethod;
 
   const orderDisplay = sale.orderNumber ? `#${sale.orderNumber}` : `#${sale.id.slice(-4)}`;
+  const hasGeo = sale.geo?.latitude != null;
 
   const btnStyle = (key, color) => ({
     backgroundColor: activeBtn === key ? color : 'transparent',
@@ -89,7 +128,6 @@ export default function SaleDetailScreen({ route, navigation }) {
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
 
-        {/* NÚMERO Y MONTO */}
         <View style={styles.amountSection}>
           <Text style={[styles.orderNumber, { color: theme.textMuted }]}>{orderDisplay}</Text>
           <Text style={[styles.amount, { color: theme.text }]}>${sale.total.toFixed(2)}</Text>
@@ -99,7 +137,6 @@ export default function SaleDetailScreen({ route, navigation }) {
           </View>
         </View>
 
-        {/* INFO GRID */}
         <View style={styles.infoGrid}>
           {[
             { label: 'FECHA', value: formatDate(date) },
@@ -114,7 +151,35 @@ export default function SaleDetailScreen({ route, navigation }) {
           ))}
         </View>
 
-        {/* PRODUCTO */}
+        {/* UBICACIÓN */}
+        {hasGeo && (
+          <>
+            <Text style={[styles.sectionLabel, { color: theme.textMuted }]}>UBICACIÓN</Text>
+            <TouchableOpacity
+              style={[styles.geoCard, { backgroundColor: theme.card, borderColor: MAPS_COLOR + '40' }]}
+              onPress={handleOpenMap}
+              activeOpacity={0.8}
+            >
+              <View style={[styles.geoIconWrap, { backgroundColor: MAPS_COLOR + '15' }]}>
+                <Feather name="map-pin" size={22} color={MAPS_COLOR} />
+              </View>
+              <View style={styles.geoInfo}>
+                <Text style={[styles.geoCoords, { color: theme.text }]}>
+                  {sale.geo.latitude.toFixed(6)}, {sale.geo.longitude.toFixed(6)}
+                </Text>
+                {sale.geo.accuracy != null && (
+                  <Text style={[styles.geoAccuracy, { color: theme.textMuted }]}>
+                    Precisión ±{Math.round(sale.geo.accuracy)} m
+                  </Text>
+                )}
+              </View>
+              <View style={styles.geoArrow}>
+                <Feather name="chevron-right" size={18} color={MAPS_COLOR} />
+              </View>
+            </TouchableOpacity>
+          </>
+        )}
+
         <Text style={[styles.sectionLabel, { color: theme.textMuted }]}>PRODUCTO</Text>
         <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
           <Text style={[styles.productName, { color: theme.text }]}>{sale.productName}</Text>
@@ -129,7 +194,6 @@ export default function SaleDetailScreen({ route, navigation }) {
             <Text style={[styles.detailValue, { color: theme.text }]}>{sale.quantity}x</Text>
           </View>
 
-          {/* Extras/toppings */}
           {sale.toppings?.length > 0 && (
             <View style={styles.detailRow}>
               <Text style={[styles.detailLabel, { color: theme.textMuted }]}>Extras</Text>
@@ -139,7 +203,6 @@ export default function SaleDetailScreen({ route, navigation }) {
             </View>
           )}
 
-          {/* Unidades con componentes — el detalle clave para cocina */}
           {sale.units?.length > 0 && (
             <>
               <View style={[styles.divider, { backgroundColor: theme.cardBorder, marginTop: 12 }]} />
@@ -169,7 +232,6 @@ export default function SaleDetailScreen({ route, navigation }) {
             </>
           )}
 
-          {/* Nota general */}
           {sale.note ? (
             <>
               <View style={[styles.divider, { backgroundColor: theme.cardBorder, marginTop: 12 }]} />
@@ -178,7 +240,6 @@ export default function SaleDetailScreen({ route, navigation }) {
           ) : null}
         </View>
 
-        {/* PAGO */}
         {sale.paymentMethod === 'cash' && sale.cashGiven && (
           <>
             <Text style={[styles.sectionLabel, { color: theme.textMuted }]}>PAGO</Text>
@@ -195,7 +256,6 @@ export default function SaleDetailScreen({ route, navigation }) {
           </>
         )}
 
-        {/* COMPROBANTE */}
         {sale.voucherImage && (
           <>
             <Text style={[styles.sectionLabel, { color: theme.textMuted }]}>COMPROBANTE</Text>
@@ -203,7 +263,6 @@ export default function SaleDetailScreen({ route, navigation }) {
           </>
         )}
 
-        {/* ACCIONES */}
         <Text style={[styles.sectionLabel, { color: theme.textMuted }]}>TICKET</Text>
         <View style={styles.actionRow}>
           <TouchableOpacity
@@ -277,6 +336,15 @@ const styles = StyleSheet.create({
   infoLabel: { fontSize: 10, fontWeight: '800', letterSpacing: 2 },
   infoValue: { fontSize: 14, fontWeight: '700', marginTop: 6 },
   sectionLabel: { fontSize: 10, fontWeight: '800', letterSpacing: 3, marginTop: 24, marginBottom: 10 },
+  geoCard: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    borderRadius: 16, padding: 16, borderWidth: 1.5,
+  },
+  geoIconWrap: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
+  geoInfo: { flex: 1 },
+  geoCoords: { fontSize: 13, fontWeight: '700' },
+  geoAccuracy: { fontSize: 11, fontWeight: '500', marginTop: 3 },
+  geoArrow: { paddingLeft: 4 },
   card: { borderRadius: 16, padding: 18, borderWidth: 1 },
   productName: { fontSize: 17, fontWeight: '800', marginBottom: 14 },
   divider: { height: 1, marginBottom: 8 },
@@ -284,14 +352,10 @@ const styles = StyleSheet.create({
   detailLabel: { fontSize: 13, fontWeight: '600' },
   detailValue: { fontSize: 13, fontWeight: '700' },
   unitsLabel: { fontSize: 10, fontWeight: '800', letterSpacing: 2, marginTop: 12, marginBottom: 8 },
-  unitCard: {
-    borderRadius: 12, padding: 12, borderWidth: 1, marginBottom: 8,
-  },
+  unitCard: { borderRadius: 12, padding: 12, borderWidth: 1, marginBottom: 8 },
   unitTitle: { fontSize: 12, fontWeight: '800', marginBottom: 8 },
   unitFlavors: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 6 },
-  flavorChip: {
-    paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8,
-  },
+  flavorChip: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },
   flavorChipText: { fontSize: 12, fontWeight: '700', color: '#fff' },
   unitToppings: { fontSize: 12, fontWeight: '600', marginTop: 4 },
   unitNote: { fontSize: 12, fontWeight: '500', marginTop: 6, fontStyle: 'italic' },
@@ -300,8 +364,7 @@ const styles = StyleSheet.create({
   actionRow: { flexDirection: 'row', gap: 8 },
   actionBtn: {
     flex: 1, borderRadius: 14, paddingVertical: 16,
-    alignItems: 'center', justifyContent: 'center',
-    borderWidth: 1.5, gap: 6,
+    alignItems: 'center', justifyContent: 'center', borderWidth: 1.5, gap: 6,
   },
   actionLabel: { fontSize: 11, fontWeight: '800', letterSpacing: 0.5 },
   idSection: { alignItems: 'center', marginTop: 30, paddingVertical: 16, borderTopWidth: 1 },

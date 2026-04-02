@@ -6,7 +6,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import { useApp } from '../context/AppContext';
 import { useTheme } from '../context/ThemeContext';
@@ -19,17 +19,9 @@ const WA_COLOR = '#25D366';
 
 const buildCSV = (sales) => {
   const header = [
-    'No. Pedido',
-    'Hora',
-    'Producto',
-    'Tamaño',
-    'Cantidad',
-    'Total',
-    'Método de pago',
-    'Cajero',
-    'Latitud',
-    'Longitud',
-    'Precisión (m)',
+    'No. Pedido', 'Hora', 'Producto', 'Tamaño',
+    'Cantidad', 'Total', 'Método de pago', 'Cajero',
+    'Latitud', 'Longitud', 'Precisión (m)',
   ].join(',');
 
   const rows = sales.map(s => {
@@ -91,24 +83,14 @@ export default function SalesScreen({ navigation }) {
     }
     const withGeo = sales.filter(s => s.geo?.latitude != null).length;
     if (withGeo === 0) {
-      Alert.alert(
-        'Sin ubicaciones',
-        'Ninguna venta del día tiene ubicación registrada. Las próximas ventas ya la capturarán automáticamente.',
-      );
+      Alert.alert('Sin ubicaciones', 'Ninguna venta del día tiene ubicación registrada.');
       return;
     }
     try {
       setExporting(true);
       const today = new Date().toISOString().slice(0, 10);
-      const filename = `ventas_${today}.csv`;
-      const path = FileSystem.documentDirectory + filename;
-      const csv = buildCSV(sales);
-      await FileSystem.writeAsStringAsync(path, csv, { encoding: FileSystem.EncodingType.UTF8 });
-      const canShare = await Sharing.isAvailableAsync();
-      if (!canShare) {
-        Alert.alert('Error', 'Compartir no está disponible en este dispositivo.');
-        return;
-      }
+      const path = FileSystem.documentDirectory + `ventas_${today}.csv`;
+      await FileSystem.writeAsStringAsync(path, buildCSV(sales));
       await Sharing.shareAsync(path);
     } catch (e) {
       Alert.alert('Error', e.message || 'No se pudo generar el archivo.');
@@ -118,7 +100,7 @@ export default function SalesScreen({ navigation }) {
   };
 
   const methodLabel = (m) => ({ cash: 'Efectivo', transfer: 'Transferencia', card: 'Tarjeta' }[m] || m);
-
+  
   const geoCount = sales.filter(s => s.geo?.latitude != null).length;
 
   return (
@@ -183,9 +165,7 @@ export default function SalesScreen({ navigation }) {
             >
               <View style={styles.saleLeft}>
                 <View style={[styles.saleIndex, { backgroundColor: theme.card }]}>
-                  <Text style={[styles.saleIndexText, { color: theme.textMuted }]}>
-                    {orderDisplay}
-                  </Text>
+                  <Text style={[styles.saleIndexText, { color: theme.textMuted }]}>{orderDisplay}</Text>
                   {hasGeo && (
                     <Feather name="map-pin" size={9} color={theme.success} style={{ marginTop: 2 }} />
                   )}
@@ -197,7 +177,7 @@ export default function SalesScreen({ navigation }) {
                   </Text>
                 </View>
               </View>
-
+              
               <View style={styles.saleRight}>
                 <Text style={[styles.saleAmount, { color: theme.text }]}>${sale.total.toFixed(2)}</Text>
                 {waNumber && (
@@ -211,11 +191,7 @@ export default function SalesScreen({ navigation }) {
                     onPress={() => handleWaTap(sale)}
                     hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                   >
-                    <MaterialCommunityIcons
-                      name="whatsapp"
-                      size={16}
-                      color={isWaActive ? '#fff' : WA_COLOR}
-                    />
+                    <MaterialCommunityIcons name="whatsapp" size={16} color={isWaActive ? '#fff' : WA_COLOR} />
                   </TouchableOpacity>
                 )}
                 <Feather name="chevron-right" size={18} color={theme.textMuted} />
@@ -243,14 +219,10 @@ const styles = StyleSheet.create({
   },
   backBtn: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', borderWidth: 1 },
   headerTitle: { fontSize: 14, fontWeight: '800', letterSpacing: 3 },
-  exportBtn: {
-    width: 44, height: 44, borderRadius: 22,
-    alignItems: 'center', justifyContent: 'center', borderWidth: 1,
-  },
+  exportBtn: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', borderWidth: 1 },
   geoBadge: {
     position: 'absolute', top: -4, right: -4,
-    width: 16, height: 16, borderRadius: 8,
-    alignItems: 'center', justifyContent: 'center',
+    width: 16, height: 16, borderRadius: 8, alignItems: 'center', justifyContent: 'center',
   },
   geoBadgeText: { color: '#fff', fontSize: 9, fontWeight: '900' },
   summaryRow: { flexDirection: 'row', paddingHorizontal: 16, gap: 10, marginTop: 8, marginBottom: 20 },
@@ -277,10 +249,7 @@ const styles = StyleSheet.create({
   saleDetail: { fontSize: 12, fontWeight: '500', marginTop: 2 },
   saleRight: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   saleAmount: { fontSize: 16, fontWeight: '900' },
-  waBtn: {
-    width: 32, height: 32, borderRadius: 8,
-    borderWidth: 1.5, alignItems: 'center', justifyContent: 'center',
-  },
+  waBtn: { width: 32, height: 32, borderRadius: 8, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
   empty: { alignItems: 'center', marginTop: 60 },
   emptyText: { fontSize: 15, fontWeight: '700' },
 });
