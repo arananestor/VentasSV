@@ -1,13 +1,14 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
   View, Text, TouchableOpacity, TextInput, StyleSheet,
-   Image, Alert, ScrollView, Animated,
+  Image, Alert, ScrollView, Animated,
   ActivityIndicator, Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Feather } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
+import * as Location from 'expo-location';
 import { useApp } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
@@ -51,6 +52,8 @@ export default function PaymentScreen({ route, navigation }) {
       setBankConfig(await loadBankConfig());
       setWaNumber(await loadWhatsAppNumber());
       setKitchenNumber(await loadKitchenNumber());
+      // Pedir permiso de ubicación al abrir la pantalla
+      await Location.requestForegroundPermissionsAsync();
     })();
     return () => { if (dismissTimer.current) clearTimeout(dismissTimer.current); };
   }, []);
@@ -72,8 +75,26 @@ export default function PaymentScreen({ route, navigation }) {
     ]).start(() => navigation.popToTop());
   };
 
+  const getLocation = async () => {
+    try {
+      const { status } = await Location.getForegroundPermissionsAsync();
+      if (status !== 'granted') return null;
+      const loc = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced,
+      });
+      return {
+        latitude: loc.coords.latitude,
+        longitude: loc.coords.longitude,
+        accuracy: loc.coords.accuracy,
+      };
+    } catch {
+      return null;
+    }
+  };
+
   const handleComplete = async () => {
     setCompleting(true);
+    const geo = await getLocation();
     const saleData = {
       productId: order.product.id,
       productName: order.product.name,
@@ -88,10 +109,10 @@ export default function PaymentScreen({ route, navigation }) {
       voucherImage: paymentMethod === 'transfer' ? voucherImage : null,
       workerId: currentWorker?.id || null,
       workerName: currentWorker?.name || 'Sin asignar',
+      geo,
     };
     const sale = await addSale(saleData);
 
-    // Mandar a cocina automáticamente si hay número configurado
     if (kitchenNumber) {
       const msg = buildKitchenMessage(sale);
       Linking.openURL(`https://wa.me/503${kitchenNumber}?text=${msg}`);
@@ -123,7 +144,6 @@ export default function PaymentScreen({ route, navigation }) {
   };
 
   const handleAmountChange = (text) => {
-    // Cualquier tecla reemplaza desde cero
     const nums = text.replace(/[^0-9.]/g, '');
     setCashGiven(nums);
   };
@@ -164,7 +184,6 @@ export default function PaymentScreen({ route, navigation }) {
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}
         keyboardShouldPersistTaps="handled">
 
-        {/* MONTO — editable */}
         <TouchableOpacity
           style={styles.totalSection}
           onPress={paymentMethod === 'cash' ? handleAmountTap : undefined}
@@ -175,8 +194,6 @@ export default function PaymentScreen({ route, navigation }) {
           <Text style={[styles.totalDetail, { color: theme.textMuted }]}>
             {order.quantity}x {order.size.name} · {order.product.name}
           </Text>
-
-          {/* Input oculto para capturar teclado */}
           {paymentMethod === 'cash' && (
             <TextInput
               ref={amountInputRef}
@@ -189,7 +206,6 @@ export default function PaymentScreen({ route, navigation }) {
           )}
         </TouchableOpacity>
 
-        {/* Indicador de vuelto/falta bajo el monto */}
         {showChange && (
           <View style={[styles.changeBar, {
             backgroundColor: change >= 0 ? theme.accent : theme.danger,
@@ -203,7 +219,6 @@ export default function PaymentScreen({ route, navigation }) {
           </View>
         )}
 
-        {/* MÉTODOS */}
         <View style={styles.methodSection}>
           <TouchableOpacity
             style={[styles.methodBtn, { backgroundColor: theme.card, borderColor: theme.cardBorder },
@@ -234,7 +249,6 @@ export default function PaymentScreen({ route, navigation }) {
           </TouchableOpacity>
         </View>
 
-        {/* EFECTIVO — billetes rápidos */}
         {paymentMethod === 'cash' && (
           <View style={styles.cashSection}>
             <View style={styles.billsRow}>
@@ -253,7 +267,6 @@ export default function PaymentScreen({ route, navigation }) {
           </View>
         )}
 
-        {/* TRANSFERENCIA */}
         {paymentMethod === 'transfer' && (
           <View style={styles.transferSection}>
             {bankConfig ? (
@@ -340,7 +353,6 @@ export default function PaymentScreen({ route, navigation }) {
         </View>
       )}
 
-      {/* SNACKBAR */}
       <Animated.View
         style={[
           styles.snack,
@@ -356,14 +368,12 @@ export default function PaymentScreen({ route, navigation }) {
           </View>
         </View>
         <View style={styles.snackActions}>
-          {/* Imprimir — sólido */}
           <TouchableOpacity
             style={[styles.snackBtn, { backgroundColor: theme.accent }]}
             onPress={handlePrint}
           >
             <MaterialCommunityIcons name="printer" size={16} color={theme.accentText} />
           </TouchableOpacity>
-          {/* WhatsApp — outline verde */}
           {waNumber && (
             <TouchableOpacity
               style={[styles.snackBtn, { backgroundColor: 'transparent', borderWidth: 1.5, borderColor: WA_COLOR }]}
@@ -372,7 +382,6 @@ export default function PaymentScreen({ route, navigation }) {
               <MaterialCommunityIcons name="whatsapp" size={16} color={WA_COLOR} />
             </TouchableOpacity>
           )}
-          {/* Cerrar */}
           <TouchableOpacity style={styles.snackClose} onPress={dismissSnack}>
             <Feather name="x" size={16} color={theme.textMuted} />
           </TouchableOpacity>
@@ -396,9 +405,7 @@ const styles = StyleSheet.create({
   totalLabel: { fontSize: 11, fontWeight: '800', letterSpacing: 3 },
   totalAmount: { fontSize: 64, fontWeight: '900', marginTop: 6, letterSpacing: -2 },
   totalDetail: { fontSize: 13, fontWeight: '500', marginTop: 8, color: '#999' },
-  hiddenInput: {
-    position: 'absolute', opacity: 0, width: 1, height: 1,
-  },
+  hiddenInput: { position: 'absolute', opacity: 0, width: 1, height: 1 },
   changeBar: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
     marginHorizontal: 16, borderRadius: 14, paddingHorizontal: 20, paddingVertical: 14,

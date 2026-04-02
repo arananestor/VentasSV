@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import {
-  View, Text, ScrollView, StyleSheet, 
-  TouchableOpacity, Linking,
+  View, Text, ScrollView, StyleSheet,
+  TouchableOpacity, Linking, Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import * as FileSystem from 'expo-file-system';
+import * as Sharing from 'expo-sharing';
 import { useApp } from '../context/AppContext';
 import { useTheme } from '../context/ThemeContext';
 import {
@@ -14,6 +16,43 @@ import {
 } from '../utils/businessConfig';
 
 const WA_COLOR = '#25D366';
+
+const buildCSV = (sales) => {
+  const header = [
+    'No. Pedido',
+    'Hora',
+    'Producto',
+    'Tamaño',
+    'Cantidad',
+    'Total',
+    'Método de pago',
+    'Cajero',
+    'Latitud',
+    'Longitud',
+    'Precisión (m)',
+  ].join(',');
+
+  const rows = sales.map(s => {
+    const hora = new Date(s.timestamp).toLocaleTimeString('es-SV', {
+      hour: '2-digit', minute: '2-digit', second: '2-digit',
+    });
+    return [
+      `#${s.orderNumber || s.id.slice(-4)}`,
+      hora,
+      `"${s.productName}"`,
+      `"${s.size}"`,
+      s.quantity,
+      s.total.toFixed(2),
+      s.paymentMethod === 'cash' ? 'Efectivo' : 'Transferencia',
+      `"${s.workerName || ''}"`,
+      s.geo?.latitude ?? '',
+      s.geo?.longitude ?? '',
+      s.geo?.accuracy != null ? Math.round(s.geo.accuracy) : '',
+    ].join(',');
+  });
+
+  return [header, ...rows].join('\n');
+};
 
 export default function SalesScreen({ navigation }) {
   const { getTodaySales } = useApp();
@@ -26,7 +65,8 @@ export default function SalesScreen({ navigation }) {
 
   const [waNumber, setWaNumber] = useState(null);
   const [bankConfig, setBankConfig] = useState(null);
-  const [activeWa, setActiveWa] = useState(null); // sale.id activo
+  const [activeWa, setActiveWa] = useState(null);
+  const [exporting, setExporting] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -44,7 +84,41 @@ export default function SalesScreen({ navigation }) {
     setTimeout(() => setActiveWa(null), 800);
   };
 
+  const handleExportCSV = async () => {
+    if (sales.length === 0) {
+      Alert.alert('Sin ventas', 'No hay ventas del día para exportar.');
+      return;
+    }
+    const withGeo = sales.filter(s => s.geo?.latitude != null).length;
+    if (withGeo === 0) {
+      Alert.alert(
+        'Sin ubicaciones',
+        'Ninguna venta del día tiene ubicación registrada. Las próximas ventas ya la capturarán automáticamente.',
+      );
+      return;
+    }
+    try {
+      setExporting(true);
+      const today = new Date().toISOString().slice(0, 10);
+      const filename = `ventas_${today}.csv`;
+      const path = FileSystem.cacheDirectory + filename;
+      const csv = buildCSV(sales);
+      await FileSystem.writeAsStringAsync(path, csv, { encoding: FileSystem.EncodingType.UTF8 });
+      await Sharing.shareAsync(path, {
+        mimeType: 'text/csv',
+        dialogTitle: `Ventas ${today}`,
+        UTI: 'public.comma-separated-values-text',
+      });
+    } catch (e) {
+      Alert.alert('Error', 'No se pudo generar el archivo.');
+    } finally {
+      setExporting(false);
+    }
+  };
+
   const methodLabel = (m) => ({ cash: 'Efectivo', transfer: 'Transferencia', card: 'Tarjeta' }[m] || m);
+
+  const geoCount = sales.filter(s => s.geo?.latitude != null).length;
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.bg }]}>
@@ -56,7 +130,22 @@ export default function SalesScreen({ navigation }) {
           <Feather name="chevron-left" size={22} color={theme.text} />
         </TouchableOpacity>
         <Text style={[styles.headerTitle, { color: theme.text }]}>VENTAS HOY</Text>
-        <View style={{ width: 44 }} />
+        <TouchableOpacity
+          style={[
+            styles.exportBtn,
+            { backgroundColor: theme.card, borderColor: theme.cardBorder },
+            exporting && { opacity: 0.4 },
+          ]}
+          onPress={handleExportCSV}
+          disabled={exporting}
+        >
+          <Feather name="download" size={16} color={theme.text} />
+          {geoCount > 0 && (
+            <View style={[styles.geoBadge, { backgroundColor: theme.success }]}>
+              <Text style={styles.geoBadgeText}>{geoCount}</Text>
+            </View>
+          )}
+        </TouchableOpacity>
       </View>
 
       <View style={styles.summaryRow}>
@@ -83,6 +172,7 @@ export default function SalesScreen({ navigation }) {
         {sales.map((sale) => {
           const isWaActive = activeWa === sale.id;
           const orderDisplay = sale.orderNumber ? `#${sale.orderNumber}` : `#${sale.id.slice(-4)}`;
+          const hasGeo = sale.geo?.latitude != null;
           return (
             <TouchableOpacity
               key={sale.id}
@@ -95,6 +185,9 @@ export default function SalesScreen({ navigation }) {
                   <Text style={[styles.saleIndexText, { color: theme.textMuted }]}>
                     {orderDisplay}
                   </Text>
+                  {hasGeo && (
+                    <Feather name="map-pin" size={9} color={theme.success} style={{ marginTop: 2 }} />
+                  )}
                 </View>
                 <View>
                   <Text style={[styles.saleName, { color: theme.text }]}>{sale.productName}</Text>
@@ -149,6 +242,16 @@ const styles = StyleSheet.create({
   },
   backBtn: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', borderWidth: 1 },
   headerTitle: { fontSize: 14, fontWeight: '800', letterSpacing: 3 },
+  exportBtn: {
+    width: 44, height: 44, borderRadius: 22,
+    alignItems: 'center', justifyContent: 'center', borderWidth: 1,
+  },
+  geoBadge: {
+    position: 'absolute', top: -4, right: -4,
+    width: 16, height: 16, borderRadius: 8,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  geoBadgeText: { color: '#fff', fontSize: 9, fontWeight: '900' },
   summaryRow: { flexDirection: 'row', paddingHorizontal: 16, gap: 10, marginTop: 8, marginBottom: 20 },
   summaryMain: { flex: 1, borderRadius: 18, padding: 20 },
   summaryLabel: { fontSize: 10, fontWeight: '800', letterSpacing: 2 },
@@ -180,3 +283,29 @@ const styles = StyleSheet.create({
   empty: { alignItems: 'center', marginTop: 60 },
   emptyText: { fontSize: 15, fontWeight: '700' },
 });
+```
+
+---
+
+**Commits — en este orden:**
+```
+feat(payment): capture geolocation on sale completion
+
+Request foreground location permission on mount.
+Call getCurrentPositionAsync (Balanced accuracy) in handleComplete.
+Store { latitude, longitude, accuracy } as `geo` in saleData.
+Falls back to null silently if permission denied or unavailable.
+```
+```
+feat(sales): export daily geo CSV with download button
+
+Add buildCSV util — columns: pedido, hora, producto, tamaño,
+cantidad, total, método, cajero, latitud, longitud, precisión.
+Header button with geo badge showing count of located sales.
+Uses expo-file-system + expo-sharing, works on Android & iOS.
+Pin icon on each sale row that has geo captured.
+```
+```
+feat(payment): persist units from OrderBuilder into sale
+
+Add `units: order.units` to saleData in handleComplete.
