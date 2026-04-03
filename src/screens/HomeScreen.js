@@ -34,6 +34,10 @@ export default function HomeScreen({ navigation }) {
   const [pendingAction, setPendingAction] = useState(null);
   const [editMode, setEditMode] = useState(false);
   const [showCart, setShowCart] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState(null);
+  const [showSimpleModal, setShowSimpleModal] = useState(false);
+  const [simpleQty, setSimpleQty] = useState(1);
+  const [simpleSize, setSimpleSize] = useState(0);
 
   const todaySales = getTodaySales();
   const todayTotal = todaySales.reduce((sum, s) => sum + s.total, 0);
@@ -62,23 +66,31 @@ export default function HomeScreen({ navigation }) {
     if (editMode) return;
     const isElaborado = product.type === 'elaborado' ||
       (product.ingredients?.length > 0) ||
-      (product.flavors?.length > 0); // compatibilidad hacia atrás
+      (product.flavors?.length > 0);
 
     if (isElaborado) {
       navigation.navigate('OrderBuilder', { product });
     } else {
-      // Simple: agrega directo al carrito con qty 1, tamaño por defecto
-      const size = product.sizes[0];
-      addToCart({
-        product,
-        size,
-        quantity: 1,
-        units: [],
-        extras: [],
-        note: '',
-        total: size.price,
-      });
+      setSelectedProduct(product);
+      setSimpleSize(0);
+      setSimpleQty(1);
+      setShowSimpleModal(true);
     }
+  };
+
+  const handleSimpleConfirm = () => {
+    if (!selectedProduct) return;
+    const size = selectedProduct.sizes[simpleSize];
+    addToCart({
+      product: selectedProduct,
+      size,
+      quantity: simpleQty,
+      units: [],
+      extras: [],
+      note: '',
+      total: size.price * simpleQty,
+    });
+    setShowSimpleModal(false);
   };
 
   const handleDeleteProduct = (product) => {
@@ -121,7 +133,6 @@ export default function HomeScreen({ navigation }) {
     <SafeAreaView style={[styles.container, { backgroundColor: theme.bg }]}>
       <StatusBar barStyle={theme.statusBar} backgroundColor={theme.bg} />
 
-      {/* HEADER */}
       <View style={styles.header}>
         <View>
           <Text style={[styles.logo, { color: theme.text }]}>VENTASSV</Text>
@@ -143,7 +154,6 @@ export default function HomeScreen({ navigation }) {
         </View>
       </View>
 
-      {/* WORKER BAR */}
       <View style={styles.workerBar}>
         <View style={[styles.workerDot, { backgroundColor: theme.dot }]} />
         <Text style={[styles.workerText, { color: theme.textSecondary }]}>
@@ -151,7 +161,6 @@ export default function HomeScreen({ navigation }) {
         </Text>
       </View>
 
-      {/* FILTROS */}
       <View style={styles.filterRow}>
         {['all', 'fixed', 'event'].map(f => (
           <TouchableOpacity key={f}
@@ -178,7 +187,6 @@ export default function HomeScreen({ navigation }) {
         </TouchableOpacity>
       </View>
 
-      {/* TABS */}
       <View style={styles.tabBarWrapper}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabBar}>
           {filteredTabs.map(tab => {
@@ -208,7 +216,6 @@ export default function HomeScreen({ navigation }) {
         </ScrollView>
       </View>
 
-      {/* VENTAS HOY */}
       <TouchableOpacity
         style={[styles.salesBtn, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}
         onPress={() => navigation.navigate('Sales')}
@@ -220,7 +227,6 @@ export default function HomeScreen({ navigation }) {
         <Feather name="chevron-right" size={20} color={theme.textMuted} />
       </TouchableOpacity>
 
-      {/* GRID PRODUCTOS */}
       <ScrollView contentContainerStyle={styles.grid} showsVerticalScrollIndicator={false}>
         {tabProducts.map((product) => (
           <View key={product.id} style={styles.cardWrapper}>
@@ -295,16 +301,14 @@ export default function HomeScreen({ navigation }) {
         <View style={[styles.cartOverlay, { backgroundColor: 'rgba(0,0,0,0.6)' }]}>
           <View style={[styles.cartSheet, { backgroundColor: theme.bg }]}>
             <View style={[styles.cartHandle, { backgroundColor: theme.cardBorder }]} />
-
             <View style={styles.cartHeader}>
               <Text style={[styles.cartTitle, { color: theme.text }]}>PEDIDO ACTUAL</Text>
               <TouchableOpacity onPress={() => setShowCart(false)}>
                 <Feather name="x" size={22} color={theme.textMuted} />
               </TouchableOpacity>
             </View>
-
             <ScrollView style={styles.cartList} showsVerticalScrollIndicator={false}>
-              {cart.map((item, idx) => (
+              {cart.map((item) => (
                 <View key={item.cartId} style={[styles.cartItem, { borderColor: theme.cardBorder }]}>
                   <View style={styles.cartItemLeft}>
                     {item.product.iconName ? (
@@ -325,14 +329,10 @@ export default function HomeScreen({ navigation }) {
                       {item.note ? (
                         <Text style={[styles.cartItemNote, { color: theme.textMuted }]}>📝 {item.note}</Text>
                       ) : null}
-                      {/* Ingredientes visibles con colores */}
                       {item.units?.length > 0 && item.units[0]?.ingredients?.length > 0 && (
                         <View style={styles.cartIngredientDots}>
                           {item.units.flatMap(u => u.ingredients || []).slice(0, 8).map((ing, i) => (
-                            <View
-                              key={i}
-                              style={[styles.cartIngDot, { backgroundColor: ing.color || '#888' }]}
-                            />
+                            <View key={i} style={[styles.cartIngDot, { backgroundColor: ing.color || '#888' }]} />
                           ))}
                         </View>
                       )}
@@ -347,7 +347,6 @@ export default function HomeScreen({ navigation }) {
                 </View>
               ))}
             </ScrollView>
-
             <View style={[styles.cartFooter, { borderTopColor: theme.cardBorder }]}>
               <View style={styles.cartTotalRow}>
                 <Text style={[styles.cartTotalLabel, { color: theme.textMuted }]}>TOTAL</Text>
@@ -370,6 +369,77 @@ export default function HomeScreen({ navigation }) {
             </View>
           </View>
         </View>
+      </Modal>
+
+      {/* MODAL PRODUCTO SIMPLE */}
+      <Modal visible={showSimpleModal} transparent animationType="fade">
+        <TouchableOpacity
+          style={[styles.qtyOverlay, { backgroundColor: theme.overlay }]}
+          activeOpacity={1}
+          onPress={() => setShowSimpleModal(false)}
+        >
+          <View
+            style={[styles.qtyModal, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}
+            onStartShouldSetResponder={() => true}
+          >
+            {selectedProduct && (
+              <>
+                <Text style={[styles.qtyProductName, { color: theme.text }]}>{selectedProduct.name}</Text>
+
+                {selectedProduct.sizes.length > 1 && (
+                  <View style={styles.simpleSizes}>
+                    {selectedProduct.sizes.map((s, i) => (
+                      <TouchableOpacity key={i}
+                        style={[styles.simpleSizeBtn,
+                          { backgroundColor: theme.bg, borderColor: theme.cardBorder },
+                          simpleSize === i && { backgroundColor: theme.accent, borderColor: theme.accent }]}
+                        onPress={() => setSimpleSize(i)}
+                      >
+                        <Text style={[styles.simpleSizeName, { color: theme.textSecondary },
+                          simpleSize === i && { color: theme.accentText }]}>{s.name}</Text>
+                        <Text style={[styles.simpleSizePrice, { color: theme.textMuted },
+                          simpleSize === i && { color: theme.accentText }]}>${s.price.toFixed(2)}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                )}
+
+                {selectedProduct.sizes.length === 1 && (
+                  <Text style={[styles.qtyUnitPrice, { color: theme.textMuted }]}>
+                    ${selectedProduct.sizes[0]?.price.toFixed(2)} c/u
+                  </Text>
+                )}
+
+                <View style={styles.qtyControls}>
+                  <TouchableOpacity
+                    style={[styles.qtyBtn, { backgroundColor: theme.bg, borderColor: theme.cardBorder }]}
+                    onPress={() => setSimpleQty(Math.max(1, simpleQty - 1))}
+                  >
+                    <Text style={[styles.qtyBtnText, { color: theme.text }]}>−</Text>
+                  </TouchableOpacity>
+                  <Text style={[styles.qtyNumber, { color: theme.text }]}>{simpleQty}</Text>
+                  <TouchableOpacity
+                    style={[styles.qtyBtn, { backgroundColor: theme.bg, borderColor: theme.cardBorder }]}
+                    onPress={() => setSimpleQty(simpleQty + 1)}
+                  >
+                    <Text style={[styles.qtyBtnText, { color: theme.text }]}>+</Text>
+                  </TouchableOpacity>
+                </View>
+
+                <Text style={[styles.qtyTotal, { color: theme.text }]}>
+                  ${(selectedProduct.sizes[simpleSize]?.price * simpleQty).toFixed(2)}
+                </Text>
+
+                <TouchableOpacity
+                  style={[styles.qtyMainBtn, { backgroundColor: theme.accent }]}
+                  onPress={handleSimpleConfirm}
+                >
+                  <Text style={[styles.qtyMainBtnText, { color: theme.accentText }]}>Agregar al pedido</Text>
+                </TouchableOpacity>
+              </>
+            )}
+          </View>
+        </TouchableOpacity>
       </Modal>
 
       {/* ADMIN PIN */}
@@ -489,7 +559,6 @@ const styles = StyleSheet.create({
     width: CARD_SIZE * 0.62, height: CARD_SIZE * 0.62,
     borderRadius: CARD_SIZE * 0.18, alignItems: 'center', justifyContent: 'center',
   },
-  // Carrito flotante
   cartFab: {
     position: 'absolute', bottom: 24, left: 20, right: 20,
     borderRadius: 18, paddingVertical: 16, paddingHorizontal: 20,
@@ -502,7 +571,6 @@ const styles = StyleSheet.create({
   cartBadgeText: { color: '#fff', fontSize: 13, fontWeight: '900' },
   cartFabLabel: { fontSize: 15, fontWeight: '800' },
   cartFabTotal: { fontSize: 18, fontWeight: '900' },
-  // Sheet carrito
   cartOverlay: { flex: 1, justifyContent: 'flex-end' },
   cartSheet: { borderTopLeftRadius: 28, borderTopRightRadius: 28, maxHeight: '85%' },
   cartHandle: { width: 40, height: 4, borderRadius: 2, alignSelf: 'center', marginTop: 12, marginBottom: 8 },
@@ -534,7 +602,21 @@ const styles = StyleSheet.create({
   cartClearText: { fontSize: 14, fontWeight: '700' },
   cartCheckoutBtn: { borderRadius: 14, paddingVertical: 16, alignItems: 'center' },
   cartCheckoutText: { fontSize: 16, fontWeight: '900', letterSpacing: 2 },
-  // Admin
+  qtyOverlay: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  qtyModal: { width: width * 0.82, borderRadius: 24, padding: 28, alignItems: 'center', borderWidth: 1 },
+  qtyProductName: { fontSize: 20, fontWeight: '900', textAlign: 'center', marginBottom: 4 },
+  qtyUnitPrice: { fontSize: 14, fontWeight: '600', marginTop: 4 },
+  simpleSizes: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 16, justifyContent: 'center' },
+  simpleSizeBtn: { borderRadius: 12, paddingHorizontal: 18, paddingVertical: 10, borderWidth: 1, alignItems: 'center' },
+  simpleSizeName: { fontSize: 13, fontWeight: '700' },
+  simpleSizePrice: { fontSize: 12, fontWeight: '600', marginTop: 2 },
+  qtyControls: { flexDirection: 'row', alignItems: 'center', gap: 24, marginTop: 24 },
+  qtyBtn: { width: 56, height: 56, borderRadius: 28, alignItems: 'center', justifyContent: 'center', borderWidth: 1.5 },
+  qtyBtnText: { fontSize: 28, fontWeight: '300' },
+  qtyNumber: { fontSize: 48, fontWeight: '900', minWidth: 60, textAlign: 'center' },
+  qtyTotal: { fontSize: 28, fontWeight: '900', marginTop: 16 },
+  qtyMainBtn: { width: '100%', borderRadius: 16, paddingVertical: 18, alignItems: 'center', marginTop: 20 },
+  qtyMainBtnText: { fontSize: 16, fontWeight: '900', letterSpacing: 2 },
   adminOverlay: { flex: 1, justifyContent: 'center', paddingHorizontal: 24 },
   adminModal: { borderRadius: 20, padding: 24, borderWidth: 1, alignItems: 'center' },
   adminIconWrap: { width: 56, height: 56, borderRadius: 28, alignItems: 'center', justifyContent: 'center', marginBottom: 16 },

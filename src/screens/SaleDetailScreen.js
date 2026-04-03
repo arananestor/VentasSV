@@ -143,50 +143,89 @@ export default function SaleDetailScreen({ route, navigation }) {
             <Text style={[styles.detailValue, { color: theme.text }]}>{sale.quantity}x</Text>
           </View>
 
-          {sale.toppings?.length > 0 && (
-            <View style={styles.detailRow}>
-              <Text style={[styles.detailLabel, { color: theme.textMuted }]}>Extras</Text>
-              <Text style={[styles.detailValue, { color: theme.text, flex: 1, textAlign: 'right' }]}>
-                {sale.toppings.join(', ')}
-              </Text>
+          {/* Nota general del pedido */}
+          {sale.note ? (
+            <View style={[styles.noteBox, { backgroundColor: '#FFF9C4', borderColor: '#F9A825', marginTop: 12 }]}>
+              <Text style={styles.noteBoxText}>📝 {sale.note}</Text>
             </View>
-          )}
+          ) : null}
 
+          {/* Unidades con detalle completo */}
           {sale.units?.length > 0 && (
             <>
               <View style={[styles.divider, { backgroundColor: theme.cardBorder, marginTop: 12 }]} />
               <Text style={[styles.unitsLabel, { color: theme.textMuted }]}>UNIDADES</Text>
-              {sale.units.map((unit, i) => (
-                <View key={i} style={[styles.unitCard, { backgroundColor: theme.bg, borderColor: theme.cardBorder }]}>
-                  <Text style={[styles.unitTitle, { color: theme.text }]}>Unidad {i + 1}</Text>
-                  {unit.flavors?.length > 0 && (
-                    <View style={styles.unitFlavors}>
-                      {unit.flavors.map((f, fi) => (
-                        <View key={fi} style={[styles.flavorChip, { backgroundColor: f.color || theme.accent }]}>
-                          <Text style={styles.flavorChipText}>{f.name}</Text>
+              {sale.units.map((unit, i) => {
+                const unitIngredients = unit.ingredients || unit.flavors || [];
+                const unitExtras = unit.extras || unit.toppings || [];
+                return (
+                  <View key={i} style={[styles.unitCard, { backgroundColor: theme.bg, borderColor: theme.cardBorder }]}>
+                    {/* Header de unidad */}
+                    <View style={styles.unitCardHeader}>
+                      <View style={[styles.unitBadge, { backgroundColor: theme.accent }]}>
+                        <Text style={styles.unitBadgeText}>{i + 1}</Text>
+                      </View>
+                      <Text style={[styles.unitTitle, { color: theme.text }]}>Unidad {i + 1}</Text>
+                      {unit.sizeName ? (
+                        <View style={[styles.unitSizeTag, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+                          <Text style={[styles.unitSizeText, { color: theme.textMuted }]}>{unit.sizeName}</Text>
                         </View>
-                      ))}
+                      ) : null}
                     </View>
-                  )}
-                  {unit.toppings?.length > 0 && (
-                    <Text style={[styles.unitToppings, { color: theme.textSecondary }]}>
-                      + {unit.toppings.join(', ')}
-                    </Text>
-                  )}
-                  {unit.note ? (
-                    <Text style={[styles.unitNote, { color: theme.textMuted }]}>📝 {unit.note}</Text>
-                  ) : null}
-                </View>
-              ))}
+
+                    {/* Ingredientes con colores e íconos */}
+                    {unitIngredients.length > 0 && (
+                      <View style={styles.unitSection}>
+                        <Text style={[styles.unitSectionLabel, { color: theme.textMuted }]}>INGREDIENTES</Text>
+                        <View style={styles.chipRow}>
+                          {unitIngredients.map((f, fi) => (
+                            <View key={fi} style={[styles.ingredientChip, { backgroundColor: f.color || '#888' }]}>
+                              {f.icon ? (
+                                <MaterialCommunityIcons name={f.icon} size={11} color="#fff" />
+                              ) : null}
+                              <Text style={styles.ingredientChipText}>{f.name || f}</Text>
+                            </View>
+                          ))}
+                        </View>
+                      </View>
+                    )}
+
+                    {/* Extras con colores */}
+                    {unitExtras.length > 0 && (
+                      <View style={styles.unitSection}>
+                        <Text style={[styles.unitSectionLabel, { color: theme.textMuted }]}>EXTRAS</Text>
+                        <View style={styles.chipRow}>
+                          {unitExtras.map((t, ti) => (
+                            <View key={ti} style={[styles.extraChip, {
+                              backgroundColor: (t.color || theme.accent) + '22',
+                              borderColor: t.color || theme.cardBorder,
+                            }]}>
+                              <Text style={[styles.extraChipText, { color: theme.text }]}>{t.name || t}</Text>
+                              {t.price > 0 ? (
+                                <Text style={[styles.extraChipPrice, { color: theme.textMuted }]}>+${t.price.toFixed(2)}</Text>
+                              ) : null}
+                            </View>
+                          ))}
+                        </View>
+                      </View>
+                    )}
+
+                    {/* Nota de la unidad */}
+                    {unit.note ? (
+                      <View style={[styles.unitNoteBox, { backgroundColor: '#FFF9C4', borderColor: '#F9A825' }]}>
+                        <Text style={styles.unitNoteText}>📝 {unit.note}</Text>
+                      </View>
+                    ) : null}
+
+                    {/* Sin personalización */}
+                    {!unitIngredients.length && !unitExtras.length && !unit.note && (
+                      <Text style={[styles.unitEmpty, { color: theme.textMuted }]}>Sin personalización</Text>
+                    )}
+                  </View>
+                );
+              })}
             </>
           )}
-
-          {sale.note ? (
-            <>
-              <View style={[styles.divider, { backgroundColor: theme.cardBorder, marginTop: 12 }]} />
-              <Text style={[styles.noteText, { color: theme.textMuted }]}>📝 {sale.note}</Text>
-            </>
-          ) : null}
         </View>
 
         {sale.paymentMethod === 'cash' && sale.cashGiven && (
@@ -253,18 +292,9 @@ export default function SaleDetailScreen({ route, navigation }) {
           )}
         </View>
 
-        {/* MAPA — al final, solo si hay geo */}
         {hasGeo && (
-          <TouchableOpacity
-            style={styles.mapCard}
-            onPress={handleOpenMap}
-            activeOpacity={0.92}
-          >
-            <Image
-              source={{ uri: mapPreviewUrl }}
-              style={styles.mapImage}
-              resizeMode="cover"
-            />
+          <TouchableOpacity style={styles.mapCard} onPress={handleOpenMap} activeOpacity={0.92}>
+            <Image source={{ uri: mapPreviewUrl }} style={styles.mapImage} resizeMode="cover" />
           </TouchableOpacity>
         )}
 
@@ -306,15 +336,27 @@ const styles = StyleSheet.create({
   detailRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 8 },
   detailLabel: { fontSize: 13, fontWeight: '600' },
   detailValue: { fontSize: 13, fontWeight: '700' },
+  noteBox: { borderRadius: 10, padding: 10, borderWidth: 1 },
+  noteBoxText: { fontSize: 13, fontWeight: '600', color: '#5D4037' },
   unitsLabel: { fontSize: 10, fontWeight: '800', letterSpacing: 2, marginTop: 12, marginBottom: 8 },
   unitCard: { borderRadius: 12, padding: 12, borderWidth: 1, marginBottom: 8 },
-  unitTitle: { fontSize: 12, fontWeight: '800', marginBottom: 8 },
-  unitFlavors: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 6 },
-  flavorChip: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },
-  flavorChipText: { fontSize: 12, fontWeight: '700', color: '#fff' },
-  unitToppings: { fontSize: 12, fontWeight: '600', marginTop: 4 },
-  unitNote: { fontSize: 12, fontWeight: '500', marginTop: 6, fontStyle: 'italic' },
-  noteText: { fontSize: 13, fontWeight: '500', marginTop: 8, fontStyle: 'italic' },
+  unitCardHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 },
+  unitBadge: { width: 22, height: 22, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
+  unitBadgeText: { color: '#fff', fontSize: 11, fontWeight: '900' },
+  unitTitle: { fontSize: 13, fontWeight: '800', flex: 1 },
+  unitSizeTag: { borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3, borderWidth: 1 },
+  unitSizeText: { fontSize: 10, fontWeight: '700' },
+  unitSection: { marginBottom: 8 },
+  unitSectionLabel: { fontSize: 9, fontWeight: '800', letterSpacing: 2, marginBottom: 6 },
+  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  ingredientChip: { flexDirection: 'row', alignItems: 'center', gap: 4, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 5 },
+  ingredientChipText: { fontSize: 12, fontWeight: '700', color: '#fff' },
+  extraChip: { flexDirection: 'row', alignItems: 'center', gap: 4, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 5, borderWidth: 1 },
+  extraChipText: { fontSize: 12, fontWeight: '600' },
+  extraChipPrice: { fontSize: 10, fontWeight: '600' },
+  unitNoteBox: { borderRadius: 8, padding: 8, borderWidth: 1, marginTop: 4 },
+  unitNoteText: { fontSize: 12, fontWeight: '600', color: '#5D4037' },
+  unitEmpty: { fontSize: 12, fontWeight: '500', fontStyle: 'italic', paddingVertical: 4 },
   voucherImg: { width: '100%', height: 220, borderRadius: 14, resizeMode: 'cover' },
   actionRow: { flexDirection: 'row', gap: 8 },
   actionBtn: {
@@ -322,9 +364,7 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center', borderWidth: 1.5, gap: 6,
   },
   actionLabel: { fontSize: 11, fontWeight: '800', letterSpacing: 0.5 },
-  mapCard: {
-    marginTop: 28, borderRadius: 18, overflow: 'hidden', height: 200,
-  },
+  mapCard: { marginTop: 28, borderRadius: 18, overflow: 'hidden', height: 200 },
   mapImage: { width: '100%', height: '100%' },
   idSection: { alignItems: 'center', marginTop: 24, paddingVertical: 16, borderTopWidth: 1 },
   idValue: { fontSize: 10, fontWeight: '500', color: '#999' },
