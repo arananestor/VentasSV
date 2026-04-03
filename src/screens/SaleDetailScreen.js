@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity,
-  Image, ScrollView, ActivityIndicator, Linking, Alert,
+  Image, ScrollView, ActivityIndicator, Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import Constants from 'expo-constants';
 import { useTheme } from '../context/ThemeContext';
 import { printTicket, shareTicket } from '../utils/ticketPrinter';
 import {
@@ -15,7 +16,7 @@ import {
 
 const SHARE_COLOR = '#0A84FF';
 const WA_COLOR = '#25D366';
-const MAPS_COLOR = '#4361EE';
+const MAPS_KEY = Constants.expoConfig?.extra?.googleMapsKey;
 
 export default function SaleDetailScreen({ route, navigation }) {
   const { sale } = route.params;
@@ -65,38 +66,11 @@ export default function SaleDetailScreen({ route, navigation }) {
   const handleOpenMap = () => {
     if (!sale.geo?.latitude) return;
     const { latitude, longitude } = sale.geo;
-    const label = `Pedido ${sale.orderNumber || sale.id.slice(-4)}`;
-
-    const wazeUrl = `waze://?ll=${latitude},${longitude}&navigate=yes`;
-    const googleUrl = `geo:${latitude},${longitude}?q=${latitude},${longitude}(${label})`;
-    const googleFallback = `https://maps.google.com/?q=${latitude},${longitude}`;
-
-    Alert.alert(
-      'Abrir ubicación',
-      `Pedido tomado en:\n${latitude.toFixed(6)}, ${longitude.toFixed(6)}`,
-      [
-        {
-          text: 'Waze',
-          onPress: async () => {
-            const canWaze = await Linking.canOpenURL(wazeUrl);
-            if (canWaze) {
-              Linking.openURL(wazeUrl);
-            } else {
-              Alert.alert('Waze no instalado', 'Abriendo en Google Maps.');
-              Linking.openURL(googleFallback);
-            }
-          },
-        },
-        {
-          text: 'Google Maps',
-          onPress: async () => {
-            const canGeo = await Linking.canOpenURL(googleUrl);
-            Linking.openURL(canGeo ? googleUrl : googleFallback);
-          },
-        },
-        { text: 'Cancelar', style: 'cancel' },
-      ]
-    );
+    const label = encodeURIComponent(`Pedido ${sale.orderNumber || sale.id.slice(-4)}`);
+    const uri = `geo:${latitude},${longitude}?q=${latitude},${longitude}(${label})`;
+    Linking.openURL(uri).catch(() => {
+      Linking.openURL(`https://www.google.com/maps?q=${latitude},${longitude}`);
+    });
   };
 
   const methodLabel = {
@@ -105,6 +79,10 @@ export default function SaleDetailScreen({ route, navigation }) {
 
   const orderDisplay = sale.orderNumber ? `#${sale.orderNumber}` : `#${sale.id.slice(-4)}`;
   const hasGeo = sale.geo?.latitude != null;
+
+  const mapPreviewUrl = hasGeo
+    ? `https://maps.googleapis.com/maps/api/staticmap?center=${sale.geo.latitude},${sale.geo.longitude}&zoom=15&size=600x300&scale=2&markers=color:red%7C${sale.geo.latitude},${sale.geo.longitude}&key=${MAPS_KEY}`
+    : null;
 
   const btnStyle = (key, color) => ({
     backgroundColor: activeBtn === key ? color : 'transparent',
@@ -150,35 +128,6 @@ export default function SaleDetailScreen({ route, navigation }) {
             </View>
           ))}
         </View>
-
-        {/* UBICACIÓN */}
-        {hasGeo && (
-          <>
-            <Text style={[styles.sectionLabel, { color: theme.textMuted }]}>UBICACIÓN</Text>
-            <TouchableOpacity
-              style={[styles.geoCard, { backgroundColor: theme.card, borderColor: MAPS_COLOR + '40' }]}
-              onPress={handleOpenMap}
-              activeOpacity={0.8}
-            >
-              <View style={[styles.geoIconWrap, { backgroundColor: MAPS_COLOR + '15' }]}>
-                <Feather name="map-pin" size={22} color={MAPS_COLOR} />
-              </View>
-              <View style={styles.geoInfo}>
-                <Text style={[styles.geoCoords, { color: theme.text }]}>
-                  {sale.geo.latitude.toFixed(6)}, {sale.geo.longitude.toFixed(6)}
-                </Text>
-                {sale.geo.accuracy != null && (
-                  <Text style={[styles.geoAccuracy, { color: theme.textMuted }]}>
-                    Precisión ±{Math.round(sale.geo.accuracy)} m
-                  </Text>
-                )}
-              </View>
-              <View style={styles.geoArrow}>
-                <Feather name="chevron-right" size={18} color={MAPS_COLOR} />
-              </View>
-            </TouchableOpacity>
-          </>
-        )}
 
         <Text style={[styles.sectionLabel, { color: theme.textMuted }]}>PRODUCTO</Text>
         <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
@@ -304,6 +253,21 @@ export default function SaleDetailScreen({ route, navigation }) {
           )}
         </View>
 
+        {/* MAPA — al final, solo si hay geo */}
+        {hasGeo && (
+          <TouchableOpacity
+            style={styles.mapCard}
+            onPress={handleOpenMap}
+            activeOpacity={0.92}
+          >
+            <Image
+              source={{ uri: mapPreviewUrl }}
+              style={styles.mapImage}
+              resizeMode="cover"
+            />
+          </TouchableOpacity>
+        )}
+
         <View style={[styles.idSection, { borderColor: theme.cardBorder }]}>
           <Text style={[styles.idValue, { color: theme.textMuted }]}>{sale.id}</Text>
         </View>
@@ -336,15 +300,6 @@ const styles = StyleSheet.create({
   infoLabel: { fontSize: 10, fontWeight: '800', letterSpacing: 2 },
   infoValue: { fontSize: 14, fontWeight: '700', marginTop: 6 },
   sectionLabel: { fontSize: 10, fontWeight: '800', letterSpacing: 3, marginTop: 24, marginBottom: 10 },
-  geoCard: {
-    flexDirection: 'row', alignItems: 'center', gap: 12,
-    borderRadius: 16, padding: 16, borderWidth: 1.5,
-  },
-  geoIconWrap: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
-  geoInfo: { flex: 1 },
-  geoCoords: { fontSize: 13, fontWeight: '700' },
-  geoAccuracy: { fontSize: 11, fontWeight: '500', marginTop: 3 },
-  geoArrow: { paddingLeft: 4 },
   card: { borderRadius: 16, padding: 18, borderWidth: 1 },
   productName: { fontSize: 17, fontWeight: '800', marginBottom: 14 },
   divider: { height: 1, marginBottom: 8 },
@@ -367,6 +322,10 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center', borderWidth: 1.5, gap: 6,
   },
   actionLabel: { fontSize: 11, fontWeight: '800', letterSpacing: 0.5 },
-  idSection: { alignItems: 'center', marginTop: 30, paddingVertical: 16, borderTopWidth: 1 },
+  mapCard: {
+    marginTop: 28, borderRadius: 18, overflow: 'hidden', height: 200,
+  },
+  mapImage: { width: '100%', height: '100%' },
+  idSection: { alignItems: 'center', marginTop: 24, paddingVertical: 16, borderTopWidth: 1 },
   idValue: { fontSize: 10, fontWeight: '500', color: '#999' },
 });
