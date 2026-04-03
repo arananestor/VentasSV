@@ -445,7 +445,7 @@ export default function HomeScreen({ navigation }) {
                     );
                   })}
                 </View>
-                {simpleHasItems && (
+                
                   <TouchableOpacity
                   style={[styles.simpleConfirmBtn, { backgroundColor: theme.accent },
                     !simpleHasItems && { opacity: 0.3 }]}
@@ -457,7 +457,7 @@ export default function HomeScreen({ navigation }) {
                     {simpleHasItems ? `$${simpleTotal.toFixed(2)}` : '--'}
                   </Text>
                 </TouchableOpacity>
-                )}
+                
               </>
             )}
           </TouchableOpacity>
