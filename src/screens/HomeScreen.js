@@ -1,7 +1,7 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   View, Text, TouchableOpacity, ScrollView, StyleSheet,
-  Dimensions, Image, StatusBar, Alert, Modal, TextInput, Animated, Linking,
+  Dimensions, Image, StatusBar, Alert, Modal, TextInput,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
@@ -11,8 +11,6 @@ import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { useTab } from '../context/TabContext';
 import ProductSticker from '../components/ProductSticker';
-import { printTicket } from '../utils/ticketPrinter';
-import { buildTicketMessage } from '../utils/businessConfig';
 
 const { width } = Dimensions.get('window');
 const CARD_GAP = 12;
@@ -39,53 +37,6 @@ export default function HomeScreen({ navigation }) {
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [showSimpleModal, setShowSimpleModal] = useState(false);
   const [sizeQuantities, setSizeQuantities] = useState({});
-
-  const snackAnim = useRef(new Animated.Value(120)).current;
-  const snackOpacity = useRef(new Animated.Value(0)).current;
-  const dismissTimer = useRef(null);
-  const [snackData, setSnackData] = useState(null);
-
-  useEffect(() => {
-    const sc = navigation.getState
-      ? route?.params?.saleCompleted
-      : null;
-    if (route?.params?.saleCompleted && !snackData) {
-      const { sales, total, waNumber: wa } = route.params.saleCompleted;
-      setSnackData({ sales, total, waNumber: wa });
-      navigation.setParams({ saleCompleted: null });
-      Animated.parallel([
-        Animated.spring(snackAnim, { toValue: 0, useNativeDriver: true, tension: 70, friction: 10 }),
-        Animated.timing(snackOpacity, { toValue: 1, duration: 200, useNativeDriver: true }),
-      ]).start();
-      dismissTimer.current = setTimeout(() => dismissSnack(), 2500);
-    }
-    return () => { if (dismissTimer.current) clearTimeout(dismissTimer.current); };
-  }, [route?.params?.saleCompleted]);
-
-  const dismissSnack = () => {
-    if (dismissTimer.current) clearTimeout(dismissTimer.current);
-    Animated.parallel([
-      Animated.timing(snackAnim, { toValue: 120, duration: 220, useNativeDriver: true }),
-      Animated.timing(snackOpacity, { toValue: 0, duration: 220, useNativeDriver: true }),
-    ]).start(() => setSnackData(null));
-  };
-
-  const handleSnackWhatsApp = () => {
-    if (!snackData?.sales?.length || !snackData?.waNumber) return;
-    if (dismissTimer.current) clearTimeout(dismissTimer.current);
-    snackData.sales.forEach(sale => {
-      const msg = buildTicketMessage(sale);
-      Linking.openURL(`https://wa.me/503${snackData.waNumber}?text=${msg}`);
-    });
-    dismissSnack();
-  };
-
-  const handleSnackPrint = async () => {
-    if (!snackData?.sales?.length) return;
-    if (dismissTimer.current) clearTimeout(dismissTimer.current);
-    for (const sale of snackData.sales) { await printTicket(sale); }
-    dismissSnack();
-  };
 
   const todaySales = getTodaySales();
   const todayTotal = todaySales.reduce((sum, s) => sum + s.total, 0);
@@ -120,7 +71,6 @@ export default function HomeScreen({ navigation }) {
       navigation.navigate('OrderBuilder', { product });
     } else {
       setSelectedProduct(product);
-      // Inicializar todos los tamaños en 0
       const init = {};
       product.sizes.forEach((_, i) => { init[i] = 0; });
       setSizeQuantities(init);
@@ -437,7 +387,7 @@ export default function HomeScreen({ navigation }) {
         </TouchableOpacity>
       </Modal>
 
-      {/* MODAL PRODUCTO SIMPLE — un contador por tamaño */}
+      {/* MODAL PRODUCTO SIMPLE */}
       <Modal visible={showSimpleModal} transparent animationType="fade">
         <TouchableOpacity
           style={[styles.simpleOverlay, { backgroundColor: theme.overlay }]}
@@ -451,10 +401,7 @@ export default function HomeScreen({ navigation }) {
           >
             {selectedProduct && (
               <>
-                {/* Handle */}
                 <View style={[styles.simpleHandle, { backgroundColor: theme.cardBorder }]} />
-
-                {/* Nombre + ícono */}
                 <View style={styles.simpleHeader}>
                   {selectedProduct.iconName ? (
                     <View style={[styles.simpleIconWrap, { backgroundColor: selectedProduct.iconBgColor || '#000' }]}>
@@ -463,8 +410,6 @@ export default function HomeScreen({ navigation }) {
                   ) : null}
                   <Text style={[styles.simpleProductName, { color: theme.text }]}>{selectedProduct.name}</Text>
                 </View>
-
-                {/* Filas de tamaño con contador */}
                 <View style={styles.sizeRows}>
                   {selectedProduct.sizes.map((s, i) => {
                     const qty = sizeQuantities[i] || 0;
@@ -475,12 +420,8 @@ export default function HomeScreen({ navigation }) {
                         borderColor: active ? theme.accent : theme.cardBorder,
                       }]}>
                         <View style={styles.sizeRowInfo}>
-                          <Text style={[styles.sizeRowName, { color: theme.text }]}>
-                            {s.name || 'Normal'}
-                          </Text>
-                          <Text style={[styles.sizeRowPrice, { color: theme.textMuted }]}>
-                            ${s.price.toFixed(2)}
-                          </Text>
+                          <Text style={[styles.sizeRowName, { color: theme.text }]}>{s.name || 'Normal'}</Text>
+                          <Text style={[styles.sizeRowPrice, { color: theme.textMuted }]}>${s.price.toFixed(2)}</Text>
                         </View>
                         <View style={styles.sizeRowCounter}>
                           <TouchableOpacity
@@ -492,9 +433,7 @@ export default function HomeScreen({ navigation }) {
                           >
                             <Text style={[styles.counterBtnText, { color: active ? theme.accentText : theme.textMuted }]}>−</Text>
                           </TouchableOpacity>
-                          <Text style={[styles.counterNum, { color: active ? theme.text : theme.textMuted }]}>
-                            {qty}
-                          </Text>
+                          <Text style={[styles.counterNum, { color: active ? theme.text : theme.textMuted }]}>{qty}</Text>
                           <TouchableOpacity
                             style={[styles.counterBtn, { backgroundColor: theme.accent, borderColor: theme.accent }]}
                             onPress={() => adjustSize(i, 1)}
@@ -506,19 +445,13 @@ export default function HomeScreen({ navigation }) {
                     );
                   })}
                 </View>
-
-                {/* Total + botón */}
                 {simpleHasItems && (
                   <TouchableOpacity
                     style={[styles.simpleConfirmBtn, { backgroundColor: theme.accent }]}
                     onPress={handleSimpleConfirm}
                   >
-                    <Text style={[styles.simpleConfirmText, { color: theme.accentText }]}>
-                      Agregar al pedido
-                    </Text>
-                    <Text style={[styles.simpleConfirmTotal, { color: theme.accentText }]}>
-                      ${simpleTotal.toFixed(2)}
-                    </Text>
+                    <Text style={[styles.simpleConfirmText, { color: theme.accentText }]}>Agregar al pedido</Text>
+                    <Text style={[styles.simpleConfirmTotal, { color: theme.accentText }]}>${simpleTotal.toFixed(2)}</Text>
                   </TouchableOpacity>
                 )}
               </>
@@ -566,43 +499,6 @@ export default function HomeScreen({ navigation }) {
           </View>
         </View>
       </Modal>
-
-      {/* SNACKBAR VENTA COMPLETADA */}
-      <Animated.View
-        style={[
-          styles.snack,
-          { backgroundColor: theme.card, borderColor: theme.cardBorder },
-          { transform: [{ translateY: snackAnim }], opacity: snackOpacity },
-        ]}
-        pointerEvents={snackData ? 'auto' : 'none'}
-      >
-        <View style={styles.snackLeft}>
-          <View style={[styles.snackDot, { backgroundColor: theme.success }]} />
-          <View>
-            <Text style={[styles.snackTitle, { color: theme.text }]}>Venta registrada</Text>
-            <Text style={[styles.snackSub, { color: theme.textMuted }]}>${snackData?.total?.toFixed(2)}</Text>
-          </View>
-        </View>
-        <View style={styles.snackActions}>
-          <TouchableOpacity
-            style={[styles.snackBtn, { backgroundColor: theme.accent }]}
-            onPress={handleSnackPrint}
-          >
-            <MaterialCommunityIcons name="printer" size={16} color={theme.accentText} />
-          </TouchableOpacity>
-          {snackData?.waNumber && (
-            <TouchableOpacity
-              style={[styles.snackBtn, { backgroundColor: 'transparent', borderWidth: 1.5, borderColor: '#25D366' }]}
-              onPress={handleSnackWhatsApp}
-            >
-              <MaterialCommunityIcons name="whatsapp" size={16} color="#25D366" />
-            </TouchableOpacity>
-          )}
-          <TouchableOpacity style={styles.snackClose} onPress={dismissSnack}>
-            <Feather name="x" size={16} color={theme.textMuted} />
-          </TouchableOpacity>
-        </View>
-      </Animated.View>
     </SafeAreaView>
   );
 }
@@ -681,7 +577,6 @@ const styles = StyleSheet.create({
     width: CARD_SIZE * 0.62, height: CARD_SIZE * 0.62,
     borderRadius: CARD_SIZE * 0.18, alignItems: 'center', justifyContent: 'center',
   },
-  // Carrito flotante
   cartFab: {
     position: 'absolute', bottom: 24, left: 20, right: 20,
     borderRadius: 18, paddingVertical: 16, paddingHorizontal: 20,
@@ -725,7 +620,6 @@ const styles = StyleSheet.create({
   cartClearText: { fontSize: 14, fontWeight: '700' },
   cartCheckoutBtn: { borderRadius: 14, paddingVertical: 16, alignItems: 'center' },
   cartCheckoutText: { fontSize: 16, fontWeight: '900', letterSpacing: 2 },
-  // Modal simple
   simpleOverlay: { flex: 1, justifyContent: 'flex-end' },
   simpleSheet: { borderTopLeftRadius: 28, borderTopRightRadius: 28, paddingBottom: 34 },
   simpleHandle: { width: 40, height: 4, borderRadius: 2, alignSelf: 'center', marginTop: 12, marginBottom: 16 },
@@ -751,7 +645,6 @@ const styles = StyleSheet.create({
   },
   simpleConfirmText: { fontSize: 16, fontWeight: '900', letterSpacing: 1 },
   simpleConfirmTotal: { fontSize: 20, fontWeight: '900' },
-  // Admin
   adminOverlay: { flex: 1, justifyContent: 'center', paddingHorizontal: 24 },
   adminModal: { borderRadius: 20, padding: 24, borderWidth: 1, alignItems: 'center' },
   adminIconWrap: { width: 56, height: 56, borderRadius: 28, alignItems: 'center', justifyContent: 'center', marginBottom: 16 },
@@ -765,17 +658,4 @@ const styles = StyleSheet.create({
   adminBtnText: { fontSize: 15, fontWeight: '900', letterSpacing: 2 },
   adminCancel: { paddingVertical: 14 },
   adminCancelText: { fontSize: 14, fontWeight: '600' },
-  snack: {
-    position: 'absolute', bottom: 24, left: 16, right: 16,
-    borderRadius: 16, borderWidth: 1, paddingVertical: 14, paddingHorizontal: 16,
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    zIndex: 999,
-  },
-  snackLeft: { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 },
-  snackDot: { width: 8, height: 8, borderRadius: 4 },
-  snackTitle: { fontSize: 13, fontWeight: '700' },
-  snackSub: { fontSize: 12, fontWeight: '500', marginTop: 1 },
-  snackActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  snackBtn: { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
-  snackClose: { width: 30, height: 30, alignItems: 'center', justifyContent: 'center', marginLeft: 2 },
 });

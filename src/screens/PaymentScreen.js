@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
   View, Text, TouchableOpacity, TextInput, StyleSheet,
-  Image, Alert, ScrollView, Animated,
+  Image, ScrollView, Animated,
   ActivityIndicator, Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -39,7 +39,11 @@ export default function PaymentScreen({ route, navigation }) {
   const [waNumber, setWaNumber] = useState(null);
   const [kitchenNumber, setKitchenNumber] = useState(null);
   const [completing, setCompleting] = useState(false);
+  const [completedSales, setCompletedSales] = useState([]);
 
+  const snackAnim = useRef(new Animated.Value(120)).current;
+  const snackOpacity = useRef(new Animated.Value(0)).current;
+  const dismissTimer = useRef(null);
   const amountInputRef = useRef(null);
 
   const quickBills = [1, 2, 5, 10, 20];
@@ -54,6 +58,7 @@ export default function PaymentScreen({ route, navigation }) {
       setKitchenNumber(await loadKitchenNumber());
       await Location.requestForegroundPermissionsAsync();
     })();
+    return () => { if (dismissTimer.current) clearTimeout(dismissTimer.current); };
   }, []);
 
   const getLocation = async () => {
@@ -63,6 +68,24 @@ export default function PaymentScreen({ route, navigation }) {
       const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
       return { latitude: loc.coords.latitude, longitude: loc.coords.longitude, accuracy: loc.coords.accuracy };
     } catch { return null; }
+  };
+
+  const showSnack = (sales) => {
+    setCompletedSales(sales);
+    navigation.popToTop();
+    Animated.parallel([
+      Animated.spring(snackAnim, { toValue: 0, useNativeDriver: true, tension: 70, friction: 10 }),
+      Animated.timing(snackOpacity, { toValue: 1, duration: 200, useNativeDriver: true }),
+    ]).start();
+    dismissTimer.current = setTimeout(() => dismissSnack(), 2500);
+  };
+
+  const dismissSnack = () => {
+    if (dismissTimer.current) clearTimeout(dismissTimer.current);
+    Animated.parallel([
+      Animated.timing(snackAnim, { toValue: 120, duration: 220, useNativeDriver: true }),
+      Animated.timing(snackOpacity, { toValue: 0, duration: 220, useNativeDriver: true }),
+    ]).start();
   };
 
   const handleComplete = async () => {
@@ -120,9 +143,24 @@ export default function PaymentScreen({ route, navigation }) {
     }
 
     setCompleting(false);
-    navigation.navigate('HomeMain', {
-      saleCompleted: { sales: savedSales, total: totalAmount, waNumber },
+    showSnack(savedSales);
+  };
+
+  const handleSnackWhatsApp = () => {
+    if (!completedSales.length || !waNumber) return;
+    if (dismissTimer.current) clearTimeout(dismissTimer.current);
+    completedSales.forEach(sale => {
+      const msg = buildTicketMessage(sale);
+      Linking.openURL(`https://wa.me/503${waNumber}?text=${msg}`);
     });
+    dismissSnack();
+  };
+
+  const handlePrint = async () => {
+    if (!completedSales.length) return;
+    if (dismissTimer.current) clearTimeout(dismissTimer.current);
+    for (const sale of completedSales) { await printTicket(sale); }
+    dismissSnack();
   };
 
   const handleAmountTap = () => {
@@ -324,6 +362,42 @@ export default function PaymentScreen({ route, navigation }) {
           </TouchableOpacity>
         </View>
       )}
+
+      {/* SNACKBAR */}
+      <Animated.View
+        style={[
+          styles.snack,
+          { backgroundColor: theme.card, borderColor: theme.cardBorder },
+          { transform: [{ translateY: snackAnim }], opacity: snackOpacity },
+        ]}
+      >
+        <View style={styles.snackLeft}>
+          <View style={[styles.snackDot, { backgroundColor: theme.success }]} />
+          <View>
+            <Text style={[styles.snackTitle, { color: theme.text }]}>Venta registrada</Text>
+            <Text style={[styles.snackSub, { color: theme.textMuted }]}>${totalAmount.toFixed(2)}</Text>
+          </View>
+        </View>
+        <View style={styles.snackActions}>
+          <TouchableOpacity
+            style={[styles.snackBtn, { backgroundColor: theme.accent }]}
+            onPress={handlePrint}
+          >
+            <MaterialCommunityIcons name="printer" size={16} color={theme.accentText} />
+          </TouchableOpacity>
+          {waNumber && (
+            <TouchableOpacity
+              style={[styles.snackBtn, { backgroundColor: 'transparent', borderWidth: 1.5, borderColor: WA_COLOR }]}
+              onPress={handleSnackWhatsApp}
+            >
+              <MaterialCommunityIcons name="whatsapp" size={16} color={WA_COLOR} />
+            </TouchableOpacity>
+          )}
+          <TouchableOpacity style={styles.snackClose} onPress={dismissSnack}>
+            <Feather name="x" size={16} color={theme.textMuted} />
+          </TouchableOpacity>
+        </View>
+      </Animated.View>
     </SafeAreaView>
   );
 }
@@ -380,4 +454,16 @@ const styles = StyleSheet.create({
   bottomBar: { position: 'absolute', bottom: 0, left: 0, right: 0, padding: 16, paddingBottom: 34, borderTopWidth: 1 },
   doneBtn: { borderRadius: 16, paddingVertical: 18, alignItems: 'center' },
   doneText: { fontSize: 16, fontWeight: '900', letterSpacing: 4 },
+  snack: {
+    position: 'absolute', bottom: 24, left: 16, right: 16,
+    borderRadius: 16, borderWidth: 1, paddingVertical: 14, paddingHorizontal: 16,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+  },
+  snackLeft: { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 },
+  snackDot: { width: 8, height: 8, borderRadius: 4 },
+  snackTitle: { fontSize: 13, fontWeight: '700' },
+  snackSub: { fontSize: 12, fontWeight: '500', marginTop: 1 },
+  snackActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  snackBtn: { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  snackClose: { width: 30, height: 30, alignItems: 'center', justifyContent: 'center', marginLeft: 2 },
 });
