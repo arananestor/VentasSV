@@ -447,12 +447,16 @@ export default function HomeScreen({ navigation }) {
                 </View>
                 {simpleHasItems && (
                   <TouchableOpacity
-                    style={[styles.simpleConfirmBtn, { backgroundColor: theme.accent }]}
-                    onPress={handleSimpleConfirm}
-                  >
-                    <Text style={[styles.simpleConfirmText, { color: theme.accentText }]}>Agregar al pedido</Text>
-                    <Text style={[styles.simpleConfirmTotal, { color: theme.accentText }]}>${simpleTotal.toFixed(2)}</Text>
-                  </TouchableOpacity>
+                  style={[styles.simpleConfirmBtn, { backgroundColor: theme.accent },
+                    !simpleHasItems && { opacity: 0.3 }]}
+                  onPress={simpleHasItems ? handleSimpleConfirm : undefined}
+                  activeOpacity={simpleHasItems ? 0.8 : 1}
+                >
+                  <Text style={[styles.simpleConfirmText, { color: theme.accentText }]}>Agregar al pedido</Text>
+                  <Text style={[styles.simpleConfirmTotal, { color: theme.accentText }]}>
+                    {simpleHasItems ? `$${simpleTotal.toFixed(2)}` : '--'}
+                  </Text>
+                </TouchableOpacity>
                 )}
               </>
             )}

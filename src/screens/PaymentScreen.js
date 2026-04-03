@@ -72,11 +72,11 @@ export default function PaymentScreen({ route, navigation }) {
 
   const showSnack = (sales) => {
     setCompletedSales(sales);
-    navigation.popToTop();
     Animated.parallel([
       Animated.spring(snackAnim, { toValue: 0, useNativeDriver: true, tension: 70, friction: 10 }),
       Animated.timing(snackOpacity, { toValue: 1, duration: 200, useNativeDriver: true }),
     ]).start();
+    setTimeout(() => navigation.popToTop(), 300);
     dismissTimer.current = setTimeout(() => dismissSnack(), 2500);
   };
 
