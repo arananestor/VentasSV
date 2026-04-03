@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
   View, Text, TouchableOpacity, ScrollView, StyleSheet,
-  Dimensions,  Image, StatusBar, Alert, Modal, TextInput,
+  Dimensions, Image, StatusBar, Alert, Modal, TextInput,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
@@ -18,7 +18,10 @@ const PADDING = 16;
 const CARD_SIZE = (width - (PADDING * 2) - CARD_GAP) / 2;
 
 export default function HomeScreen({ navigation }) {
-  const { products, getTodaySales, deleteProduct } = useApp();
+  const {
+    products, getTodaySales, deleteProduct,
+    cart, addToCart, removeFromCart, clearCart, cartTotal, cartCount,
+  } = useApp();
   const { currentWorker, verifyAdminPin } = useAuth();
   const { theme } = useTheme();
   const {
@@ -30,9 +33,7 @@ export default function HomeScreen({ navigation }) {
   const [adminPinInput, setAdminPinInput] = useState('');
   const [pendingAction, setPendingAction] = useState(null);
   const [editMode, setEditMode] = useState(false);
-  const [showQtyModal, setShowQtyModal] = useState(false);
-  const [selectedProduct, setSelectedProduct] = useState(null);
-  const [qty, setQty] = useState(1);
+  const [showCart, setShowCart] = useState(false);
 
   const todaySales = getTodaySales();
   const todayTotal = todaySales.reduce((sum, s) => sum + s.total, 0);
@@ -59,32 +60,25 @@ export default function HomeScreen({ navigation }) {
 
   const handleProductTap = (product) => {
     if (editMode) return;
-    setSelectedProduct(product);
-    setQty(1);
-    setShowQtyModal(true);
-  };
+    const isElaborado = product.type === 'elaborado' ||
+      (product.ingredients?.length > 0) ||
+      (product.flavors?.length > 0); // compatibilidad hacia atrás
 
-  const handleConfirmQty = () => {
-    setShowQtyModal(false);
-    const product = selectedProduct;
-    const hasComponents = product.flavors && product.flavors.length > 0;
-    if (hasComponents) {
-      navigation.navigate('OrderBuilder', { product, initialQty: qty });
+    if (isElaborado) {
+      navigation.navigate('OrderBuilder', { product });
     } else {
-      navigation.navigate('Customize', { product, initialQty: qty });
+      // Simple: agrega directo al carrito con qty 1, tamaño por defecto
+      const size = product.sizes[0];
+      addToCart({
+        product,
+        size,
+        quantity: 1,
+        units: [],
+        extras: [],
+        note: '',
+        total: size.price,
+      });
     }
-  };
-
-  const handleQuickPay = () => {
-    setShowQtyModal(false);
-    const product = selectedProduct;
-    const size = product.sizes[0];
-    navigation.navigate('Payment', {
-      order: {
-        product, size, quantity: qty,
-        total: size.price * qty, units: [], toppings: [],
-      },
-    });
   };
 
   const handleDeleteProduct = (product) => {
@@ -111,10 +105,16 @@ export default function HomeScreen({ navigation }) {
     else requestAdminAction(() => setEditMode(true));
   };
 
+  const handleCheckout = () => {
+    if (cart.length === 0) return;
+    setShowCart(false);
+    navigation.navigate('Payment', { fromCart: true });
+  };
+
   const filterIcons = {
-    all: { name: 'view-grid', lib: 'mci' },
-    fixed: { name: 'map-marker', lib: 'mci' },
-    event: { name: 'calendar-star', lib: 'mci' },
+    all: { name: 'view-grid' },
+    fixed: { name: 'map-marker' },
+    event: { name: 'calendar-star' },
   };
 
   return (
@@ -124,7 +124,7 @@ export default function HomeScreen({ navigation }) {
       {/* HEADER */}
       <View style={styles.header}>
         <View>
-          <Text style={[styles.logo, { color: theme.text }]}>VENTA</Text>
+          <Text style={[styles.logo, { color: theme.text }]}>VENTASSV</Text>
           <Text style={[styles.logoSub, { color: theme.textMuted }]}>PUNTO DE VENTA</Text>
         </View>
         <View style={styles.headerRight}>
@@ -233,7 +233,7 @@ export default function HomeScreen({ navigation }) {
                 {product.customImage ? (
                   <Image source={{ uri: product.customImage }} style={styles.productImage} />
                 ) : product.iconName ? (
-                  <View style={[styles.iconBgCircle, {backgroundColor: product.iconBgColor || '#000'}]}>
+                  <View style={[styles.iconBgCircle, { backgroundColor: product.iconBgColor || '#000' }]}>
                     <MaterialCommunityIcons name={product.iconName} size={CARD_SIZE * 0.32} color="#fff" />
                   </View>
                 ) : (
@@ -270,71 +270,109 @@ export default function HomeScreen({ navigation }) {
             <Feather name="plus" size={28} color={theme.textMuted} />
           </View>
         </TouchableOpacity>
+        <View style={{ height: cartCount > 0 ? 100 : 20 }} />
       </ScrollView>
 
-      {/* QTY MODAL */}
-      <Modal visible={showQtyModal} transparent animationType="fade">
+      {/* CARRITO FLOTANTE */}
+      {cartCount > 0 && (
         <TouchableOpacity
-          style={[styles.qtyOverlay, { backgroundColor: theme.overlay }]}
-          activeOpacity={1}
-          onPress={() => setShowQtyModal(false)}
+          style={[styles.cartFab, { backgroundColor: theme.accent }]}
+          onPress={() => setShowCart(true)}
+          activeOpacity={0.9}
         >
-          <View
-            style={[styles.qtyModal, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}
-            onStartShouldSetResponder={() => true}
-          >
-            {selectedProduct && (
-              <>
-                <Text style={[styles.qtyProductName, { color: theme.text }]}>{selectedProduct.name}</Text>
-                <Text style={[styles.qtyUnitPrice, { color: theme.textMuted }]}>
-                  ${selectedProduct.sizes[0]?.price.toFixed(2)} c/u
-                </Text>
-
-                <View style={styles.qtyControls}>
-                  <TouchableOpacity
-                    style={[styles.qtyBtn, { backgroundColor: theme.bg, borderColor: theme.cardBorder }]}
-                    onPress={() => setQty(Math.max(1, qty - 1))}
-                  >
-                    <Text style={[styles.qtyBtnText, { color: theme.text }]}>−</Text>
-                  </TouchableOpacity>
-                  <Text style={[styles.qtyNumber, { color: theme.text }]}>{qty}</Text>
-                  <TouchableOpacity
-                    style={[styles.qtyBtn, { backgroundColor: theme.bg, borderColor: theme.cardBorder }]}
-                    onPress={() => setQty(qty + 1)}
-                  >
-                    <Text style={[styles.qtyBtnText, { color: theme.text }]}>+</Text>
-                  </TouchableOpacity>
-                </View>
-
-                <Text style={[styles.qtyTotal, { color: theme.text }]}>
-                  ${(selectedProduct.sizes[0]?.price * qty).toFixed(2)}
-                </Text>
-
-                <TouchableOpacity
-                  style={[styles.qtyMainBtn, { backgroundColor: theme.accent }]}
-                  onPress={handleConfirmQty}
-                >
-                  <Text style={[styles.qtyMainBtnText, { color: theme.accentText }]}>
-                    {selectedProduct.flavors?.length > 0 || selectedProduct.toppings?.length > 0
-                      ? 'Personalizar' : 'Agregar al pedido'}
-                  </Text>
-                </TouchableOpacity>
-
-                {selectedProduct.sizes.length <= 1 && !selectedProduct.flavors?.length && !selectedProduct.toppings?.length && (
-                  <TouchableOpacity
-                    style={[styles.qtyQuickPay, { borderColor: theme.cardBorder }]}
-                    onPress={handleQuickPay}
-                  >
-                    <Text style={[styles.qtyQuickPayText, { color: theme.textSecondary }]}>Cobrar directo →</Text>
-                  </TouchableOpacity>
-                )}
-              </>
-            )}
+          <View style={styles.cartFabLeft}>
+            <View style={[styles.cartBadge, { backgroundColor: 'rgba(255,255,255,0.2)' }]}>
+              <Text style={styles.cartBadgeText}>{cartCount}</Text>
+            </View>
+            <Text style={[styles.cartFabLabel, { color: theme.accentText }]}>Ver pedido</Text>
           </View>
+          <Text style={[styles.cartFabTotal, { color: theme.accentText }]}>${cartTotal.toFixed(2)}</Text>
         </TouchableOpacity>
+      )}
+
+      {/* MODAL CARRITO */}
+      <Modal visible={showCart} transparent animationType="slide">
+        <View style={[styles.cartOverlay, { backgroundColor: 'rgba(0,0,0,0.6)' }]}>
+          <View style={[styles.cartSheet, { backgroundColor: theme.bg }]}>
+            <View style={[styles.cartHandle, { backgroundColor: theme.cardBorder }]} />
+
+            <View style={styles.cartHeader}>
+              <Text style={[styles.cartTitle, { color: theme.text }]}>PEDIDO ACTUAL</Text>
+              <TouchableOpacity onPress={() => setShowCart(false)}>
+                <Feather name="x" size={22} color={theme.textMuted} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={styles.cartList} showsVerticalScrollIndicator={false}>
+              {cart.map((item, idx) => (
+                <View key={item.cartId} style={[styles.cartItem, { borderColor: theme.cardBorder }]}>
+                  <View style={styles.cartItemLeft}>
+                    {item.product.iconName ? (
+                      <View style={[styles.cartItemIcon, { backgroundColor: item.product.iconBgColor || '#000' }]}>
+                        <MaterialCommunityIcons name={item.product.iconName} size={18} color="#fff" />
+                      </View>
+                    ) : (
+                      <View style={[styles.cartItemIcon, { backgroundColor: theme.card }]}>
+                        <Feather name="package" size={16} color={theme.textMuted} />
+                      </View>
+                    )}
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.cartItemName, { color: theme.text }]}>{item.product.name}</Text>
+                      <Text style={[styles.cartItemDetail, { color: theme.textMuted }]}>
+                        {item.size?.name} · {item.quantity}x
+                        {item.units?.length > 0 ? ` · ${item.units.length} uds` : ''}
+                      </Text>
+                      {item.note ? (
+                        <Text style={[styles.cartItemNote, { color: theme.textMuted }]}>📝 {item.note}</Text>
+                      ) : null}
+                      {/* Ingredientes visibles con colores */}
+                      {item.units?.length > 0 && item.units[0]?.ingredients?.length > 0 && (
+                        <View style={styles.cartIngredientDots}>
+                          {item.units.flatMap(u => u.ingredients || []).slice(0, 8).map((ing, i) => (
+                            <View
+                              key={i}
+                              style={[styles.cartIngDot, { backgroundColor: ing.color || '#888' }]}
+                            />
+                          ))}
+                        </View>
+                      )}
+                    </View>
+                  </View>
+                  <View style={styles.cartItemRight}>
+                    <Text style={[styles.cartItemPrice, { color: theme.text }]}>${item.total.toFixed(2)}</Text>
+                    <TouchableOpacity onPress={() => removeFromCart(item.cartId)}>
+                      <Feather name="trash-2" size={16} color={theme.textMuted} />
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              ))}
+            </ScrollView>
+
+            <View style={[styles.cartFooter, { borderTopColor: theme.cardBorder }]}>
+              <View style={styles.cartTotalRow}>
+                <Text style={[styles.cartTotalLabel, { color: theme.textMuted }]}>TOTAL</Text>
+                <Text style={[styles.cartTotalAmount, { color: theme.text }]}>${cartTotal.toFixed(2)}</Text>
+              </View>
+              <View style={styles.cartActions}>
+                <TouchableOpacity
+                  style={[styles.cartClearBtn, { borderColor: theme.cardBorder }]}
+                  onPress={() => { clearCart(); setShowCart(false); }}
+                >
+                  <Text style={[styles.cartClearText, { color: theme.textMuted }]}>Vaciar</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.cartCheckoutBtn, { backgroundColor: theme.accent, flex: 1 }]}
+                  onPress={handleCheckout}
+                >
+                  <Text style={[styles.cartCheckoutText, { color: theme.accentText }]}>COBRAR</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </View>
       </Modal>
 
-      {/* ADMIN PIN MODAL */}
+      {/* ADMIN PIN */}
       <Modal visible={showAdminPin} transparent animationType="fade">
         <View style={[styles.adminOverlay, { backgroundColor: theme.overlay }]}>
           <View style={[styles.adminModal, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
@@ -383,7 +421,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
     paddingHorizontal: PADDING, paddingTop: 12,
   },
-  logo: { fontSize: 30, fontWeight: '900', letterSpacing: 6 },
+  logo: { fontSize: 26, fontWeight: '900', letterSpacing: 5 },
   logoSub: { fontSize: 10, fontWeight: '600', letterSpacing: 4, marginTop: 2 },
   headerRight: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   editBtn: {
@@ -391,7 +429,6 @@ const styles = StyleSheet.create({
     borderWidth: 1, paddingHorizontal: 14,
   },
   editBtnText: { fontSize: 13, fontWeight: '700' },
- profileInitial: { fontSize: 18, fontWeight: '900' },
   workerBar: {
     flexDirection: 'row', alignItems: 'center',
     paddingHorizontal: PADDING, paddingTop: 10, paddingBottom: 6, gap: 8,
@@ -426,7 +463,7 @@ const styles = StyleSheet.create({
   salesCount: { fontSize: 12, fontWeight: '600', marginTop: 2 },
   grid: {
     flexDirection: 'row', flexWrap: 'wrap',
-    paddingHorizontal: PADDING, gap: CARD_GAP, paddingTop: 4, paddingBottom: 100,
+    paddingHorizontal: PADDING, gap: CARD_GAP, paddingTop: 4,
   },
   cardWrapper: { width: CARD_SIZE, position: 'relative' },
   productCard: {
@@ -448,19 +485,56 @@ const styles = StyleSheet.create({
     borderWidth: 1, alignItems: 'center', justifyContent: 'center',
   },
   addPlus: { width: 52, height: 52, borderRadius: 26, alignItems: 'center', justifyContent: 'center' },
-  qtyOverlay: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  qtyModal: { width: width * 0.78, borderRadius: 24, padding: 28, alignItems: 'center', borderWidth: 1 },
-  qtyProductName: { fontSize: 20, fontWeight: '900', textAlign: 'center' },
-  qtyUnitPrice: { fontSize: 14, fontWeight: '600', marginTop: 4 },
-  qtyControls: { flexDirection: 'row', alignItems: 'center', gap: 24, marginTop: 24 },
-  qtyBtn: { width: 56, height: 56, borderRadius: 28, alignItems: 'center', justifyContent: 'center', borderWidth: 1.5 },
-  qtyBtnText: { fontSize: 28, fontWeight: '300' },
-  qtyNumber: { fontSize: 48, fontWeight: '900', minWidth: 60, textAlign: 'center' },
-  qtyTotal: { fontSize: 28, fontWeight: '900', marginTop: 16 },
-  qtyMainBtn: { width: '100%', borderRadius: 16, paddingVertical: 18, alignItems: 'center', marginTop: 20 },
-  qtyMainBtnText: { fontSize: 16, fontWeight: '900', letterSpacing: 2 },
-  qtyQuickPay: { width: '100%', borderRadius: 14, paddingVertical: 14, alignItems: 'center', marginTop: 8, borderWidth: 1 },
-  qtyQuickPayText: { fontSize: 14, fontWeight: '700' },
+  iconBgCircle: {
+    width: CARD_SIZE * 0.62, height: CARD_SIZE * 0.62,
+    borderRadius: CARD_SIZE * 0.18, alignItems: 'center', justifyContent: 'center',
+  },
+  // Carrito flotante
+  cartFab: {
+    position: 'absolute', bottom: 24, left: 20, right: 20,
+    borderRadius: 18, paddingVertical: 16, paddingHorizontal: 20,
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    shadowColor: '#000', shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.25, shadowRadius: 16, elevation: 12,
+  },
+  cartFabLeft: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  cartBadge: { width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
+  cartBadgeText: { color: '#fff', fontSize: 13, fontWeight: '900' },
+  cartFabLabel: { fontSize: 15, fontWeight: '800' },
+  cartFabTotal: { fontSize: 18, fontWeight: '900' },
+  // Sheet carrito
+  cartOverlay: { flex: 1, justifyContent: 'flex-end' },
+  cartSheet: { borderTopLeftRadius: 28, borderTopRightRadius: 28, maxHeight: '85%' },
+  cartHandle: { width: 40, height: 4, borderRadius: 2, alignSelf: 'center', marginTop: 12, marginBottom: 8 },
+  cartHeader: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    paddingHorizontal: 20, paddingVertical: 16,
+  },
+  cartTitle: { fontSize: 14, fontWeight: '900', letterSpacing: 3 },
+  cartList: { paddingHorizontal: 20, maxHeight: 400 },
+  cartItem: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start',
+    paddingVertical: 14, borderBottomWidth: 1,
+  },
+  cartItemLeft: { flexDirection: 'row', gap: 12, flex: 1 },
+  cartItemIcon: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  cartItemName: { fontSize: 15, fontWeight: '700' },
+  cartItemDetail: { fontSize: 12, fontWeight: '500', marginTop: 2 },
+  cartItemNote: { fontSize: 11, fontWeight: '500', marginTop: 4, fontStyle: 'italic' },
+  cartIngredientDots: { flexDirection: 'row', gap: 4, marginTop: 6 },
+  cartIngDot: { width: 10, height: 10, borderRadius: 5 },
+  cartItemRight: { alignItems: 'flex-end', gap: 8 },
+  cartItemPrice: { fontSize: 15, fontWeight: '900' },
+  cartFooter: { padding: 20, borderTopWidth: 1 },
+  cartTotalRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
+  cartTotalLabel: { fontSize: 11, fontWeight: '800', letterSpacing: 3 },
+  cartTotalAmount: { fontSize: 32, fontWeight: '900' },
+  cartActions: { flexDirection: 'row', gap: 10 },
+  cartClearBtn: { borderRadius: 14, paddingVertical: 16, paddingHorizontal: 20, alignItems: 'center', borderWidth: 1 },
+  cartClearText: { fontSize: 14, fontWeight: '700' },
+  cartCheckoutBtn: { borderRadius: 14, paddingVertical: 16, alignItems: 'center' },
+  cartCheckoutText: { fontSize: 16, fontWeight: '900', letterSpacing: 2 },
+  // Admin
   adminOverlay: { flex: 1, justifyContent: 'center', paddingHorizontal: 24 },
   adminModal: { borderRadius: 20, padding: 24, borderWidth: 1, alignItems: 'center' },
   adminIconWrap: { width: 56, height: 56, borderRadius: 28, alignItems: 'center', justifyContent: 'center', marginBottom: 16 },
@@ -474,9 +548,4 @@ const styles = StyleSheet.create({
   adminBtnText: { fontSize: 15, fontWeight: '900', letterSpacing: 2 },
   adminCancel: { paddingVertical: 14 },
   adminCancelText: { fontSize: 14, fontWeight: '600' },
-  iconBgCircle: {
-    width: CARD_SIZE * 0.62, height: CARD_SIZE * 0.62,
-    borderRadius: CARD_SIZE * 0.18,
-    alignItems: 'center', justifyContent: 'center',
-  },
 });

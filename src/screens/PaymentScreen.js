@@ -12,30 +12,35 @@ import * as Location from 'expo-location';
 import { useApp } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
-import { printTicket, shareTicket } from '../utils/ticketPrinter';
+import { printTicket } from '../utils/ticketPrinter';
 import {
   loadBankConfig, loadWhatsAppNumber, loadKitchenNumber,
   buildTicketMessage, buildKitchenMessage,
 } from '../utils/businessConfig';
 
-const SHARE_COLOR = '#0A84FF';
 const WA_COLOR = '#25D366';
 
 export default function PaymentScreen({ route, navigation }) {
-  const { order } = route.params;
-  const { addSale } = useApp();
+  const { fromCart } = route.params || {};
+  const { addSale, cart, clearCart, cartTotal, cartCount } = useApp();
   const { currentWorker } = useAuth();
   const { theme } = useTheme();
 
+  // Si viene del carrito usamos el carrito, si no viene con order legacy lo soportamos
+  const legacyOrder = route.params?.order;
+  const isCartMode = fromCart || !legacyOrder;
+
+  const totalAmount = isCartMode ? cartTotal : (legacyOrder?.total || 0);
+  const itemCount = isCartMode ? cartCount : 1;
+
   const [paymentMethod, setPaymentMethod] = useState(null);
   const [cashGiven, setCashGiven] = useState('');
-  const [isEditingAmount, setIsEditingAmount] = useState(false);
   const [voucherImage, setVoucherImage] = useState(null);
   const [bankConfig, setBankConfig] = useState(null);
   const [waNumber, setWaNumber] = useState(null);
   const [kitchenNumber, setKitchenNumber] = useState(null);
   const [completing, setCompleting] = useState(false);
-  const [completedSale, setCompletedSale] = useState(null);
+  const [completedSales, setCompletedSales] = useState([]);
 
   const snackAnim = useRef(new Animated.Value(120)).current;
   const snackOpacity = useRef(new Animated.Value(0)).current;
@@ -44,26 +49,35 @@ export default function PaymentScreen({ route, navigation }) {
 
   const quickBills = [1, 2, 5, 10, 20];
   const parsedCash = parseFloat(cashGiven) || 0;
-  const effectiveAmount = cashGiven !== '' ? parsedCash : order.total;
-  const change = effectiveAmount - order.total;
+  const effectiveAmount = cashGiven !== '' ? parsedCash : totalAmount;
+  const change = effectiveAmount - totalAmount;
 
   useEffect(() => {
     (async () => {
       setBankConfig(await loadBankConfig());
       setWaNumber(await loadWhatsAppNumber());
       setKitchenNumber(await loadKitchenNumber());
-      // Pedir permiso de ubicación al abrir la pantalla
       await Location.requestForegroundPermissionsAsync();
     })();
     return () => { if (dismissTimer.current) clearTimeout(dismissTimer.current); };
   }, []);
 
-  const showSnack = (sale) => {
-    setCompletedSale(sale);
+  const getLocation = async () => {
+    try {
+      const { status } = await Location.getForegroundPermissionsAsync();
+      if (status !== 'granted') return null;
+      const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+      return { latitude: loc.coords.latitude, longitude: loc.coords.longitude, accuracy: loc.coords.accuracy };
+    } catch { return null; }
+  };
+
+  const showSnack = (sales) => {
+    setCompletedSales(sales);
     Animated.parallel([
       Animated.spring(snackAnim, { toValue: 0, useNativeDriver: true, tension: 70, friction: 10 }),
       Animated.timing(snackOpacity, { toValue: 1, duration: 200, useNativeDriver: true }),
     ]).start();
+    // Regresa a Home automáticamente después de 2.5s sin bloquear
     dismissTimer.current = setTimeout(() => dismissSnack(), 2500);
   };
 
@@ -75,82 +89,93 @@ export default function PaymentScreen({ route, navigation }) {
     ]).start(() => navigation.popToTop());
   };
 
-  const getLocation = async () => {
-    try {
-      const { status } = await Location.getForegroundPermissionsAsync();
-      if (status !== 'granted') return null;
-      const loc = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.Balanced,
-      });
-      return {
-        latitude: loc.coords.latitude,
-        longitude: loc.coords.longitude,
-        accuracy: loc.coords.accuracy,
-      };
-    } catch {
-      return null;
-    }
-  };
-
   const handleComplete = async () => {
     setCompleting(true);
     const geo = await getLocation();
-    const saleData = {
-      productId: order.product.id,
-      productName: order.product.name,
-      size: order.size.name,
-      toppings: order.toppings,
-      units: order.units,
-      quantity: order.quantity,
-      total: order.total,
-      paymentMethod,
-      cashGiven: paymentMethod === 'cash' ? effectiveAmount : null,
-      change: paymentMethod === 'cash' ? change : null,
-      voucherImage: paymentMethod === 'transfer' ? voucherImage : null,
-      workerId: currentWorker?.id || null,
-      workerName: currentWorker?.name || 'Sin asignar',
-      geo,
-    };
-    const sale = await addSale(saleData);
+    const savedSales = [];
 
-    if (kitchenNumber) {
-      const msg = buildKitchenMessage(sale);
-      Linking.openURL(`https://wa.me/503${kitchenNumber}?text=${msg}`);
+    if (isCartMode) {
+      // Registrar cada ítem del carrito como venta separada
+      for (const item of cart) {
+        const saleData = {
+          productId: item.product.id,
+          productName: item.product.name,
+          size: item.size?.name || '',
+          units: item.units || [],
+          extras: item.extras || [],
+          note: item.note || '',
+          quantity: item.quantity,
+          total: item.total,
+          paymentMethod,
+          cashGiven: paymentMethod === 'cash' ? effectiveAmount : null,
+          change: paymentMethod === 'cash' ? change : null,
+          voucherImage: paymentMethod === 'transfer' ? voucherImage : null,
+          workerId: currentWorker?.id || null,
+          workerName: currentWorker?.name || 'Sin asignar',
+          geo,
+        };
+        const sale = await addSale(saleData);
+        savedSales.push(sale);
+        if (kitchenNumber) {
+          const msg = buildKitchenMessage(sale);
+          Linking.openURL(`https://wa.me/503${kitchenNumber}?text=${msg}`);
+        }
+      }
+      clearCart();
+    } else {
+      // Modo legacy — orden individual
+      const saleData = {
+        productId: legacyOrder.product.id,
+        productName: legacyOrder.product.name,
+        size: legacyOrder.size?.name || '',
+        units: legacyOrder.units || [],
+        extras: legacyOrder.toppings || [],
+        note: '',
+        quantity: legacyOrder.quantity,
+        total: legacyOrder.total,
+        paymentMethod,
+        cashGiven: paymentMethod === 'cash' ? effectiveAmount : null,
+        change: paymentMethod === 'cash' ? change : null,
+        voucherImage: paymentMethod === 'transfer' ? voucherImage : null,
+        workerId: currentWorker?.id || null,
+        workerName: currentWorker?.name || 'Sin asignar',
+        geo,
+      };
+      const sale = await addSale(saleData);
+      savedSales.push(sale);
     }
 
     setCompleting(false);
-    showSnack(sale);
+    showSnack(savedSales);
   };
 
   const handleSnackWhatsApp = () => {
-    if (!completedSale || !waNumber) return;
+    if (!completedSales.length || !waNumber) return;
     if (dismissTimer.current) clearTimeout(dismissTimer.current);
-    const msg = buildTicketMessage(completedSale);
-    Linking.openURL(`https://wa.me/503${waNumber}?text=${msg}`);
+    completedSales.forEach(sale => {
+      const msg = buildTicketMessage(sale);
+      Linking.openURL(`https://wa.me/503${waNumber}?text=${msg}`);
+    });
     dismissSnack();
   };
 
   const handlePrint = async () => {
-    if (!completedSale) return;
+    if (!completedSales.length) return;
     if (dismissTimer.current) clearTimeout(dismissTimer.current);
-    await printTicket(completedSale);
+    for (const sale of completedSales) { await printTicket(sale); }
     dismissSnack();
   };
 
   const handleAmountTap = () => {
-    setIsEditingAmount(true);
     setCashGiven('');
     setTimeout(() => amountInputRef.current?.focus(), 50);
   };
 
-  const handleAmountChange = (text) => {
-    const nums = text.replace(/[^0-9.]/g, '');
-    setCashGiven(nums);
-  };
+  const handleAmountChange = (text) => setCashGiven(text.replace(/[^0-9.]/g, ''));
 
   const takeVoucherPhoto = async () => {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
-    if (status !== 'granted') { Alert.alert('', 'Necesitamos la cámara'); return; }
+    if (status !== 'granted') return;
     const result = await ImagePicker.launchCameraAsync({ quality: 0.7 });
     if (!result.canceled) setVoucherImage(result.assets[0].uri);
   };
@@ -161,19 +186,18 @@ export default function PaymentScreen({ route, navigation }) {
   };
 
   const canComplete =
-    (paymentMethod === 'cash' && effectiveAmount >= order.total) ||
+    (paymentMethod === 'cash' && effectiveAmount >= totalAmount) ||
     paymentMethod === 'transfer';
 
-  const displayAmount = cashGiven !== '' ? cashGiven : order.total.toFixed(2);
+  const displayAmount = cashGiven !== '' ? cashGiven : totalAmount.toFixed(2);
   const showChange = paymentMethod === 'cash' && cashGiven !== '';
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.bg }]}>
-
       <View style={styles.header}>
         <TouchableOpacity
           style={[styles.backBtn, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}
-          onPress={() => completedSale ? navigation.popToTop() : navigation.goBack()}
+          onPress={() => navigation.goBack()}
         >
           <Feather name="chevron-left" size={22} color={theme.text} />
         </TouchableOpacity>
@@ -192,7 +216,7 @@ export default function PaymentScreen({ route, navigation }) {
           <Text style={[styles.totalLabel, { color: theme.textMuted }]}>TOTAL</Text>
           <Text style={[styles.totalAmount, { color: theme.text }]}>${displayAmount}</Text>
           <Text style={[styles.totalDetail, { color: theme.textMuted }]}>
-            {order.quantity}x {order.size.name} · {order.product.name}
+            {itemCount} {itemCount === 1 ? 'producto' : 'productos'}
           </Text>
           {paymentMethod === 'cash' && (
             <TextInput
@@ -201,7 +225,7 @@ export default function PaymentScreen({ route, navigation }) {
               value={cashGiven}
               onChangeText={handleAmountChange}
               keyboardType="numeric"
-              onBlur={() => setIsEditingAmount(false)}
+              onBlur={() => {}}
             />
           )}
         </TouchableOpacity>
@@ -225,11 +249,8 @@ export default function PaymentScreen({ route, navigation }) {
               paymentMethod === 'cash' && { backgroundColor: theme.accent, borderColor: theme.accent }]}
             onPress={() => { setPaymentMethod('cash'); setCashGiven(''); setVoucherImage(null); }}
           >
-            <MaterialCommunityIcons
-              name="cash-multiple"
-              size={28}
-              color={paymentMethod === 'cash' ? theme.accentText : theme.textSecondary}
-            />
+            <MaterialCommunityIcons name="cash-multiple" size={28}
+              color={paymentMethod === 'cash' ? theme.accentText : theme.textSecondary} />
             <Text style={[styles.methodText, { color: theme.textSecondary },
               paymentMethod === 'cash' && { color: theme.accentText }]}>Efectivo</Text>
           </TouchableOpacity>
@@ -239,11 +260,8 @@ export default function PaymentScreen({ route, navigation }) {
               paymentMethod === 'transfer' && { backgroundColor: theme.accent, borderColor: theme.accent }]}
             onPress={() => { setPaymentMethod('transfer'); setCashGiven(''); }}
           >
-            <MaterialCommunityIcons
-              name="bank-transfer"
-              size={28}
-              color={paymentMethod === 'transfer' ? theme.accentText : theme.textSecondary}
-            />
+            <MaterialCommunityIcons name="bank-transfer" size={28}
+              color={paymentMethod === 'transfer' ? theme.accentText : theme.textSecondary} />
             <Text style={[styles.methodText, { color: theme.textSecondary },
               paymentMethod === 'transfer' && { color: theme.accentText }]}>Transferencia</Text>
           </TouchableOpacity>
@@ -253,11 +271,10 @@ export default function PaymentScreen({ route, navigation }) {
           <View style={styles.cashSection}>
             <View style={styles.billsRow}>
               {quickBills.map(bill => (
-                <TouchableOpacity
-                  key={bill}
+                <TouchableOpacity key={bill}
                   style={[styles.billBtn, { backgroundColor: theme.card, borderColor: theme.cardBorder },
                     parsedCash === bill && { backgroundColor: theme.accent, borderColor: theme.accent }]}
-                  onPress={() => { setCashGiven(bill.toString()); setIsEditingAmount(false); amountInputRef.current?.blur(); }}
+                  onPress={() => { setCashGiven(bill.toString()); amountInputRef.current?.blur(); }}
                 >
                   <Text style={[styles.billText, { color: theme.textSecondary },
                     parsedCash === bill && { color: theme.accentText }]}>${bill}</Text>
@@ -288,7 +305,6 @@ export default function PaymentScreen({ route, navigation }) {
                 {bankConfig.qrImage && (
                   <View style={styles.qrSection}>
                     <View style={[styles.divider, { backgroundColor: theme.cardBorder, marginBottom: 16 }]} />
-                    <Text style={[styles.bankKey, { color: theme.textMuted, marginBottom: 12 }]}>QR DE PAGO</Text>
                     <Image source={{ uri: bankConfig.qrImage }} style={styles.qrDisplay} />
                   </View>
                 )}
@@ -297,9 +313,7 @@ export default function PaymentScreen({ route, navigation }) {
               <View style={[styles.noBankCard, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
                 <MaterialCommunityIcons name="bank-off-outline" size={28} color={theme.textMuted} />
                 <Text style={[styles.noBankText, { color: theme.textMuted }]}>Sin datos bancarios</Text>
-                <Text style={[styles.noBankSub, { color: theme.textMuted }]}>
-                  Perfil → Configuración de cobro
-                </Text>
+                <Text style={[styles.noBankSub, { color: theme.textMuted }]}>Perfil → Configuración de cobro</Text>
               </View>
             )}
 
@@ -334,7 +348,6 @@ export default function PaymentScreen({ route, navigation }) {
             )}
           </View>
         )}
-
       </ScrollView>
 
       {paymentMethod && (
@@ -353,6 +366,7 @@ export default function PaymentScreen({ route, navigation }) {
         </View>
       )}
 
+      {/* SNACKBAR — no bloquea, regresa solo */}
       <Animated.View
         style={[
           styles.snack,
@@ -364,7 +378,7 @@ export default function PaymentScreen({ route, navigation }) {
           <View style={[styles.snackDot, { backgroundColor: theme.success }]} />
           <View>
             <Text style={[styles.snackTitle, { color: theme.text }]}>Venta registrada</Text>
-            <Text style={[styles.snackSub, { color: theme.textMuted }]}>${order.total.toFixed(2)}</Text>
+            <Text style={[styles.snackSub, { color: theme.textMuted }]}>${totalAmount.toFixed(2)}</Text>
           </View>
         </View>
         <View style={styles.snackActions}>
@@ -387,7 +401,6 @@ export default function PaymentScreen({ route, navigation }) {
           </TouchableOpacity>
         </View>
       </Animated.View>
-
     </SafeAreaView>
   );
 }
@@ -404,12 +417,11 @@ const styles = StyleSheet.create({
   totalSection: { alignItems: 'center', paddingVertical: 30, marginHorizontal: 16 },
   totalLabel: { fontSize: 11, fontWeight: '800', letterSpacing: 3 },
   totalAmount: { fontSize: 64, fontWeight: '900', marginTop: 6, letterSpacing: -2 },
-  totalDetail: { fontSize: 13, fontWeight: '500', marginTop: 8, color: '#999' },
+  totalDetail: { fontSize: 13, fontWeight: '500', marginTop: 8 },
   hiddenInput: { position: 'absolute', opacity: 0, width: 1, height: 1 },
   changeBar: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    marginHorizontal: 16, borderRadius: 14, paddingHorizontal: 20, paddingVertical: 14,
-    marginBottom: 8,
+    marginHorizontal: 16, borderRadius: 14, paddingHorizontal: 20, paddingVertical: 14, marginBottom: 8,
   },
   changeBarLabel: { fontSize: 11, fontWeight: '800', letterSpacing: 3 },
   changeBarAmount: { fontSize: 24, fontWeight: '900' },
@@ -447,8 +459,7 @@ const styles = StyleSheet.create({
   doneText: { fontSize: 16, fontWeight: '900', letterSpacing: 4 },
   snack: {
     position: 'absolute', bottom: 24, left: 16, right: 16,
-    borderRadius: 16, borderWidth: 1,
-    paddingVertical: 14, paddingHorizontal: 16,
+    borderRadius: 16, borderWidth: 1, paddingVertical: 14, paddingHorizontal: 16,
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
   },
   snackLeft: { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 },

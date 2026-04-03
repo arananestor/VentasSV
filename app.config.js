@@ -2,7 +2,7 @@ import 'dotenv/config';
 
 export default {
   expo: {
-    name: "VentaSV",
+    name: "VentasSV",
     slug: "VentasSV",
     version: "1.0.0",
     orientation: "portrait",

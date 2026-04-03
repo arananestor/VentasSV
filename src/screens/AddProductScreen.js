@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
   View, Text, TouchableOpacity, TextInput, ScrollView,
-  StyleSheet,  Alert, Image, Modal, FlatList,Dimensions,
+  StyleSheet, Alert, Image, Modal, FlatList, Dimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
@@ -12,42 +12,33 @@ import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { useTab } from '../context/TabContext';
 
-// Verificados directamente del glyphmap de tu instalación
 const FOOD_ICONS = [
   'food', 'food-outline', 'food-variant', 'food-fork-drink',
   'food-apple', 'food-apple-outline', 'food-croissant',
-  'food-drumstick', 'food-drumstick-outline', 'food-drumstick-off', 'food-drumstick-off-outline',
+  'food-drumstick', 'food-drumstick-outline',
   'food-steak', 'food-hot-dog', 'food-turkey',
-  'food-halal', 'food-kosher',
   'food-takeout-box', 'food-takeout-box-outline',
-  'food-off', 'food-off-outline', 'food-variant-off',
-  'hamburger', 'hamburger-check', 'hamburger-plus', 'hamburger-off',
-  'french-fries', 'pizza', 'taco', 'noodles', 'pasta', 'rice',
-  'fruit-watermelon', 'fruit-cherries', 'fruit-cherries-off',
-  'fruit-citrus', 'fruit-citrus-off',
-  'fruit-grapes', 'fruit-grapes-outline',
-  'fruit-pineapple', 'fruit-pear',
-  'cake', 'cake-layered', 'cake-variant', 'cake-variant-outline',
-  'cookie', 'cookie-outline', 'cupcake', 'muffin',
-  'candy', 'candy-outline', 'candy-off', 'candy-off-outline', 'candycane',
-  'bread-slice', 'bread-slice-outline', 'pretzel',
-  'ice-cream', 'ice-cream-off', 'ice-pop',
-  'coffee', 'coffee-outline', 'coffee-to-go', 'coffee-to-go-outline',
-  'coffee-maker', 'coffee-maker-outline', 'coffee-off', 'coffee-off-outline',
-  'tea', 'tea-outline',
-  'cup', 'cup-outline', 'cup-water', 'cup-off', 'cup-off-outline',
-  'beer', 'beer-outline',
-  'bottle-wine', 'bottle-wine-outline', 'glass-wine',
-  'pot-steam', 'pot-steam-outline',
-  'grill', 'grill-outline',
-  'toaster', 'toaster-oven', 'toaster-off',
-  'room-service', 'room-service-outline',
-  'egg', 'egg-outline', 'egg-fried', 'egg-off', 'egg-off-outline',
-  'fish', 'fish-off',
-  'mushroom', 'mushroom-outline', 'mushroom-off', 'mushroom-off-outline',
-  'carrot', 'popcorn', 'peanut', 'peanut-outline',
-  'peanut-off', 'peanut-off-outline', 'nut', 'nutrition',
-  'kettle-steam', 'kettle-steam-outline',
+  'hamburger', 'hamburger-check', 'french-fries', 'pizza', 'taco',
+  'noodles', 'pasta', 'rice',
+  'fruit-watermelon', 'fruit-cherries', 'fruit-citrus',
+  'fruit-grapes', 'fruit-pineapple', 'fruit-pear',
+  'cake', 'cake-layered', 'cake-variant', 'cookie', 'cupcake', 'muffin',
+  'candy', 'candycane', 'bread-slice', 'pretzel',
+  'ice-cream', 'ice-pop',
+  'coffee', 'coffee-to-go', 'tea', 'cup', 'cup-water',
+  'beer', 'beer-outline', 'bottle-wine', 'glass-wine',
+  'pot-steam', 'grill', 'egg', 'egg-fried', 'fish',
+  'mushroom', 'carrot', 'popcorn', 'peanut',
+  'shaker', 'blender', 'silverware', 'silverware-fork-knife',
+  'store', 'store-outline', 'shopping', 'shopping-outline',
+  'hanger', 'tshirt-crew', 'tshirt-crew-outline',
+  'shoe-heel', 'bag-personal', 'bag-personal-outline',
+  'tag', 'tag-outline', 'tag-multiple', 'tag-multiple-outline',
+  'bottle-soda', 'bottle-soda-outline', 'bottle-soda-classic',
+  'cup-outline', 'kettle', 'blender-outline',
+  'star', 'star-outline', 'heart', 'heart-outline',
+  'flower', 'flower-outline', 'leaf', 'leaf-maple',
+  'fire', 'lightning-bolt', 'emoticon-happy', 'emoticon-cool',
 ];
 
 const CARD_COLORS = [
@@ -59,7 +50,7 @@ const CARD_COLORS = [
   '#533483', '#3A0CA3', '#E94560',
 ];
 
-const FLAVOR_COLORS = [
+const INGREDIENT_COLORS = [
   '#FF6B6B', '#A855F7', '#34D399', '#FBBF24', '#7C3AED',
   '#D97706', '#F59E0B', '#FB923C', '#F97316', '#DC2626',
   '#F472B6', '#86EFAC', '#FDE047', '#92400E', '#60A5FA',
@@ -77,28 +68,41 @@ export default function AddProductScreen({ navigation }) {
   const { theme } = useTheme();
   const { tabs, activeTabId, addProductToMultipleTabs } = useTab();
 
+  // Tipo de producto
+  const [productType, setProductType] = useState(null); // 'simple' | 'elaborado'
+
+  // Campos comunes
   const [name, setName] = useState('');
   const [imageMode, setImageMode] = useState('icon');
   const [selectedIcon, setSelectedIcon] = useState(null);
   const [iconBgColor, setIconBgColor] = useState('#000000');
   const [productPhoto, setProductPhoto] = useState(null);
   const [sizes, setSizes] = useState([{ name: '', price: '' }]);
-  const [toppings, setToppings] = useState([]);
-  const [flavors, setFlavors] = useState([]);
-  const [maxFlavors, setMaxFlavors] = useState('3');
-  const [includedToppings, setIncludedToppings] = useState('1');
   const [selectedTabs, setSelectedTabs] = useState([activeTabId]);
-  const [showPalette, setShowPalette] = useState(false);
+
+  // Solo elaborado
+  const [ingredients, setIngredients] = useState([]);
+  const [extras, setExtras] = useState([]);
+  const [maxIngredients, setMaxIngredients] = useState('');
+
+  // Modales
   const [showColorPicker, setShowColorPicker] = useState(false);
   const [showIconPicker, setShowIconPicker] = useState(false);
-  const [paletteIndex, setPaletteIndex] = useState(null);
+  // Paleta de ingrediente
+  const [paletteTarget, setPaletteTarget] = useState(null); // { type: 'ingredient'|'extra', index }
+  const [showPalette, setShowPalette] = useState(false);
+  // Selector de ícono de ingrediente
+  const [iconTarget, setIconTarget] = useState(null); // index del ingrediente
+  const [showIngredientIconPicker, setShowIngredientIconPicker] = useState(false);
 
+  // ── Tabs ──
   const toggleTab = (tabId) => {
     setSelectedTabs(prev =>
       prev.includes(tabId) ? prev.filter(id => id !== tabId) : [...prev, tabId]
     );
   };
 
+  // ── Foto de producto ──
   const pickProductPhoto = async () => {
     const r = await ImagePicker.launchImageLibraryAsync({ allowsEditing: true, aspect: [1, 1], quality: 0.6 });
     if (!r.canceled) setProductPhoto(r.assets[0].uri);
@@ -111,74 +115,161 @@ export default function AddProductScreen({ navigation }) {
     if (!r.canceled) setProductPhoto(r.assets[0].uri);
   };
 
+  // ── Tamaños ──
   const addSize = () => setSizes([...sizes, { name: '', price: '' }]);
   const updateSize = (i, f, v) => { const n = [...sizes]; n[i][f] = v; setSizes(n); };
   const removeSize = (i) => setSizes(sizes.filter((_, idx) => idx !== i));
 
-  const addTopping = () => setToppings([...toppings, { name: '', price: '', isDefault: false }]);
-  const updateTopping = (i, f, v) => { const n = [...toppings]; n[i][f] = v; setToppings(n); };
-  const removeTopping = (i) => setToppings(toppings.filter((_, idx) => idx !== i));
-
-  const addFlavor = () => {
-    const colorIndex = flavors.length % FLAVOR_COLORS.length;
-    setFlavors([...flavors, { name: '', color: FLAVOR_COLORS[colorIndex] }]);
+  // ── Ingredientes ──
+  const addIngredient = () => {
+    const color = INGREDIENT_COLORS[ingredients.length % INGREDIENT_COLORS.length];
+    setIngredients([...ingredients, { name: '', color, icon: null }]);
   };
-  const updateFlavor = (i, f, v) => { const n = [...flavors]; n[i][f] = v; setFlavors(n); };
-  const removeFlavor = (i) => setFlavors(flavors.filter((_, idx) => idx !== i));
-
-  const handleColorTap = (i) => {
-    const nextIdx = (FLAVOR_COLORS.indexOf(flavors[i].color) + 1) % FLAVOR_COLORS.length;
-    updateFlavor(i, 'color', FLAVOR_COLORS[nextIdx]);
+  const updateIngredient = (i, f, v) => {
+    const n = [...ingredients]; n[i][f] = v; setIngredients(n);
   };
+  const removeIngredient = (i) => setIngredients(ingredients.filter((_, idx) => idx !== i));
 
-  const handleColorLongPress = (i) => {
-    setPaletteIndex(i);
-    setShowPalette(true);
+  const cycleIngredientColor = (i) => {
+    const cur = INGREDIENT_COLORS.indexOf(ingredients[i].color);
+    const next = INGREDIENT_COLORS[(cur + 1) % INGREDIENT_COLORS.length];
+    updateIngredient(i, 'color', next);
   };
 
-  const selectPaletteColor = (color) => {
-    if (paletteIndex !== null) updateFlavor(paletteIndex, 'color', color);
-    setShowPalette(false);
-    setPaletteIndex(null);
+  // ── Extras ──
+  const addExtra = () => {
+    const color = INGREDIENT_COLORS[extras.length % INGREDIENT_COLORS.length];
+    setExtras([...extras, { name: '', price: '', color }]);
+  };
+  const updateExtra = (i, f, v) => { const n = [...extras]; n[i][f] = v; setExtras(n); };
+  const removeExtra = (i) => setExtras(extras.filter((_, idx) => idx !== i));
+
+  const cycleExtraColor = (i) => {
+    const cur = INGREDIENT_COLORS.indexOf(extras[i].color);
+    const next = INGREDIENT_COLORS[(cur + 1) % INGREDIENT_COLORS.length];
+    updateExtra(i, 'color', next);
   };
 
+  // ── Guardar ──
   const handleSave = async () => {
     if (currentWorker?.role !== 'admin') {
       Alert.alert('', 'Solo el administrador puede agregar productos'); return;
     }
+    if (!productType) { Alert.alert('', 'Elegí el tipo de producto'); return; }
     if (!name.trim()) { Alert.alert('', 'Ponele un nombre'); return; }
     if (!sizes[0]?.price) { Alert.alert('', 'Agregá al menos un precio'); return; }
     if (selectedTabs.length === 0) { Alert.alert('', 'Seleccioná al menos una pestaña'); return; }
 
     const newProduct = await addProduct({
+      type: productType,
       name: name.trim(),
       iconName: imageMode === 'icon' ? selectedIcon : null,
       iconBgColor: imageMode === 'icon' ? iconBgColor : null,
       customImage: imageMode === 'photo' ? productPhoto : null,
       imageMode,
-      sizes: sizes.filter(s => s.price).map(s => ({ name: s.name || 'Normal', price: parseFloat(s.price) || 0 })),
-      toppings: toppings.filter(t => t.name).map(t => ({ name: t.name, price: parseFloat(t.price) || 0, isDefault: t.isDefault })),
-      flavors: flavors.filter(f => f.name).map(f => ({ name: f.name.trim(), color: f.color })),
-      maxFlavors: parseInt(maxFlavors) || 3,
-      includedToppings: parseInt(includedToppings) || 1,
+      sizes: sizes.filter(s => s.price).map(s => ({
+        name: s.name || 'Normal',
+        price: parseFloat(s.price) || 0,
+      })),
+      ingredients: productType === 'elaborado'
+        ? ingredients.filter(f => f.name).map(f => ({
+            name: f.name.trim(),
+            color: f.color,
+            icon: f.icon || null,
+          }))
+        : [],
+      extras: productType === 'elaborado'
+        ? extras.filter(t => t.name).map(t => ({
+            name: t.name,
+            price: parseFloat(t.price) || 0,
+            color: t.color,
+          }))
+        : [],
+      maxIngredients: productType === 'elaborado'
+        ? (parseInt(maxIngredients) || null)
+        : null,
     });
 
-    if (newProduct && newProduct.id) {
+    if (newProduct?.id) {
       await addProductToMultipleTabs(selectedTabs, newProduct.id);
     }
     navigation.goBack();
   };
 
+  // ── Si no eligió tipo aún, mostrar selector ──
+  if (!productType) {
+    return (
+      <SafeAreaView style={[styles.container, { backgroundColor: theme.bg }]}>
+        <View style={styles.header}>
+          <TouchableOpacity
+            style={[styles.backBtn, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}
+            onPress={() => navigation.goBack()}
+          >
+            <Feather name="chevron-left" size={22} color={theme.text} />
+          </TouchableOpacity>
+          <Text style={[styles.headerTitle, { color: theme.text }]}>NUEVO PRODUCTO</Text>
+          <View style={{ width: 44 }} />
+        </View>
+
+        <View style={styles.typeScreen}>
+          <Text style={[styles.typeTitle, { color: theme.text }]}>¿Qué tipo de producto es?</Text>
+          <Text style={[styles.typeSubtitle, { color: theme.textMuted }]}>
+            Esto define cómo se toma el pedido
+          </Text>
+
+          <TouchableOpacity
+            style={[styles.typeCard, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}
+            onPress={() => setProductType('simple')}
+            activeOpacity={0.85}
+          >
+            <View style={[styles.typeIconWrap, { backgroundColor: '#4361EE' + '18' }]}>
+              <MaterialCommunityIcons name="tag-outline" size={36} color="#4361EE" />
+            </View>
+            <View style={styles.typeCardText}>
+              <Text style={[styles.typeCardTitle, { color: theme.text }]}>Producto simple</Text>
+              <Text style={[styles.typeCardDesc, { color: theme.textMuted }]}>
+                Lo vendés tal cual. Tiene precio fijo.{'\n'}
+                Ropa, bebidas enlatadas, snacks, artículos.
+              </Text>
+            </View>
+            <Feather name="chevron-right" size={20} color={theme.textMuted} />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.typeCard, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}
+            onPress={() => setProductType('elaborado')}
+            activeOpacity={0.85}
+          >
+            <View style={[styles.typeIconWrap, { backgroundColor: '#F77F00' + '18' }]}>
+              <MaterialCommunityIcons name="silverware-fork-knife" size={36} color="#F77F00" />
+            </View>
+            <View style={styles.typeCardText}>
+              <Text style={[styles.typeCardTitle, { color: theme.text }]}>Producto elaborado</Text>
+              <Text style={[styles.typeCardDesc, { color: theme.textMuted }]}>
+                Lo preparás al momento. Tiene ingredientes y extras.{'\n'}
+                Pupusas, minutas, licuados, platos, bebidas.
+              </Text>
+            </View>
+            <Feather name="chevron-right" size={20} color={theme.textMuted} />
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  // ── Formulario principal ──
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.bg }]}>
       <View style={styles.header}>
         <TouchableOpacity
           style={[styles.backBtn, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}
-          onPress={() => navigation.goBack()}
+          onPress={() => setProductType(null)}
         >
           <Feather name="chevron-left" size={22} color={theme.text} />
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: theme.text }]}>NUEVO PRODUCTO</Text>
+        <Text style={[styles.headerTitle, { color: theme.text }]}>
+          {productType === 'simple' ? 'PRODUCTO SIMPLE' : 'PRODUCTO ELABORADO'}
+        </Text>
         <View style={{ width: 44 }} />
       </View>
 
@@ -213,12 +304,12 @@ export default function AddProductScreen({ navigation }) {
           style={[styles.input, { backgroundColor: theme.input, borderColor: theme.inputBorder, color: theme.text }]}
           value={name}
           onChangeText={t => setName(t.slice(0, 30))}
-          placeholder="Ej: Minuta tradicional"
+          placeholder="Ej: Pupusa de chicharrón"
           placeholderTextColor={theme.textMuted}
           maxLength={30}
         />
 
-        {/* MODO DE IMAGEN */}
+        {/* IMAGEN */}
         <Text style={[styles.label, { color: theme.textMuted }]}>IMAGEN</Text>
         <View style={styles.modeRow}>
           <TouchableOpacity
@@ -239,18 +330,14 @@ export default function AddProductScreen({ navigation }) {
           </TouchableOpacity>
         </View>
 
-        {/* ÍCONO */}
         {imageMode === 'icon' && (
           <View style={styles.iconSection}>
-            {/* Preview */}
             <View style={[styles.iconPreviewWrap, { backgroundColor: iconBgColor }]}>
               {selectedIcon
                 ? <MaterialCommunityIcons name={selectedIcon} size={54} color="#fff" />
                 : <Feather name="image" size={36} color="rgba(255,255,255,0.35)" />
               }
             </View>
-
-            {/* Color de fondo */}
             <TouchableOpacity
               style={[styles.pickerRow, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}
               onPress={() => setShowColorPicker(true)}
@@ -259,8 +346,6 @@ export default function AddProductScreen({ navigation }) {
               <Text style={[styles.pickerRowText, { color: theme.text }]}>Color de fondo</Text>
               <Feather name="chevron-right" size={16} color={theme.textMuted} />
             </TouchableOpacity>
-
-            {/* Ícono */}
             <TouchableOpacity
               style={[styles.pickerRow, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}
               onPress={() => setShowIconPicker(true)}
@@ -277,7 +362,6 @@ export default function AddProductScreen({ navigation }) {
           </View>
         )}
 
-        {/* FOTO */}
         {imageMode === 'photo' && (
           <View>
             {productPhoto ? (
@@ -311,14 +395,14 @@ export default function AddProductScreen({ navigation }) {
           </View>
         )}
 
-        {/* TAMAÑOS */}
+        {/* TAMAÑOS Y PRECIOS */}
         <Text style={[styles.label, { color: theme.textMuted }]}>TAMAÑOS Y PRECIOS</Text>
         {sizes.map((s, i) => (
           <View key={i} style={styles.fieldRow}>
             <TextInput
               style={[styles.input, { flex: 1, backgroundColor: theme.input, borderColor: theme.inputBorder, color: theme.text }]}
               value={s.name} onChangeText={v => updateSize(i, 'name', v)}
-              placeholder="Tamaño" placeholderTextColor={theme.textMuted} maxLength={20}
+              placeholder="Tamaño (ej: Grande)" placeholderTextColor={theme.textMuted} maxLength={20}
             />
             <View style={[styles.priceField, { backgroundColor: theme.input, borderColor: theme.inputBorder }]}>
               <Text style={[styles.priceDollar, { color: theme.text }]}>$</Text>
@@ -345,100 +429,139 @@ export default function AddProductScreen({ navigation }) {
           <Text style={[styles.addRowText, { color: theme.textMuted }]}>+ Tamaño</Text>
         </TouchableOpacity>
 
-        {/* COMPONENTES */}
-        <Text style={[styles.label, { color: theme.textMuted }]}>COMPONENTES</Text>
-        <Text style={[styles.sublabel, { color: theme.textMuted }]}>
-          Opciones que componen el producto (sabores, bases, estilos)
-        </Text>
-        {flavors.length > 0 && (
-          <View style={styles.maxRow}>
-            <Text style={[styles.maxLabel, { color: theme.textMuted }]}>Máx por unidad:</Text>
-            {['1', '2', '3', '4', '5'].map(n => (
-              <TouchableOpacity key={n}
-                style={[styles.maxBtn, { backgroundColor: theme.card, borderColor: theme.cardBorder },
-                  maxFlavors === n && { backgroundColor: theme.accent, borderColor: theme.accent }]}
-                onPress={() => setMaxFlavors(n)}
-              >
-                <Text style={[styles.maxNum, { color: theme.textSecondary },
-                  maxFlavors === n && { color: theme.accentText }]}>{n}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        )}
-        {flavors.map((f, i) => (
-          <View key={i} style={styles.flavorRow}>
-            <TouchableOpacity
-              style={[styles.flavorColorBtn, { backgroundColor: f.color }]}
-              onPress={() => handleColorTap(i)}
-              onLongPress={() => handleColorLongPress(i)}
-              delayLongPress={400}
-            />
-            <TextInput
-              style={[styles.input, { flex: 1, backgroundColor: theme.input, borderColor: theme.inputBorder, color: theme.text }]}
-              value={f.name} onChangeText={v => updateFlavor(i, 'name', v)}
-              placeholder="Nombre del componente" placeholderTextColor={theme.textMuted} maxLength={20}
-            />
-            <TouchableOpacity
-              style={[styles.removeBtn, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}
-              onPress={() => removeFlavor(i)}
-            >
-              <Feather name="x" size={14} color={theme.textMuted} />
-            </TouchableOpacity>
-          </View>
-        ))}
-        <TouchableOpacity
-          style={[styles.addRowBtn, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}
-          onPress={addFlavor}
-        >
-          <Text style={[styles.addRowText, { color: theme.textMuted }]}>+ Componente</Text>
-        </TouchableOpacity>
-
-        {/* TOPPINGS */}
-        <Text style={[styles.label, { color: theme.textMuted }]}>EXTRAS / TOPPINGS</Text>
-        {toppings.length > 0 && (
-          <View style={[styles.maxRow, { marginBottom: 12, marginTop: -4 }]}>
-            <Text style={[styles.maxLabel, { color: theme.textMuted }]}>Incluidos gratis:</Text>
-            {['0', '1', '2', '3'].map(n => (
-              <TouchableOpacity key={n}
-                style={[styles.maxBtn, { backgroundColor: theme.card, borderColor: theme.cardBorder },
-                  includedToppings === n && { backgroundColor: theme.accent, borderColor: theme.accent }]}
-                onPress={() => setIncludedToppings(n)}
-              >
-                <Text style={[styles.maxNum, { color: theme.textSecondary },
-                  includedToppings === n && { color: theme.accentText }]}>{n}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        )}
-        {toppings.map((t, i) => (
-          <View key={i} style={styles.fieldRow}>
-            <TextInput
-              style={[styles.input, { flex: 1, backgroundColor: theme.input, borderColor: theme.inputBorder, color: theme.text }]}
-              value={t.name} onChangeText={v => updateTopping(i, 'name', v)}
-              placeholder="Extra" placeholderTextColor={theme.textMuted} maxLength={20}
-            />
-            <View style={[styles.priceField, { backgroundColor: theme.input, borderColor: theme.inputBorder }]}>
-              <Text style={[styles.priceDollar, { color: theme.text }]}>$</Text>
-              <TextInput
-                style={[styles.priceInput, { color: theme.text }]}
-                value={t.price} onChangeText={v => updateTopping(i, 'price', v)}
-                placeholder="0.00" keyboardType="numeric" placeholderTextColor={theme.textMuted}
-              />
+        {/* ── SOLO ELABORADO ── */}
+        {productType === 'elaborado' && (
+          <>
+            {/* INGREDIENTES */}
+            <View style={styles.sectionHeader}>
+              <View>
+                <Text style={[styles.label, { color: theme.textMuted, marginTop: 0 }]}>INGREDIENTES</Text>
+                <Text style={[styles.sublabel, { color: theme.textMuted }]}>
+                  Lo que compone el producto. Cada uno tiene su color e ícono.
+                </Text>
+              </View>
             </View>
+
+            {ingredients.length > 0 && (
+              <View style={[styles.maxRow, { marginBottom: 14 }]}>
+                <Text style={[styles.maxLabel, { color: theme.textMuted }]}>Máx por pedido:</Text>
+                <TextInput
+                  style={[styles.maxInput, { backgroundColor: theme.input, borderColor: theme.inputBorder, color: theme.text }]}
+                  value={maxIngredients}
+                  onChangeText={v => setMaxIngredients(v.replace(/[^0-9]/g, ''))}
+                  placeholder="Sin límite"
+                  placeholderTextColor={theme.textMuted}
+                  keyboardType="numeric"
+                  maxLength={2}
+                />
+              </View>
+            )}
+
+            {ingredients.map((ing, i) => (
+              <View key={i} style={[styles.ingredientCard, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+                {/* Color + Ícono */}
+                <View style={styles.ingredientVisual}>
+                  <TouchableOpacity
+                    style={[styles.ingredientIconWrap, { backgroundColor: ing.color }]}
+                    onPress={() => cycleIngredientColor(i)}
+                    onLongPress={() => {
+                      setPaletteTarget({ type: 'ingredient', index: i });
+                      setShowPalette(true);
+                    }}
+                    delayLongPress={400}
+                  >
+                    {ing.icon
+                      ? <MaterialCommunityIcons name={ing.icon} size={22} color="#fff" />
+                      : <Feather name="droplet" size={18} color="rgba(255,255,255,0.7)" />
+                    }
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.ingredientIconBtn, { borderColor: theme.cardBorder }]}
+                    onPress={() => { setIconTarget(i); setShowIngredientIconPicker(true); }}
+                  >
+                    <Feather name="grid" size={13} color={theme.textMuted} />
+                  </TouchableOpacity>
+                </View>
+
+                {/* Nombre */}
+                <TextInput
+                  style={[styles.ingredientInput, { backgroundColor: theme.input, borderColor: theme.inputBorder, color: theme.text }]}
+                  value={ing.name}
+                  onChangeText={v => updateIngredient(i, 'name', v)}
+                  placeholder="Ej: Chicharrón, Fresa, Vainilla"
+                  placeholderTextColor={theme.textMuted}
+                  maxLength={25}
+                />
+
+                <TouchableOpacity
+                  style={[styles.removeBtn, { backgroundColor: theme.bg, borderColor: theme.cardBorder }]}
+                  onPress={() => removeIngredient(i)}
+                >
+                  <Feather name="x" size={14} color={theme.textMuted} />
+                </TouchableOpacity>
+              </View>
+            ))}
+
             <TouchableOpacity
-              style={[styles.removeBtn, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}
-              onPress={() => removeTopping(i)}
+              style={[styles.addRowBtn, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}
+              onPress={addIngredient}
             >
-              <Feather name="x" size={14} color={theme.textMuted} />
+              <Text style={[styles.addRowText, { color: theme.textMuted }]}>+ Ingrediente</Text>
             </TouchableOpacity>
-          </View>
-        ))}
-        <TouchableOpacity
-          style={[styles.addRowBtn, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}
-          onPress={addTopping}
-        >
-          <Text style={[styles.addRowText, { color: theme.textMuted }]}>+ Extra</Text>
-        </TouchableOpacity>
+
+            {/* EXTRAS */}
+            <Text style={[styles.label, { color: theme.textMuted }]}>EXTRAS</Text>
+            <Text style={[styles.sublabel, { color: theme.textMuted }]}>
+              Lo que se agrega aparte. Podés cobrar un precio adicional.
+            </Text>
+
+            {extras.map((ex, i) => (
+              <View key={i} style={[styles.ingredientCard, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+                <TouchableOpacity
+                  style={[styles.extraColorBtn, { backgroundColor: ex.color }]}
+                  onPress={() => cycleExtraColor(i)}
+                  onLongPress={() => {
+                    setPaletteTarget({ type: 'extra', index: i });
+                    setShowPalette(true);
+                  }}
+                  delayLongPress={400}
+                />
+                <TextInput
+                  style={[styles.ingredientInput, { backgroundColor: theme.input, borderColor: theme.inputBorder, color: theme.text }]}
+                  value={ex.name}
+                  onChangeText={v => updateExtra(i, 'name', v)}
+                  placeholder="Ej: Curtido, Crema, Jalapeño"
+                  placeholderTextColor={theme.textMuted}
+                  maxLength={25}
+                />
+                <View style={[styles.priceFieldSmall, { backgroundColor: theme.input, borderColor: theme.inputBorder }]}>
+                  <Text style={[styles.priceDollar, { color: theme.text }]}>$</Text>
+                  <TextInput
+                    style={[styles.priceInputSmall, { color: theme.text }]}
+                    value={ex.price}
+                    onChangeText={v => updateExtra(i, 'price', v)}
+                    placeholder="0.00"
+                    keyboardType="numeric"
+                    placeholderTextColor={theme.textMuted}
+                  />
+                </View>
+                <TouchableOpacity
+                  style={[styles.removeBtn, { backgroundColor: theme.bg, borderColor: theme.cardBorder }]}
+                  onPress={() => removeExtra(i)}
+                >
+                  <Feather name="x" size={14} color={theme.textMuted} />
+                </TouchableOpacity>
+              </View>
+            ))}
+
+            <TouchableOpacity
+              style={[styles.addRowBtn, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}
+              onPress={addExtra}
+            >
+              <Text style={[styles.addRowText, { color: theme.textMuted }]}>+ Extra</Text>
+            </TouchableOpacity>
+          </>
+        )}
 
       </ScrollView>
 
@@ -448,12 +571,12 @@ export default function AddProductScreen({ navigation }) {
         </TouchableOpacity>
       </View>
 
-      {/* ICON PICKER MODAL */}
+      {/* ICON PICKER — producto */}
       <Modal visible={showIconPicker} transparent animationType="slide">
         <View style={[styles.sheetOverlay, { backgroundColor: theme.overlay }]}>
           <View style={[styles.sheetModal, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
             <View style={styles.sheetHeader}>
-              <Text style={[styles.sheetTitle, { color: theme.text }]}>ELEGIR ÍCONO</Text>
+              <Text style={[styles.sheetTitle, { color: theme.text }]}>ÍCONO DEL PRODUCTO</Text>
               <TouchableOpacity onPress={() => setShowIconPicker(false)}>
                 <Feather name="x" size={22} color={theme.textMuted} />
               </TouchableOpacity>
@@ -463,24 +586,17 @@ export default function AddProductScreen({ navigation }) {
               numColumns={6}
               keyExtractor={item => item}
               contentContainerStyle={styles.iconGrid}
-              columnWrapperStyle={{ grap: 8 }}
               showsVerticalScrollIndicator={false}
               renderItem={({ item }) => {
                 const isSelected = selectedIcon === item;
                 return (
                   <TouchableOpacity
-                    style={[
-                      styles.iconGridBtn,
+                    style={[styles.iconGridBtn,
                       { backgroundColor: isSelected ? iconBgColor : theme.bg },
-                      isSelected && { borderColor: iconBgColor },
-                    ]}
+                      isSelected && { borderColor: iconBgColor }]}
                     onPress={() => { setSelectedIcon(item); setShowIconPicker(false); }}
                   >
-                    <MaterialCommunityIcons
-                      name={item}
-                      size={26}
-                      color={isSelected ? '#fff' : theme.text}
-                    />
+                    <MaterialCommunityIcons name={item} size={26} color={isSelected ? '#fff' : theme.text} />
                   </TouchableOpacity>
                 );
               }}
@@ -489,7 +605,47 @@ export default function AddProductScreen({ navigation }) {
         </View>
       </Modal>
 
-      {/* COLOR BG PICKER MODAL */}
+      {/* ICON PICKER — ingrediente */}
+      <Modal visible={showIngredientIconPicker} transparent animationType="slide">
+        <View style={[styles.sheetOverlay, { backgroundColor: theme.overlay }]}>
+          <View style={[styles.sheetModal, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+            <View style={styles.sheetHeader}>
+              <Text style={[styles.sheetTitle, { color: theme.text }]}>ÍCONO DEL INGREDIENTE</Text>
+              <TouchableOpacity onPress={() => setShowIngredientIconPicker(false)}>
+                <Feather name="x" size={22} color={theme.textMuted} />
+              </TouchableOpacity>
+            </View>
+            <FlatList
+              data={FOOD_ICONS}
+              numColumns={6}
+              keyExtractor={item => item}
+              contentContainerStyle={styles.iconGrid}
+              showsVerticalScrollIndicator={false}
+              renderItem={({ item }) => {
+                const curIcon = iconTarget !== null ? ingredients[iconTarget]?.icon : null;
+                const curColor = iconTarget !== null ? ingredients[iconTarget]?.color : theme.accent;
+                const isSelected = curIcon === item;
+                return (
+                  <TouchableOpacity
+                    style={[styles.iconGridBtn,
+                      { backgroundColor: isSelected ? curColor : theme.bg },
+                      isSelected && { borderColor: curColor }]}
+                    onPress={() => {
+                      if (iconTarget !== null) updateIngredient(iconTarget, 'icon', item);
+                      setShowIngredientIconPicker(false);
+                      setIconTarget(null);
+                    }}
+                  >
+                    <MaterialCommunityIcons name={item} size={26} color={isSelected ? '#fff' : theme.text} />
+                  </TouchableOpacity>
+                );
+              }}
+            />
+          </View>
+        </View>
+      </Modal>
+
+      {/* COLOR FONDO PRODUCTO */}
       <Modal visible={showColorPicker} transparent animationType="fade">
         <TouchableOpacity
           style={[styles.paletteOverlay, { backgroundColor: theme.overlay }]}
@@ -517,27 +673,41 @@ export default function AddProductScreen({ navigation }) {
         </TouchableOpacity>
       </Modal>
 
-      {/* FLAVOR COLOR PALETTE MODAL */}
+      {/* PALETA — ingrediente o extra */}
       <Modal visible={showPalette} transparent animationType="fade">
         <TouchableOpacity
           style={[styles.paletteOverlay, { backgroundColor: theme.overlay }]}
           activeOpacity={1}
-          onPress={() => { setShowPalette(false); setPaletteIndex(null); }}
+          onPress={() => { setShowPalette(false); setPaletteTarget(null); }}
         >
           <View
             style={[styles.paletteModal, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}
             onStartShouldSetResponder={() => true}
           >
-            <Text style={[styles.paletteTitle, { color: theme.text }]}>Color del componente</Text>
+            <Text style={[styles.paletteTitle, { color: theme.text }]}>
+              {paletteTarget?.type === 'ingredient' ? 'Color del ingrediente' : 'Color del extra'}
+            </Text>
             <View style={styles.paletteGrid}>
-              {FLAVOR_COLORS.map(color => {
-                const isSelected = paletteIndex !== null && flavors[paletteIndex]?.color === color;
+              {INGREDIENT_COLORS.map(color => {
+                const cur = paletteTarget?.type === 'ingredient'
+                  ? ingredients[paletteTarget.index]?.color
+                  : extras[paletteTarget?.index]?.color;
+                const isSelected = cur === color;
                 return (
                   <TouchableOpacity
                     key={color}
                     style={[styles.paletteColor, { backgroundColor: color },
                       isSelected && styles.paletteColorSelected]}
-                    onPress={() => selectPaletteColor(color)}
+                    onPress={() => {
+                      if (!paletteTarget) return;
+                      if (paletteTarget.type === 'ingredient') {
+                        updateIngredient(paletteTarget.index, 'color', color);
+                      } else {
+                        updateExtra(paletteTarget.index, 'color', color);
+                      }
+                      setShowPalette(false);
+                      setPaletteTarget(null);
+                    }}
                   >
                     {isSelected && <Feather name="check" size={16} color="#fff" />}
                   </TouchableOpacity>
@@ -560,9 +730,25 @@ const styles = StyleSheet.create({
   },
   backBtn: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', borderWidth: 1 },
   headerTitle: { fontSize: 14, fontWeight: '800', letterSpacing: 3 },
+
+  // Selector de tipo
+  typeScreen: { flex: 1, paddingHorizontal: 20, paddingTop: 32, gap: 16 },
+  typeTitle: { fontSize: 22, fontWeight: '900', marginBottom: 4 },
+  typeSubtitle: { fontSize: 14, fontWeight: '500', marginBottom: 16 },
+  typeCard: {
+    flexDirection: 'row', alignItems: 'center', gap: 16,
+    borderRadius: 20, padding: 20, borderWidth: 1,
+  },
+  typeIconWrap: { width: 64, height: 64, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
+  typeCardText: { flex: 1 },
+  typeCardTitle: { fontSize: 17, fontWeight: '800', marginBottom: 4 },
+  typeCardDesc: { fontSize: 13, fontWeight: '500', lineHeight: 19 },
+
+  // Formulario
   scroll: { paddingHorizontal: 16, paddingBottom: 120 },
   label: { fontSize: 11, fontWeight: '800', letterSpacing: 3, marginTop: 24, marginBottom: 10 },
-  sublabel: { fontSize: 12, fontWeight: '600', marginTop: -6, marginBottom: 12 },
+  sublabel: { fontSize: 12, fontWeight: '500', marginTop: -6, marginBottom: 12 },
+  sectionHeader: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', marginTop: 24 },
   input: { borderRadius: 12, paddingHorizontal: 16, paddingVertical: 14, fontSize: 16, fontWeight: '600', borderWidth: 1 },
   tabsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   tabChip: {
@@ -595,17 +781,41 @@ const styles = StyleSheet.create({
   },
   fieldRow: { flexDirection: 'row', gap: 8, marginBottom: 8, alignItems: 'center' },
   priceField: { flexDirection: 'row', alignItems: 'center', borderRadius: 12, paddingHorizontal: 12, borderWidth: 1, width: 100 },
-  priceDollar: { fontSize: 16, fontWeight: '900' },
+  priceFieldSmall: { flexDirection: 'row', alignItems: 'center', borderRadius: 12, paddingHorizontal: 10, borderWidth: 1, width: 80 },
+  priceDollar: { fontSize: 15, fontWeight: '900' },
   priceInput: { fontSize: 16, fontWeight: '600', paddingVertical: 14, paddingLeft: 4, flex: 1 },
+  priceInputSmall: { fontSize: 14, fontWeight: '600', paddingVertical: 12, paddingLeft: 4, flex: 1 },
   removeBtn: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', borderWidth: 1 },
   addRowBtn: { borderRadius: 12, paddingVertical: 14, alignItems: 'center', marginTop: 4, borderWidth: 1, borderStyle: 'dashed' },
   addRowText: { fontSize: 13, fontWeight: '700' },
-  maxRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 12 },
-  maxLabel: { fontSize: 12, fontWeight: '700', marginRight: 4 },
-  maxBtn: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', borderWidth: 1 },
-  maxNum: { fontSize: 14, fontWeight: '800' },
-  flavorRow: { flexDirection: 'row', gap: 8, marginBottom: 8, alignItems: 'center' },
-  flavorColorBtn: { width: 44, height: 44, borderRadius: 22, borderWidth: 2, borderColor: 'rgba(0,0,0,0.1)' },
+  maxRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  maxLabel: { fontSize: 12, fontWeight: '700' },
+  maxInput: {
+    borderRadius: 10, paddingHorizontal: 14, paddingVertical: 10,
+    fontSize: 15, fontWeight: '700', borderWidth: 1, width: 100,
+  },
+
+  // Ingrediente card
+  ingredientCard: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    borderRadius: 14, padding: 10, borderWidth: 1, marginBottom: 8,
+  },
+  ingredientVisual: { alignItems: 'center', gap: 4 },
+  ingredientIconWrap: {
+    width: 44, height: 44, borderRadius: 22,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  ingredientIconBtn: {
+    width: 22, height: 22, borderRadius: 11,
+    alignItems: 'center', justifyContent: 'center', borderWidth: 1,
+  },
+  ingredientInput: {
+    flex: 1, borderRadius: 10, paddingHorizontal: 14,
+    paddingVertical: 12, fontSize: 15, fontWeight: '600', borderWidth: 1,
+  },
+  extraColorBtn: { width: 44, height: 44, borderRadius: 22 },
+
+  // Modales
   bottomBar: { position: 'absolute', bottom: 0, left: 0, right: 0, padding: 16, paddingBottom: 34, borderTopWidth: 1 },
   saveBtn: { borderRadius: 16, paddingVertical: 18, alignItems: 'center' },
   saveText: { fontSize: 18, fontWeight: '900', letterSpacing: 3 },
@@ -616,10 +826,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20, paddingVertical: 18,
   },
   sheetTitle: { fontSize: 13, fontWeight: '800', letterSpacing: 2 },
-  iconGrid: { paddingHorizontal: 8, paddingBottom: 40, grap: 8 },
+  iconGrid: { paddingHorizontal: 8, paddingBottom: 40 },
   iconGridBtn: {
     width: ICON_BTN_SIZE, height: ICON_BTN_SIZE,
     borderRadius: 12, alignItems: 'center', justifyContent: 'center', borderWidth: 1.5,
+    margin: 4,
   },
   paletteOverlay: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   paletteModal: { width: 300, borderRadius: 20, padding: 24, borderWidth: 1 },

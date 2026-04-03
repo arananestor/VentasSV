@@ -2,11 +2,11 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const AppContext = createContext();
-const DEFAULT_PRODUCTS = [];
 
 export function AppProvider({ children }) {
-  const [products, setProducts] = useState(DEFAULT_PRODUCTS);
+  const [products, setProducts] = useState([]);
   const [sales, setSales] = useState([]);
+  const [cart, setCart] = useState([]); // [{ id, product, size, quantity, units, extras, note, total }]
 
   useEffect(() => { loadData(); }, []);
 
@@ -27,21 +27,37 @@ export function AppProvider({ children }) {
   const addProduct = async (product) => {
     const id = Date.now().toString();
     const newProduct = { ...product, id };
-    const newProducts = [...products, newProduct];
-    await saveProducts(newProducts);
+    await saveProducts([...products, newProduct]);
     return newProduct;
   };
 
   const updateProduct = async (id, updates) => {
-    const newProducts = products.map(p => p.id === id ? { ...p, ...updates } : p);
-    await saveProducts(newProducts);
+    await saveProducts(products.map(p => p.id === id ? { ...p, ...updates } : p));
   };
 
   const deleteProduct = async (id) => {
-    const newProducts = products.filter(p => p.id !== id);
-    await saveProducts(newProducts);
+    await saveProducts(products.filter(p => p.id !== id));
   };
 
+  // ── CARRITO ──────────────────────────────────────────────
+  const addToCart = (item) => {
+    const cartItem = {
+      ...item,
+      cartId: Date.now().toString() + '_' + Math.random(),
+    };
+    setCart(prev => [...prev, cartItem]);
+  };
+
+  const removeFromCart = (cartId) => {
+    setCart(prev => prev.filter(i => i.cartId !== cartId));
+  };
+
+  const clearCart = () => setCart([]);
+
+  const cartTotal = cart.reduce((sum, i) => sum + i.total, 0);
+  const cartCount = cart.length;
+
+  // ── VENTAS ───────────────────────────────────────────────
   const addSale = async (sale) => {
     const today = new Date().toDateString();
     const todaySales = sales.filter(s => new Date(s.timestamp).toDateString() === today);
@@ -50,7 +66,7 @@ export function AppProvider({ children }) {
       ...sale,
       id: Date.now().toString(),
       orderNumber,
-      orderStatus: 'new', // new | processing | done
+      orderStatus: 'new',
       timestamp: new Date().toISOString(),
     };
     const newSales = [...sales, newSale];
@@ -83,8 +99,8 @@ export function AppProvider({ children }) {
     <AppContext.Provider value={{
       products, sales,
       addProduct, updateProduct, deleteProduct,
-      addSale, getTodaySales, getAllSales,
-      updateSaleStatus,
+      addSale, getTodaySales, getAllSales, updateSaleStatus,
+      cart, addToCart, removeFromCart, clearCart, cartTotal, cartCount,
     }}>
       {children}
     </AppContext.Provider>
