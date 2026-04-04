@@ -2,7 +2,6 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const BANK_KEY = 'business_bank_config';
 const WA_KEY = 'business_whatsapp';
-const KITCHEN_KEY = 'business_kitchen_whatsapp';
 
 export const saveBankConfig = async (config) => {
   await AsyncStorage.setItem(BANK_KEY, JSON.stringify(config));
@@ -19,38 +18,6 @@ export const saveWhatsAppNumber = async (number) => {
 
 export const loadWhatsAppNumber = async () => {
   return await AsyncStorage.getItem(WA_KEY);
-};
-
-export const saveKitchenNumber = async (number) => {
-  await AsyncStorage.setItem(KITCHEN_KEY, number);
-};
-
-export const loadKitchenNumber = async () => {
-  return await AsyncStorage.getItem(KITCHEN_KEY);
-};
-
-export const buildKitchenMessage = (sale) => {
-  const lines = [
-    `🎫 *PEDIDO #${sale.orderNumber || sale.id?.slice(-4) || '----'}*`,
-    ``,
-    `🍽️ *${sale.productName}*`,
-    `📏 Tamaño: ${sale.size}`,
-    `🔢 Cantidad: ${sale.quantity}x`,
-    sale.toppings?.length
-      ? `✨ Extras:\n${sale.toppings.map(t => `   • ${t}`).join('\n')}`
-      : null,
-    sale.units?.length
-      ? `\n🧩 Unidades:\n${sale.units.map((u, i) =>
-          `   ${i + 1}. ${u.flavors?.map(f => f.name).join(' + ') || ''}${u.toppings?.length ? ' + ' + u.toppings.join(', ') : ''}`
-        ).join('\n')}`
-      : null,
-    ``,
-    `👤 Cajero: ${sale.workerName}`,
-    `⏰ ${new Date(sale.timestamp).toLocaleTimeString('es-SV', { hour: '2-digit', minute: '2-digit' })}`,
-    ``,
-    `✅ *PREPARAR YA*`,
-  ].filter(Boolean);
-  return encodeURIComponent(lines.join('\n'));
 };
 
 export const buildTicketMessage = (sale) => {

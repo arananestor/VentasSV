@@ -10,7 +10,6 @@ import { useTheme } from '../context/ThemeContext';
 import {
   saveBankConfig, loadBankConfig,
   saveWhatsAppNumber, loadWhatsAppNumber,
-  saveKitchenNumber, loadKitchenNumber,
 } from '../utils/businessConfig';
 
 export default function BusinessConfigScreen({ navigation }) {
@@ -21,7 +20,6 @@ export default function BusinessConfigScreen({ navigation }) {
   const [account, setAccount] = useState('');
   const [qrImage, setQrImage] = useState(null);
   const [waNumber, setWaNumber] = useState('');
-  const [kitchenNumber, setKitchenNumber] = useState('');
   const [saving, setSaving] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -32,8 +30,6 @@ export default function BusinessConfigScreen({ navigation }) {
       if (bc) { setBank(bc.bank || ''); setHolder(bc.holder || ''); setAccount(bc.account || ''); setQrImage(bc.qrImage || null); }
       const wa = await loadWhatsAppNumber();
       if (wa) setWaNumber(wa);
-      const kn = await loadKitchenNumber();
-      if (kn) setKitchenNumber(kn);
       setLoaded(true);
     })();
   }, []);
@@ -57,7 +53,6 @@ export default function BusinessConfigScreen({ navigation }) {
 
   const bankComplete = bank.trim() && holder.trim() && account.trim();
   const waComplete = waNumber.replace(/\D/g, '').length >= 8;
-  const kitchenComplete = kitchenNumber.replace(/\D/g, '').length >= 8;
 
   if (!loaded) {
     return (
@@ -137,26 +132,6 @@ export default function BusinessConfigScreen({ navigation }) {
               ))}
             </View>
           )}
-        </View>
-
-        {/* WHATSAPP COCINA */}
-        <View style={styles.section}>
-          <Text style={[styles.sectionLabel, { color: theme.textMuted }]}>WHATSAPP DE COCINA</Text>
-          <Text style={[styles.sectionSub, { color: theme.textMuted }]}>
-            Recibe cada pedido nuevo automáticamente
-          </Text>
-          <View style={[styles.inputRow, { backgroundColor: theme.card, borderColor: theme.cardBorder, marginTop: 10 }]}>
-            <Text style={[styles.prefix, { color: theme.textMuted }]}>+503</Text>
-            <TextInput
-              style={[styles.input, { color: theme.text }]}
-              value={kitchenNumber}
-              onChangeText={setKitchenNumber}
-              placeholder="7000-0000"
-              placeholderTextColor={theme.textMuted}
-              keyboardType="phone-pad"
-              maxLength={12}
-            />
-          </View>
         </View>
 
         {/* BANCO */}

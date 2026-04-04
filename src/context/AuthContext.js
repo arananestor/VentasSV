@@ -3,18 +3,34 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const AuthContext = createContext();
 
+export const PUESTOS = [
+  'Administrador',
+  'Cajero',
+  'Cocinero',
+  'Motorista',
+  'Camarero',
+];
+
+export const PUESTO_ICONS = {
+  'Administrador': 'shield-crown',
+  'Cajero':        'cash-register',
+  'Cocinero':      'chef-hat',
+  'Motorista':     'moped',
+  'Camarero':      'room-service',
+};
+
 export function AuthProvider({ children }) {
-  const [isSetup, setIsSetup] = useState(null);
-  const [adminPin, setAdminPin] = useState('');
-  const [workers, setWorkers] = useState([]);
+  const [isSetup, setIsSetup]           = useState(null);
+  const [adminPin, setAdminPin]         = useState('');
+  const [workers, setWorkers]           = useState([]);
   const [currentWorker, setCurrentWorker] = useState(null);
-  const [isAdminMode, setIsAdminMode] = useState(false);
+  const [isAdminMode, setIsAdminMode]   = useState(false);
 
   useEffect(() => { loadAuth(); }, []);
 
   const loadAuth = async () => {
     try {
-      const pin = await AsyncStorage.getItem('ventasv_admin_pin');
+      const pin          = await AsyncStorage.getItem('ventasv_admin_pin');
       const savedWorkers = await AsyncStorage.getItem('ventasv_workers');
       if (pin) {
         setAdminPin(pin);
@@ -35,6 +51,8 @@ export function AuthProvider({ children }) {
       name: name || 'Administrador',
       pin,
       role: 'admin',
+      puesto: 'Administrador',
+      dui: '',
       photo: null,
       color: '#FFFFFF',
       createdAt: new Date().toISOString(),
@@ -48,9 +66,7 @@ export function AuthProvider({ children }) {
     return pin;
   };
 
-  const selectWorker = (worker) => {
-    return worker;
-  };
+  const selectWorker  = (worker) => worker;
 
   const loginWithPin = (pin, workerId) => {
     const worker = workers.find(w => w.id === workerId && w.pin === pin);
@@ -62,37 +78,28 @@ export function AuthProvider({ children }) {
     return null;
   };
 
-  const logout = () => {
-    setCurrentWorker(null);
-    setIsAdminMode(false);
-  };
-
-  const switchWorker = () => {
-    setCurrentWorker(null);
-    setIsAdminMode(false);
-  };
+  const logout       = () => { setCurrentWorker(null); setIsAdminMode(false); };
+  const switchWorker = () => { setCurrentWorker(null); setIsAdminMode(false); };
 
   const verifyAdminPin = (pin) => pin === adminPin;
-
   const enterAdminMode = (pin) => {
     if (verifyAdminPin(pin)) { setIsAdminMode(true); return true; }
     return false;
   };
-
   const exitAdminMode = () => setIsAdminMode(false);
 
-  const addWorker = async (name, pin, photo = null) => {
+  const addWorker = async (name, pin, puesto = 'Cajero', dui = '', photo = null) => {
     const exists = workers.find(w => w.pin === pin);
     if (exists) return { error: 'Ese PIN ya existe' };
-
-    const colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7', '#DDA0DD', '#98D8C8', '#F7DC6F'];
-    const color = colors[workers.length % colors.length];
-
+    const colors = ['#FF6B6B','#4ECDC4','#45B7D1','#96CEB4','#FFEAA7','#DDA0DD','#98D8C8','#F7DC6F'];
+    const color  = colors[workers.length % colors.length];
     const worker = {
       id: Date.now().toString(),
       name,
       pin,
       role: 'worker',
+      puesto,
+      dui,
       photo,
       color,
       createdAt: new Date().toISOString(),
@@ -108,7 +115,7 @@ export function AuthProvider({ children }) {
     const newWorkers = workers.filter(w => w.id !== id);
     setWorkers(newWorkers);
     await AsyncStorage.setItem('ventasv_workers', JSON.stringify(newWorkers));
-    if (currentWorker?.id === id) { setCurrentWorker(null); }
+    if (currentWorker?.id === id) setCurrentWorker(null);
     return { success: true };
   };
 
@@ -129,9 +136,7 @@ export function AuthProvider({ children }) {
     const newWorkers = workers.map(w => w.id === id ? { ...w, photo } : w);
     setWorkers(newWorkers);
     await AsyncStorage.setItem('ventasv_workers', JSON.stringify(newWorkers));
-    if (currentWorker?.id === id) {
-      setCurrentWorker({ ...currentWorker, photo });
-    }
+    if (currentWorker?.id === id) setCurrentWorker({ ...currentWorker, photo });
     return { success: true };
   };
 
