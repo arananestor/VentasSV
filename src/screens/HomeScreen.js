@@ -22,7 +22,7 @@ export default function HomeScreen({ navigation }) {
     products, getTodaySales, deleteProduct,
     cart, addToCart, removeFromCart, clearCart, cartTotal, cartCount,
   } = useApp();
-  const { currentWorker, verifyAdminPin } = useAuth();
+  const { currentWorker, verifyOwnerPin } = useAuth();
   const { theme } = useTheme();
   const {
     tabs, activeTabId, filterType, getActiveTab, getFilteredTabs,
@@ -54,7 +54,7 @@ export default function HomeScreen({ navigation }) {
   };
 
   const handleAdminVerify = () => {
-    if (verifyAdminPin(adminPinInput)) {
+    if (verifyOwnerPin(adminPinInput)) {
       setShowAdminPin(false); setAdminPinInput('');
       if (pendingAction) pendingAction();
       setPendingAction(null);

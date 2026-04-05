@@ -3,101 +3,96 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const AuthContext = createContext();
 
-export const PUESTOS = [
-  'Administrador',
-  'Cajero',
-  'Cocinero',
-  'Motorista',
-  'Camarero',
-];
+export const PUESTOS = ['Co-Administrador', 'Cajero', 'Cocinero', 'Motorista', 'Camarero'];
 
 export const PUESTO_ICONS = {
-  'Administrador': 'shield-crown',
-  'Cajero':        'cash-register',
-  'Cocinero':      'chef-hat',
-  'Motorista':     'moped',
-  'Camarero':      'room-service',
+  'Owner':             'crown',
+  'Co-Administrador':  'shield-account',
+  'Cajero':            'cash-register',
+  'Cocinero':          'chef-hat',
+  'Motorista':         'moped',
+  'Camarero':          'room-service',
 };
 
+export const generatePin = () => String(Math.floor(1000 + Math.random() * 9000));
+
 export function AuthProvider({ children }) {
-  const [isSetup, setIsSetup]           = useState(null);
-  const [adminPin, setAdminPin]         = useState('');
-  const [workers, setWorkers]           = useState([]);
+  const [isSetup, setIsSetup]             = useState(null);
+  const [workers, setWorkers]             = useState([]);
   const [currentWorker, setCurrentWorker] = useState(null);
-  const [isAdminMode, setIsAdminMode]   = useState(false);
+  const [deviceType, setDeviceType]       = useState(null); // 'fixed' | 'personal'
 
   useEffect(() => { loadAuth(); }, []);
 
   const loadAuth = async () => {
     try {
-      const pin          = await AsyncStorage.getItem('ventasv_admin_pin');
       const savedWorkers = await AsyncStorage.getItem('ventasv_workers');
-      if (pin) {
-        setAdminPin(pin);
+      const savedDevice  = await AsyncStorage.getItem('ventasv_device_type');
+      if (savedWorkers) {
+        const parsed = JSON.parse(savedWorkers);
+        setWorkers(parsed);
         setIsSetup(true);
-        if (savedWorkers) setWorkers(JSON.parse(savedWorkers));
       } else {
         setIsSetup(false);
       }
+      if (savedDevice) setDeviceType(savedDevice);
     } catch (e) {
       console.log('Auth load error', e);
       setIsSetup(false);
     }
   };
 
-  const setupAdmin = async (pin, name) => {
-    const admin = {
-      id: 'admin',
-      name: name || 'Administrador',
+  const setupOwner = async (pin, name, device) => {
+    const owner = {
+      id: 'owner',
+      name: name.trim(),
       pin,
-      role: 'admin',
-      puesto: 'Administrador',
+      role: 'owner',
+      puesto: 'Owner',
       dui: '',
       photo: null,
       color: '#FFFFFF',
       createdAt: new Date().toISOString(),
     };
-    await AsyncStorage.setItem('ventasv_admin_pin', pin);
-    const newWorkers = [admin];
+    const newWorkers = [owner];
     setWorkers(newWorkers);
-    await AsyncStorage.setItem('ventasv_workers', JSON.stringify(newWorkers));
-    setAdminPin(pin);
+    setDeviceType(device);
     setIsSetup(true);
-    return pin;
+    await AsyncStorage.setItem('ventasv_workers', JSON.stringify(newWorkers));
+    await AsyncStorage.setItem('ventasv_device_type', device);
   };
-
-  const selectWorker  = (worker) => worker;
 
   const loginWithPin = (pin, workerId) => {
     const worker = workers.find(w => w.id === workerId && w.pin === pin);
-    if (worker) {
-      setCurrentWorker(worker);
-      setIsAdminMode(worker.role === 'admin');
-      return worker;
-    }
+    if (worker) { setCurrentWorker(worker); return worker; }
     return null;
   };
 
-  const logout       = () => { setCurrentWorker(null); setIsAdminMode(false); };
-  const switchWorker = () => { setCurrentWorker(null); setIsAdminMode(false); };
+  const logout       = () => setCurrentWorker(null);
+  const switchWorker = () => setCurrentWorker(null);
 
-  const verifyAdminPin = (pin) => pin === adminPin;
-  const enterAdminMode = (pin) => {
-    if (verifyAdminPin(pin)) { setIsAdminMode(true); return true; }
-    return false;
+  const verifyOwnerPin = (pin) => {
+    const owner = workers.find(w => w.role === 'owner');
+    return owner?.pin === pin;
   };
-  const exitAdminMode = () => setIsAdminMode(false);
+
+  const isAdmin = (worker) =>
+    worker?.role === 'owner' || worker?.role === 'co-admin';
 
   const addWorker = async (name, pin, puesto = 'Cajero', dui = '', photo = null) => {
+    if (pin.length !== 4)           return { error: 'El PIN debe ser exactamente 4 dígitos' };
+    if (!/^\d{4}$/.test(pin))       return { error: 'El PIN debe ser 4 dígitos numéricos' };
     const exists = workers.find(w => w.pin === pin);
-    if (exists) return { error: 'Ese PIN ya existe' };
+    if (exists)                     return { error: 'Ese PIN ya existe' };
+
+    const role   = puesto === 'Co-Administrador' ? 'co-admin' : 'worker';
     const colors = ['#FF6B6B','#4ECDC4','#45B7D1','#96CEB4','#FFEAA7','#DDA0DD','#98D8C8','#F7DC6F'];
     const color  = colors[workers.length % colors.length];
     const worker = {
       id: Date.now().toString(),
-      name,
+      name: name.trim(),
       pin,
-      role: 'worker',
+      role,
       puesto,
       dui,
       photo,
@@ -111,7 +106,7 @@ export function AuthProvider({ children }) {
   };
 
   const removeWorker = async (id) => {
-    if (id === 'admin') return { error: 'No podés eliminar al admin' };
+    if (id === 'owner') return { error: 'No podés eliminar al dueño' };
     const newWorkers = workers.filter(w => w.id !== id);
     setWorkers(newWorkers);
     await AsyncStorage.setItem('ventasv_workers', JSON.stringify(newWorkers));
@@ -119,16 +114,14 @@ export function AuthProvider({ children }) {
     return { success: true };
   };
 
-  const updateWorkerPin = async (id, newPin) => {
+  const resetWorkerPin = async (id, newPin) => {
+    if (newPin.length !== 4 || !/^\d{4}$/.test(newPin))
+      return { error: 'El PIN debe ser 4 dígitos' };
     const exists = workers.find(w => w.pin === newPin && w.id !== id);
     if (exists) return { error: 'Ese PIN ya existe' };
     const newWorkers = workers.map(w => w.id === id ? { ...w, pin: newPin } : w);
     setWorkers(newWorkers);
     await AsyncStorage.setItem('ventasv_workers', JSON.stringify(newWorkers));
-    if (id === 'admin') {
-      setAdminPin(newPin);
-      await AsyncStorage.setItem('ventasv_admin_pin', newPin);
-    }
     return { success: true };
   };
 
@@ -136,16 +129,16 @@ export function AuthProvider({ children }) {
     const newWorkers = workers.map(w => w.id === id ? { ...w, photo } : w);
     setWorkers(newWorkers);
     await AsyncStorage.setItem('ventasv_workers', JSON.stringify(newWorkers));
-    if (currentWorker?.id === id) setCurrentWorker({ ...currentWorker, photo });
+    if (currentWorker?.id === id) setCurrentWorker(prev => ({ ...prev, photo }));
     return { success: true };
   };
 
   return (
     <AuthContext.Provider value={{
-      isSetup, currentWorker, workers, isAdminMode,
-      setupAdmin, selectWorker, loginWithPin, logout, switchWorker,
-      verifyAdminPin, enterAdminMode, exitAdminMode,
-      addWorker, removeWorker, updateWorkerPin, updateWorkerPhoto,
+      isSetup, currentWorker, workers, deviceType,
+      setupOwner, loginWithPin, logout, switchWorker,
+      verifyOwnerPin, isAdmin,
+      addWorker, removeWorker, resetWorkerPin, updateWorkerPhoto,
     }}>
       {children}
     </AuthContext.Provider>

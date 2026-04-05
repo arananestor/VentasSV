@@ -14,7 +14,6 @@ import SetupScreen from './src/screens/SetupScreen';
 import SelectWorkerScreen from './src/screens/SelectWorkerScreen';
 import PinEntryScreen from './src/screens/PinEntryScreen';
 import HomeScreen from './src/screens/HomeScreen';
-import CustomizeScreen from './src/screens/CustomizeScreen';
 import OrderBuilderScreen from './src/screens/OrderBuilderScreen';
 import PaymentScreen from './src/screens/PaymentScreen';
 import AddProductScreen from './src/screens/AddProductScreen';
@@ -33,7 +32,6 @@ function HomeStack() {
   return (
     <Stack.Navigator screenOptions={{ headerShown: false, animation: 'slide_from_right' }}>
       <Stack.Screen name="HomeMain" component={HomeScreen} />
-      <Stack.Screen name="Customize" component={CustomizeScreen} />
       <Stack.Screen name="OrderBuilder" component={OrderBuilderScreen} />
       <Stack.Screen name="Payment" component={PaymentScreen} />
       <Stack.Screen name="AddProduct" component={AddProductScreen} />
@@ -147,7 +145,7 @@ function MainTabs() {
 }
 
 function AppNavigator() {
-  const { isSetup, currentWorker } = useAuth();
+  const { isSetup, currentWorker, deviceType } = useAuth();
   const { theme } = useTheme();
 
   if (isSetup === null) {

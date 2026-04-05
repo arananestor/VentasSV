@@ -1,34 +1,47 @@
 import React, { useState, useMemo } from 'react';
 import {
   View, Text, TouchableOpacity, ScrollView, StyleSheet,
-  TextInput, Alert, Modal, Image, Switch,
+  TextInput, Modal, Image, Switch,
   KeyboardAvoidingView, Platform, TouchableWithoutFeedback, Keyboard,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
-import { useAuth, PUESTOS, PUESTO_ICONS } from '../context/AuthContext';
+import { useAuth, PUESTOS, PUESTO_ICONS, generatePin } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 
 export default function ProfileScreen({ navigation }) {
   const {
-    currentWorker, workers, isAdminMode,
-    enterAdminMode, exitAdminMode, switchWorker,
+    currentWorker, workers, deviceType,
+    verifyOwnerPin, isAdmin, switchWorker,
     addWorker, removeWorker, updateWorkerPhoto,
   } = useAuth();
   const { theme, isDark, toggleTheme } = useTheme();
 
-  const [showAdminModal, setShowAdminModal] = useState(false);
-  const [adminPinInput, setAdminPinInput]   = useState('');
+  const iAmAdmin = isAdmin(currentWorker);
 
+  // Modales
+  const [showProfileDetail, setShowProfileDetail] = useState(false);
+  const [showSwitchModal, setShowSwitchModal]     = useState(false);
+  const [showDeleteModal, setShowDeleteModal]     = useState(false);
+  const [workerToDelete, setWorkerToDelete]       = useState(null);
+
+  // Admin PIN (solo si no es owner ni co-admin accediendo a funciones de owner)
+  const [showOwnerPin, setShowOwnerPin]   = useState(false);
+  const [ownerPinInput, setOwnerPinInput] = useState('');
+  const [ownerPinError, setOwnerPinError] = useState(false);
+  const [pendingAdminAction, setPendingAdminAction] = useState(null);
+
+  // Agregar empleado
   const [showAddWorker, setShowAddWorker]   = useState(false);
   const [newName, setNewName]               = useState('');
-  const [newPin, setNewPin]                 = useState('');
+  const [newPin, setNewPin]                 = useState(generatePin());
   const [newDui, setNewDui]                 = useState('');
   const [puestoQuery, setPuestoQuery]       = useState('');
   const [puestoSelected, setPuestoSelected] = useState('');
   const [showPuestoList, setShowPuestoList] = useState(false);
+  const [addError, setAddError]             = useState('');
   const [revealPinId, setRevealPinId]       = useState(null);
 
   const puestosFiltrados = useMemo(() =>
@@ -36,57 +49,64 @@ export default function ProfileScreen({ navigation }) {
     [puestoQuery]
   );
 
-  const handleAdminLogin = () => {
-    if (enterAdminMode(adminPinInput)) {
-      setShowAdminModal(false); setAdminPinInput('');
+  const requireOwnerPin = (action) => {
+    if (currentWorker?.role === 'owner') { action(); return; }
+    setPendingAdminAction(() => action);
+    setShowOwnerPin(true);
+  };
+
+  const handleOwnerPinVerify = () => {
+    if (verifyOwnerPin(ownerPinInput)) {
+      setShowOwnerPin(false); setOwnerPinInput(''); setOwnerPinError(false);
+      if (pendingAdminAction) { pendingAdminAction(); setPendingAdminAction(null); }
     } else {
-      Alert.alert('', 'PIN incorrecto'); setAdminPinInput('');
+      setOwnerPinError(true); setOwnerPinInput('');
     }
   };
 
   const handleAddWorker = async () => {
-    if (!newName.trim())   { Alert.alert('', 'Escribí el nombre'); return; }
-    if (newPin.length < 4) { Alert.alert('', 'PIN de al menos 4 dígitos'); return; }
-    if (!puestoSelected)   { Alert.alert('', 'Seleccioná un puesto'); return; }
+    setAddError('');
+    if (!newName.trim())          { setAddError('Escribí el nombre'); return; }
+    if (!/^\d{4}$/.test(newPin))  { setAddError('El PIN debe ser 4 dígitos'); return; }
+    if (!puestoSelected)          { setAddError('Seleccioná un puesto'); return; }
     const result = await addWorker(newName.trim(), newPin, puestoSelected, newDui.trim());
-    if (result.error) { Alert.alert('', result.error); return; }
+    if (result.error) { setAddError(result.error); return; }
+    resetAddForm();
+  };
+
+  const resetAddForm = () => {
     setShowAddWorker(false);
-    setNewName(''); setNewPin(''); setNewDui('');
+    setNewName(''); setNewPin(generatePin()); setNewDui('');
     setPuestoQuery(''); setPuestoSelected('');
+    setShowPuestoList(false); setAddError('');
   };
 
-  const resetAddWorkerForm = () => {
-    setShowAddWorker(false);
-    setNewName(''); setNewPin(''); setNewDui('');
-    setPuestoQuery(''); setPuestoSelected(''); setShowPuestoList(false);
-  };
-
-  const handleRemoveWorker = (worker) => {
-    Alert.alert('Eliminar', `¿Eliminar a ${worker.name}?`, [
-      { text: 'No', style: 'cancel' },
-      { text: 'Sí', style: 'destructive', onPress: () => removeWorker(worker.id) },
-    ]);
-  };
-
-  const handleChangePhoto = async () => {
-    const result = await ImagePicker.launchImageLibraryAsync({ allowsEditing: true, aspect: [1,1], quality: 0.5 });
+  const handlePhotoPress = async () => {
+    const opts = { allowsEditing: true, aspect: [1, 1], quality: 0.6 };
+    if (Platform.OS === 'ios') {
+      const { ImagePickerAssets } = await ImagePicker.launchImageLibraryAsync(opts);
+    }
+    const result = await ImagePicker.launchImageLibraryAsync(opts);
     if (!result.canceled) await updateWorkerPhoto(currentWorker.id, result.assets[0].uri);
   };
 
-  const handleSwitchWorker = () => {
-    Alert.alert('Cambiar turno', '¿Cerrar sesión y cambiar de trabajador?', [
-      { text: 'No', style: 'cancel' },
-      { text: 'Sí, cambiar', onPress: () => switchWorker() },
-    ]);
+  const handleCameraPress = async () => {
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== 'granted') return;
+    const result = await ImagePicker.launchCameraAsync({ allowsEditing: true, aspect: [1,1], quality: 0.6 });
+    if (!result.canceled) await updateWorkerPhoto(currentWorker.id, result.assets[0].uri);
   };
 
-  const puestoLabel = currentWorker?.puesto || (currentWorker?.role === 'admin' ? 'Administrador' : 'Cajero');
+  const puestoLabel = currentWorker?.puesto || 'Cajero';
   const puestoIcon  = PUESTO_ICONS[puestoLabel] || 'account';
+
+  const handleSwitchConfirm = () => {
+    setShowSwitchModal(false);
+    switchWorker();
+  };
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.bg }]}>
-
-      {/* HEADER */}
       <View style={styles.header}>
         <View style={{ width: 44 }} />
         <Text style={[styles.headerTitle, { color: theme.text }]}>PERFIL</Text>
@@ -98,140 +118,143 @@ export default function ProfileScreen({ navigation }) {
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        {/* TARJETA TRABAJADOR ACTIVO */}
-        <TouchableOpacity
-          style={[styles.profileCard, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}
-          onPress={handleChangePhoto}
-          activeOpacity={0.85}
-        >
-          {currentWorker?.photo ? (
-            <Image source={{ uri: currentWorker.photo }} style={styles.profilePhoto} />
-          ) : (
-            <View style={[styles.profileAvatar, { backgroundColor: currentWorker?.color || theme.accent }]}>
-              <Text style={[styles.profileAvatarText, { color: theme.accentText }]}>
-                {currentWorker?.name?.charAt(0)?.toUpperCase() || '?'}
-              </Text>
-            </View>
-          )}
-          <View style={styles.profileInfo}>
-            <Text style={[styles.profileName, { color: theme.text }]}>{currentWorker?.name}</Text>
-            <View style={[styles.puestoBadge, { backgroundColor: theme.bg }]}>
-              <MaterialCommunityIcons name={puestoIcon} size={12} color={theme.textMuted} />
-              <Text style={[styles.puestoText, { color: theme.textMuted }]}>
-                {puestoLabel.toUpperCase()}
-              </Text>
-            </View>
-          </View>
-          <View style={[styles.cameraBtn, { backgroundColor: theme.bg, borderColor: theme.cardBorder }]}>
-            <Feather name="camera" size={14} color={theme.textMuted} />
-          </View>
-        </TouchableOpacity>
 
-        {/* OPCIONES GENERALES */}
-        <View style={styles.group}>
-
-          {/* Tema */}
-          <View style={[styles.optionRow, styles.optionRowFirst, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
-            <View style={[styles.optionIconBox, { backgroundColor: isDark ? '#1C1C1E' : '#F0F0F0' }]}>
-              <Feather name={isDark ? 'moon' : 'sun'} size={15} color={theme.text} />
-            </View>
-            <View style={styles.optionTexts}>
-              <Text style={[styles.optionTitle, { color: theme.text }]}>{isDark ? 'Modo oscuro' : 'Modo claro'}</Text>
-              <Text style={[styles.optionSub, { color: theme.textMuted }]}>Cambiar apariencia</Text>
-            </View>
-            <Switch
-              value={isDark}
-              onValueChange={toggleTheme}
-              trackColor={{ false: '#D1D1D6', true: theme.accent }}
-              thumbColor="#FFF"
-            />
-          </View>
-
-          {/* Cambiar turno */}
+        {/* TARJETA DE PERFIL */}
+        <View style={[styles.profileCard, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
           <TouchableOpacity
-            style={[styles.optionRow, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}
-            onPress={handleSwitchWorker}
+            style={styles.profileCardMain}
+            onPress={() => setShowProfileDetail(true)}
+            activeOpacity={0.8}
           >
-            <View style={[styles.optionIconBox, { backgroundColor: isDark ? '#1C1C1E' : '#F0F0F0' }]}>
-              <Feather name="refresh-cw" size={15} color={theme.text} />
+            {currentWorker?.photo ? (
+              <Image source={{ uri: currentWorker.photo }} style={styles.profilePhoto} />
+            ) : (
+              <View style={[styles.profileAvatar, { backgroundColor: currentWorker?.color || theme.accent }]}>
+                <Text style={[styles.profileAvatarText, { color: theme.accentText }]}>
+                  {currentWorker?.name?.charAt(0)?.toUpperCase() || '?'}
+                </Text>
+              </View>
+            )}
+            <View style={styles.profileInfo}>
+              <Text style={[styles.profileName, { color: theme.text }]}>{currentWorker?.name}</Text>
+              <View style={[styles.puestoBadge, { backgroundColor: theme.bg }]}>
+                <MaterialCommunityIcons name={puestoIcon} size={11} color={theme.textMuted} />
+                <Text style={[styles.puestoText, { color: theme.textMuted }]}>
+                  {puestoLabel.toUpperCase()}
+                </Text>
+              </View>
             </View>
-            <View style={styles.optionTexts}>
-              <Text style={[styles.optionTitle, { color: theme.text }]}>Cambiar turno</Text>
-              <Text style={[styles.optionSub, { color: theme.textMuted }]}>Entrar con otro trabajador</Text>
-            </View>
-            <Feather name="chevron-right" size={18} color={theme.textMuted} />
           </TouchableOpacity>
 
-          {/* Modo admin (solo si no está activo) */}
-          {!isAdminMode && (
+          {/* Botón cámara separado */}
+          <View style={styles.photoActions}>
             <TouchableOpacity
-              style={[styles.optionRow, styles.optionRowLast, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}
-              onPress={() => setShowAdminModal(true)}
+              style={[styles.photoBtn, { backgroundColor: theme.bg, borderColor: theme.cardBorder }]}
+              onPress={handleCameraPress}
             >
-              <View style={[styles.optionIconBox, { backgroundColor: isDark ? '#1C1C1E' : '#F0F0F0' }]}>
-                <Feather name="lock" size={15} color={theme.text} />
+              <Feather name="camera" size={14} color={theme.textMuted} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.photoBtn, { backgroundColor: theme.bg, borderColor: theme.cardBorder }]}
+              onPress={handlePhotoPress}
+            >
+              <Feather name="image" size={14} color={theme.textMuted} />
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* OPCIONES */}
+        <View style={styles.group}>
+          {/* Tema */}
+          <View style={[styles.row, styles.rowFirst, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+            <View style={[styles.rowIcon, { backgroundColor: isDark ? '#1C1C1E' : '#F0F0F0' }]}>
+              <Feather name={isDark ? 'moon' : 'sun'} size={15} color={theme.text} />
+            </View>
+            <View style={styles.rowTexts}>
+              <Text style={[styles.rowTitle, { color: theme.text }]}>{isDark ? 'Modo oscuro' : 'Modo claro'}</Text>
+              <Text style={[styles.rowSub, { color: theme.textMuted }]}>Cambiar apariencia</Text>
+            </View>
+            <Switch value={isDark} onValueChange={toggleTheme}
+              trackColor={{ false: '#D1D1D6', true: theme.accent }} thumbColor="#FFF" />
+          </View>
+
+          {/* Cambiar turno — solo en dispositivo fijo o si no es personal */}
+          {deviceType === 'fixed' && (
+            <TouchableOpacity
+              style={[styles.row, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}
+              onPress={() => setShowSwitchModal(true)}
+            >
+              <View style={[styles.rowIcon, { backgroundColor: isDark ? '#1C1C1E' : '#F0F0F0' }]}>
+                <Feather name="users" size={15} color={theme.text} />
               </View>
-              <View style={styles.optionTexts}>
-                <Text style={[styles.optionTitle, { color: theme.text }]}>Modo administrador</Text>
-                <Text style={[styles.optionSub, { color: theme.textMuted }]}>Gestionar equipo y configuración</Text>
+              <View style={styles.rowTexts}>
+                <Text style={[styles.rowTitle, { color: theme.text }]}>Cambiar turno</Text>
+                <Text style={[styles.rowSub, { color: theme.textMuted }]}>Otro empleado toma el dispositivo</Text>
               </View>
               <Feather name="chevron-right" size={18} color={theme.textMuted} />
             </TouchableOpacity>
           )}
+
+          {deviceType === 'personal' && (
+            <TouchableOpacity
+              style={[styles.row, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}
+              onPress={() => setShowSwitchModal(true)}
+            >
+              <View style={[styles.rowIcon, { backgroundColor: isDark ? '#1C1C1E' : '#F0F0F0' }]}>
+                <Feather name="log-out" size={15} color={theme.text} />
+              </View>
+              <View style={styles.rowTexts}>
+                <Text style={[styles.rowTitle, { color: theme.text }]}>Cerrar sesión</Text>
+                <Text style={[styles.rowSub, { color: theme.textMuted }]}>Salir de tu turno</Text>
+              </View>
+              <Feather name="chevron-right" size={18} color={theme.textMuted} />
+            </TouchableOpacity>
+          )}
+
+          {/* Último row del grupo */}
+          <View style={[styles.row, styles.rowLast, { backgroundColor: theme.card, borderColor: theme.cardBorder, opacity: 0 }]} />
         </View>
 
         {/* SECCIÓN ADMIN */}
-        {isAdminMode && (
+        {iAmAdmin && (
           <View>
-            {/* Barra admin activo */}
-            <View style={[styles.adminBar, { backgroundColor: theme.accent }]}>
-              <View style={styles.adminBarLeft}>
-                <MaterialCommunityIcons name="shield-check" size={15} color={theme.accentText} />
-                <Text style={[styles.adminBarText, { color: theme.accentText }]}>MODO ADMIN ACTIVO</Text>
-              </View>
-              <TouchableOpacity onPress={exitAdminMode}>
-                <Text style={[styles.adminExit, { color: theme.accentText, opacity: 0.65 }]}>Salir</Text>
-              </TouchableOpacity>
-            </View>
+            <Text style={[styles.sectionLabel, { color: theme.textMuted }]}>ADMINISTRACIÓN</Text>
 
-            {/* Config de cobro */}
             <View style={styles.group}>
               <TouchableOpacity
-                style={[styles.optionRow, styles.optionRowFirst, styles.optionRowLast, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}
+                style={[styles.row, styles.rowFirst, styles.rowLast, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}
                 onPress={() => navigation.navigate('BusinessConfig')}
               >
-                <View style={[styles.optionIconBox, { backgroundColor: isDark ? '#1C1C1E' : '#F0F0F0' }]}>
+                <View style={[styles.rowIcon, { backgroundColor: isDark ? '#1C1C1E' : '#F0F0F0' }]}>
                   <Feather name="settings" size={15} color={theme.text} />
                 </View>
-                <View style={styles.optionTexts}>
-                  <Text style={[styles.optionTitle, { color: theme.text }]}>Configuración de cobro</Text>
-                  <Text style={[styles.optionSub, { color: theme.textMuted }]}>Banco, WhatsApp para tickets al cliente</Text>
+                <View style={styles.rowTexts}>
+                  <Text style={[styles.rowTitle, { color: theme.text }]}>Configuración de cobro</Text>
+                  <Text style={[styles.rowSub, { color: theme.textMuted }]}>Banco, WhatsApp para tickets</Text>
                 </View>
                 <Feather name="chevron-right" size={18} color={theme.textMuted} />
               </TouchableOpacity>
             </View>
 
-            {/* Equipo */}
             <Text style={[styles.sectionLabel, { color: theme.textMuted }]}>EQUIPO</Text>
 
             <View style={styles.group}>
               {workers.map((worker, index) => {
-                const wPuesto  = worker.puesto || (worker.role === 'admin' ? 'Administrador' : 'Cajero');
-                const wIcon    = PUESTO_ICONS[wPuesto] || 'account';
+                const wPuesto    = worker.puesto || 'Cajero';
+                const wIcon      = PUESTO_ICONS[wPuesto] || 'account';
                 const pinVisible = revealPinId === worker.id;
-                const isFirst  = index === 0;
-                const isLast   = index === workers.length - 1;
+                const isFirst    = index === 0;
+                const isLast     = index === workers.length - 1;
                 return (
                   <View
                     key={worker.id}
                     style={[
                       styles.workerCard,
                       { backgroundColor: theme.card, borderColor: theme.cardBorder },
-                      isFirst && styles.optionRowFirst,
-                      isLast  && styles.optionRowLast,
+                      isFirst && styles.rowFirst,
+                      isLast  && styles.rowLast,
                     ]}
                   >
-                    {/* Fila superior: avatar + info + eliminar */}
                     <View style={styles.workerTop}>
                       {worker.photo ? (
                         <Image source={{ uri: worker.photo }} style={styles.workerPhoto} />
@@ -242,45 +265,41 @@ export default function ProfileScreen({ navigation }) {
                           </Text>
                         </View>
                       )}
-                      <View style={styles.workerInfo}>
+                      <View style={styles.workerMeta}>
                         <Text style={[styles.workerName, { color: theme.text }]}>{worker.name}</Text>
                         <View style={styles.workerPuestoRow}>
                           <MaterialCommunityIcons name={wIcon} size={11} color={theme.textMuted} />
                           <Text style={[styles.workerPuesto, { color: theme.textMuted }]}>{wPuesto}</Text>
                         </View>
                       </View>
-                      {worker.id !== 'admin' && (
+                      {worker.id !== 'owner' && (
                         <TouchableOpacity
-                          style={[styles.deleteBtn, { backgroundColor: theme.bg }]}
-                          onPress={() => handleRemoveWorker(worker)}
+                          style={[styles.trashBtn, { backgroundColor: theme.bg }]}
+                          onPress={() => { setWorkerToDelete(worker); setShowDeleteModal(true); }}
                         >
                           <Feather name="trash-2" size={14} color="#FF3B30" />
                         </TouchableOpacity>
                       )}
                     </View>
 
-                    {/* Fila inferior: DUI + PIN */}
                     <View style={[styles.workerDetails, { borderTopColor: theme.cardBorder }]}>
-                      <View style={styles.workerDetailCol}>
+                      <View style={styles.detailCol}>
                         <Text style={[styles.detailLabel, { color: theme.textMuted }]}>DUI</Text>
-                        <Text style={[styles.detailValue, { color: theme.text }]}>
-                          {worker.dui || '—'}
-                        </Text>
+                        <Text style={[styles.detailValue, { color: theme.text }]}>{worker.dui || '—'}</Text>
                       </View>
                       <View style={[styles.detailDivider, { backgroundColor: theme.cardBorder }]} />
-                      <View style={styles.workerDetailCol}>
+                      <View style={styles.detailCol}>
                         <Text style={[styles.detailLabel, { color: theme.textMuted }]}>PIN</Text>
                         <TouchableOpacity
                           style={styles.pinRow}
                           onPress={() => setRevealPinId(pinVisible ? null : worker.id)}
                         >
                           <Text style={[styles.detailValue, { color: theme.text }]}>
-                            {pinVisible ? worker.pin : '•'.repeat(worker.pin.length)}
+                            {pinVisible ? worker.pin : '• • • •'}
                           </Text>
                           <Feather
                             name={pinVisible ? 'eye-off' : 'eye'}
-                            size={13}
-                            color={theme.textMuted}
+                            size={13} color={theme.textMuted}
                             style={{ marginLeft: 6 }}
                           />
                         </TouchableOpacity>
@@ -291,13 +310,12 @@ export default function ProfileScreen({ navigation }) {
               })}
             </View>
 
-            {/* Botón agregar empleado */}
             <TouchableOpacity
-              style={[styles.addWorkerBtn, { borderColor: theme.cardBorder }]}
+              style={[styles.addBtn, { borderColor: theme.cardBorder }]}
               onPress={() => setShowAddWorker(true)}
             >
               <Feather name="user-plus" size={16} color={theme.textMuted} />
-              <Text style={[styles.addWorkerText, { color: theme.textMuted }]}>Agregar empleado</Text>
+              <Text style={[styles.addBtnText, { color: theme.textMuted }]}>Agregar empleado</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -305,66 +323,144 @@ export default function ProfileScreen({ navigation }) {
         <View style={{ height: 40 }} />
       </ScrollView>
 
-      {/* ── MODAL: PIN ADMIN ─────────────────────────────────── */}
-      <Modal visible={showAdminModal} transparent animationType="fade">
-        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-          <KeyboardAvoidingView
-            style={[styles.modalOverlay, { backgroundColor: theme.overlay }]}
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          >
+      {/* ── MODAL: DETALLE DE PERFIL ──────────────────── */}
+      <Modal visible={showProfileDetail} transparent animationType="fade">
+        <TouchableWithoutFeedback onPress={() => setShowProfileDetail(false)}>
+          <View style={[styles.overlay, { backgroundColor: theme.overlay }]}>
             <TouchableWithoutFeedback>
-              <View style={[styles.modalBox, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
-                <View style={[styles.modalIconWrap, { backgroundColor: theme.bg }]}>
-                  <Feather name="lock" size={22} color={theme.text} />
+              <View style={[styles.profileDetailCard, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+                {currentWorker?.photo ? (
+                  <Image source={{ uri: currentWorker.photo }} style={styles.detailPhoto} />
+                ) : (
+                  <View style={[styles.detailAvatar, { backgroundColor: currentWorker?.color || theme.accent }]}>
+                    <Text style={[styles.detailAvatarText, { color: theme.accentText }]}>
+                      {currentWorker?.name?.charAt(0)?.toUpperCase()}
+                    </Text>
+                  </View>
+                )}
+                <Text style={[styles.detailName, { color: theme.text }]}>{currentWorker?.name}</Text>
+                <View style={[styles.detailPuestoBadge, { backgroundColor: theme.bg }]}>
+                  <MaterialCommunityIcons name={puestoIcon} size={13} color={theme.textMuted} />
+                  <Text style={[styles.detailPuestoText, { color: theme.textMuted }]}>
+                    {puestoLabel.toUpperCase()}
+                  </Text>
                 </View>
-                <Text style={[styles.modalTitle, { color: theme.text }]}>MODO ADMINISTRADOR</Text>
-                <Text style={[styles.modalSub, { color: theme.textMuted }]}>Ingresá tu PIN de admin</Text>
-                <TextInput
-                  style={[styles.modalInput, { backgroundColor: theme.input, borderColor: theme.inputBorder, color: theme.text }]}
-                  value={adminPinInput}
-                  onChangeText={setAdminPinInput}
-                  placeholder="PIN"
-                  placeholderTextColor={theme.textMuted}
-                  keyboardType="numeric"
-                  secureTextEntry
-                  maxLength={8}
-                  autoFocus
-                />
+                {currentWorker?.dui ? (
+                  <View style={[styles.detailInfoRow, { borderTopColor: theme.cardBorder }]}>
+                    <Text style={[styles.detailInfoLabel, { color: theme.textMuted }]}>DUI</Text>
+                    <Text style={[styles.detailInfoValue, { color: theme.text }]}>{currentWorker.dui}</Text>
+                  </View>
+                ) : null}
                 <TouchableOpacity
-                  style={[styles.modalBtn, { backgroundColor: theme.accent }]}
-                  onPress={handleAdminLogin}
+                  style={[styles.detailCloseBtn, { backgroundColor: theme.bg, borderColor: theme.cardBorder }]}
+                  onPress={() => setShowProfileDetail(false)}
                 >
-                  <Text style={[styles.modalBtnText, { color: theme.accentText }]}>VERIFICAR</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.modalCancel}
-                  onPress={() => { setShowAdminModal(false); setAdminPinInput(''); }}
-                >
-                  <Text style={[styles.modalCancelText, { color: theme.textMuted }]}>Cancelar</Text>
+                  <Text style={[styles.detailCloseBtnText, { color: theme.textMuted }]}>Cerrar</Text>
                 </TouchableOpacity>
               </View>
             </TouchableWithoutFeedback>
-          </KeyboardAvoidingView>
+          </View>
         </TouchableWithoutFeedback>
       </Modal>
 
-      {/* ── MODAL: AGREGAR EMPLEADO ───────────────────────────── */}
+      {/* ── MODAL: CAMBIAR TURNO / CERRAR SESIÓN ─────── */}
+      <Modal visible={showSwitchModal} transparent animationType="fade">
+        <TouchableWithoutFeedback onPress={() => setShowSwitchModal(false)}>
+          <View style={[styles.overlay, { backgroundColor: theme.overlay }]}>
+            <TouchableWithoutFeedback>
+              <View style={[styles.confirmCard, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+                <View style={[styles.confirmIconWrap, { backgroundColor: theme.bg }]}>
+                  <Feather
+                    name={deviceType === 'fixed' ? 'users' : 'log-out'}
+                    size={24} color={theme.text}
+                  />
+                </View>
+                <Text style={[styles.confirmTitle, { color: theme.text }]}>
+                  {deviceType === 'fixed' ? 'CAMBIAR TURNO' : 'CERRAR SESIÓN'}
+                </Text>
+                <Text style={[styles.confirmSub, { color: theme.textMuted }]}>
+                  {deviceType === 'fixed'
+                    ? `${currentWorker?.name} va a cerrar su turno.\nOtro empleado podrá entrar con su PIN.`
+                    : `Vas a salir de tu turno.\n¿Seguro que querés continuar?`
+                  }
+                </Text>
+                <TouchableOpacity
+                  style={[styles.confirmBtn, { backgroundColor: theme.accent }]}
+                  onPress={handleSwitchConfirm}
+                >
+                  <Text style={[styles.confirmBtnText, { color: theme.accentText }]}>
+                    {deviceType === 'fixed' ? 'CAMBIAR TURNO' : 'SALIR'}
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.confirmCancel}
+                  onPress={() => setShowSwitchModal(false)}
+                >
+                  <Text style={[styles.confirmCancelText, { color: theme.textMuted }]}>Cancelar</Text>
+                </TouchableOpacity>
+              </View>
+            </TouchableWithoutFeedback>
+          </View>
+        </TouchableWithoutFeedback>
+      </Modal>
+
+      {/* ── MODAL: ELIMINAR EMPLEADO ──────────────────── */}
+      <Modal visible={showDeleteModal} transparent animationType="fade">
+        <TouchableWithoutFeedback onPress={() => setShowDeleteModal(false)}>
+          <View style={[styles.overlay, { backgroundColor: theme.overlay }]}>
+            <TouchableWithoutFeedback>
+              <View style={[styles.confirmCard, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+                <View style={[styles.confirmIconWrap, { backgroundColor: '#FF3B3020' }]}>
+                  <Feather name="trash-2" size={24} color="#FF3B30" />
+                </View>
+                <Text style={[styles.confirmTitle, { color: theme.text }]}>ELIMINAR EMPLEADO</Text>
+                <Text style={[styles.confirmSub, { color: theme.textMuted }]}>
+                  ¿Eliminar a <Text style={{ color: theme.text, fontWeight: '700' }}>{workerToDelete?.name}</Text>?{'\n'}
+                  Esta acción no se puede deshacer.
+                </Text>
+                <TouchableOpacity
+                  style={[styles.confirmBtn, { backgroundColor: '#FF3B30' }]}
+                  onPress={async () => {
+                    if (workerToDelete) await removeWorker(workerToDelete.id);
+                    setShowDeleteModal(false); setWorkerToDelete(null);
+                  }}
+                >
+                  <Text style={[styles.confirmBtnText, { color: '#FFF' }]}>SÍ, ELIMINAR</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.confirmCancel}
+                  onPress={() => { setShowDeleteModal(false); setWorkerToDelete(null); }}
+                >
+                  <Text style={[styles.confirmCancelText, { color: theme.textMuted }]}>Cancelar</Text>
+                </TouchableOpacity>
+              </View>
+            </TouchableWithoutFeedback>
+          </View>
+        </TouchableWithoutFeedback>
+      </Modal>
+
+      {/* ── MODAL: AGREGAR EMPLEADO ───────────────────── */}
       <Modal visible={showAddWorker} transparent animationType="slide">
         <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
           <KeyboardAvoidingView
-            style={[styles.modalOverlay, { backgroundColor: theme.overlay }]}
+            style={[styles.overlay, { backgroundColor: theme.overlay, justifyContent: 'flex-end' }]}
             behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-            keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 24}
           >
             <TouchableWithoutFeedback>
-              <View style={[styles.addWorkerSheet, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+              <View style={[styles.sheet, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
                 <View style={[styles.sheetHandle, { backgroundColor: theme.cardBorder }]} />
-                <Text style={[styles.modalTitle, { color: theme.text }]}>NUEVO EMPLEADO</Text>
+
+                <View style={styles.sheetHeader}>
+                  <Text style={[styles.sheetTitle, { color: theme.text }]}>NUEVO EMPLEADO</Text>
+                  <TouchableOpacity onPress={resetAddForm}>
+                    <Feather name="x" size={20} color={theme.textMuted} />
+                  </TouchableOpacity>
+                </View>
 
                 <ScrollView
                   showsVerticalScrollIndicator={false}
                   keyboardShouldPersistTaps="handled"
-                  contentContainerStyle={{ gap: 10 }}
+                  contentContainerStyle={styles.sheetScroll}
                 >
                   {/* Nombre */}
                   <Text style={[styles.fieldLabel, { color: theme.textMuted }]}>NOMBRE</Text>
@@ -383,84 +479,91 @@ export default function ProfileScreen({ navigation }) {
                     style={[styles.fieldInput, { backgroundColor: theme.input, borderColor: theme.inputBorder, color: theme.text }]}
                     value={newDui}
                     onChangeText={setNewDui}
-                    placeholder="00000000-0"
+                    placeholder="00000000-0  (opcional)"
                     placeholderTextColor={theme.textMuted}
                     keyboardType="numeric"
                     maxLength={10}
                   />
 
-                  {/* PIN */}
-                  <Text style={[styles.fieldLabel, { color: theme.textMuted }]}>PIN</Text>
-                  <TextInput
-                    style={[styles.fieldInput, { backgroundColor: theme.input, borderColor: theme.inputBorder, color: theme.text }]}
-                    value={newPin}
-                    onChangeText={setNewPin}
-                    placeholder="Mínimo 4 dígitos"
-                    placeholderTextColor={theme.textMuted}
-                    keyboardType="numeric"
-                    secureTextEntry
-                    maxLength={8}
-                  />
+                  {/* PIN generado */}
+                  <Text style={[styles.fieldLabel, { color: theme.textMuted }]}>PIN DE ACCESO</Text>
+                  <View style={[styles.pinGenWrap, { backgroundColor: theme.input, borderColor: theme.inputBorder }]}>
+                    <Text style={[styles.pinGenValue, { color: theme.text }]}>{newPin}</Text>
+                    <TouchableOpacity
+                      style={[styles.pinGenBtn, { backgroundColor: theme.bg }]}
+                      onPress={() => setNewPin(generatePin())}
+                    >
+                      <Feather name="refresh-cw" size={14} color={theme.textMuted} />
+                    </TouchableOpacity>
+                  </View>
+                  <Text style={[styles.fieldHint, { color: theme.textMuted }]}>
+                    PIN de 4 dígitos generado automáticamente. Tocá ↻ para cambiar.
+                  </Text>
 
-                  {/* PUESTO — autocomplete */}
+                  {/* Puesto autocomplete */}
                   <Text style={[styles.fieldLabel, { color: theme.textMuted }]}>PUESTO</Text>
-                  <TouchableWithoutFeedback onPress={() => {}}>
-                    <View>
-                      <View style={[styles.puestoInputWrap, { backgroundColor: theme.input, borderColor: puestoSelected ? theme.accent : theme.inputBorder }]}>
-                        {puestoSelected
-                          ? <MaterialCommunityIcons name={PUESTO_ICONS[puestoSelected] || 'account'} size={16} color={theme.text} style={{ marginRight: 8 }} />
-                          : <Feather name="search" size={15} color={theme.textMuted} style={{ marginRight: 8 }} />
-                        }
-                        <TextInput
-                          style={[styles.puestoInput, { color: theme.text }]}
-                          value={puestoSelected || puestoQuery}
-                          onChangeText={(t) => { setPuestoQuery(t); setPuestoSelected(''); setShowPuestoList(true); }}
-                          onFocus={() => setShowPuestoList(true)}
-                          placeholder="Buscar puesto..."
-                          placeholderTextColor={theme.textMuted}
-                        />
-                        {(puestoSelected || puestoQuery) ? (
-                          <TouchableOpacity onPress={() => { setPuestoQuery(''); setPuestoSelected(''); setShowPuestoList(true); }}>
-                            <Feather name="x" size={15} color={theme.textMuted} />
-                          </TouchableOpacity>
-                        ) : (
-                          <Feather name="chevron-down" size={15} color={theme.textMuted} />
-                        )}
-                      </View>
+                  <View style={[styles.puestoWrap, { backgroundColor: theme.input, borderColor: puestoSelected ? theme.accent : theme.inputBorder }]}>
+                    {puestoSelected
+                      ? <MaterialCommunityIcons name={PUESTO_ICONS[puestoSelected] || 'account'} size={16} color={theme.text} style={{ marginRight: 8 }} />
+                      : <Feather name="search" size={15} color={theme.textMuted} style={{ marginRight: 8 }} />
+                    }
+                    <TextInput
+                      style={[styles.puestoInput, { color: theme.text }]}
+                      value={puestoSelected || puestoQuery}
+                      onChangeText={t => { setPuestoQuery(t); setPuestoSelected(''); setShowPuestoList(true); }}
+                      onFocus={() => setShowPuestoList(true)}
+                      placeholder="Buscar puesto..."
+                      placeholderTextColor={theme.textMuted}
+                    />
+                    {(puestoSelected || puestoQuery) ? (
+                      <TouchableOpacity onPress={() => { setPuestoQuery(''); setPuestoSelected(''); setShowPuestoList(true); }}>
+                        <Feather name="x" size={15} color={theme.textMuted} />
+                      </TouchableOpacity>
+                    ) : (
+                      <Feather name="chevron-down" size={15} color={theme.textMuted} />
+                    )}
+                  </View>
 
-                      {/* Lista desplegable */}
-                      {showPuestoList && !puestoSelected && (
-                        <View style={[styles.puestoDropdown, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
-                          {puestosFiltrados.length > 0 ? puestosFiltrados.map(p => (
-                            <TouchableOpacity
-                              key={p}
-                              style={[styles.puestoOption, { borderBottomColor: theme.cardBorder }]}
-                              onPress={() => { setPuestoSelected(p); setPuestoQuery(''); setShowPuestoList(false); Keyboard.dismiss(); }}
-                            >
-                              <MaterialCommunityIcons name={PUESTO_ICONS[p] || 'account'} size={16} color={theme.textSecondary} />
-                              <Text style={[styles.puestoOptionText, { color: theme.text }]}>{p}</Text>
-                            </TouchableOpacity>
-                          )) : (
-                            <View style={styles.puestoOption}>
-                              <Text style={[styles.puestoOptionText, { color: theme.textMuted }]}>Sin resultados</Text>
-                            </View>
-                          )}
+                  {showPuestoList && !puestoSelected && (
+                    <View style={[styles.puestoDropdown, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+                      {puestosFiltrados.map((p, i) => (
+                        <TouchableOpacity
+                          key={p}
+                          style={[
+                            styles.puestoOption,
+                            { borderBottomColor: theme.cardBorder },
+                            i === puestosFiltrados.length - 1 && { borderBottomWidth: 0 },
+                          ]}
+                          onPress={() => { setPuestoSelected(p); setPuestoQuery(''); setShowPuestoList(false); Keyboard.dismiss(); }}
+                        >
+                          <MaterialCommunityIcons name={PUESTO_ICONS[p] || 'account'} size={16} color={theme.textSecondary} />
+                          <Text style={[styles.puestoOptionText, { color: theme.text }]}>{p}</Text>
+                        </TouchableOpacity>
+                      ))}
+                      {puestosFiltrados.length === 0 && (
+                        <View style={styles.puestoOption}>
+                          <Text style={[styles.puestoOptionText, { color: theme.textMuted }]}>Sin resultados</Text>
                         </View>
                       )}
                     </View>
-                  </TouchableWithoutFeedback>
+                  )}
+
+                  {addError ? (
+                    <View style={[styles.errorBanner, { backgroundColor: '#FF3B3015', borderColor: '#FF3B3040' }]}>
+                      <Feather name="alert-circle" size={14} color="#FF3B30" />
+                      <Text style={styles.errorBannerText}>{addError}</Text>
+                    </View>
+                  ) : null}
 
                   <View style={{ height: 8 }} />
                 </ScrollView>
 
                 <TouchableOpacity
-                  style={[styles.modalBtn, { backgroundColor: theme.accent, marginTop: 8 }]}
+                  style={[styles.sheetBtn, { backgroundColor: theme.accent }]}
                   onPress={handleAddWorker}
                 >
-                  <Text style={[styles.modalBtnText, { color: theme.accentText }]}>AGREGAR</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.modalCancel} onPress={resetAddWorkerForm}>
-                  <Text style={[styles.modalCancelText, { color: theme.textMuted }]}>Cancelar</Text>
+                  <Feather name="user-plus" size={16} color={theme.accentText} />
+                  <Text style={[styles.sheetBtnText, { color: theme.accentText }]}>AGREGAR EMPLEADO</Text>
                 </TouchableOpacity>
               </View>
             </TouchableWithoutFeedback>
@@ -483,116 +586,121 @@ const styles = StyleSheet.create({
 
   // Tarjeta perfil
   profileCard: {
-    flexDirection: 'row', alignItems: 'center', gap: 14,
-    borderRadius: 18, padding: 16, marginTop: 16, borderWidth: 1,
+    flexDirection: 'row', alignItems: 'center',
+    borderRadius: 18, padding: 16, marginTop: 16, borderWidth: 1, gap: 12,
   },
-  profilePhoto:      { width: 56, height: 56, borderRadius: 28, resizeMode: 'cover' },
-  profileAvatar:     { width: 56, height: 56, borderRadius: 28, alignItems: 'center', justifyContent: 'center' },
+  profileCardMain:   { flexDirection: 'row', alignItems: 'center', flex: 1, gap: 14 },
+  profilePhoto:      { width: 54, height: 54, borderRadius: 27, resizeMode: 'cover' },
+  profileAvatar:     { width: 54, height: 54, borderRadius: 27, alignItems: 'center', justifyContent: 'center' },
   profileAvatarText: { fontSize: 22, fontWeight: '900' },
   profileInfo:       { flex: 1 },
-  profileName:       { fontSize: 17, fontWeight: '800' },
-  puestoBadge:       { flexDirection: 'row', alignItems: 'center', gap: 5, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3, marginTop: 6, alignSelf: 'flex-start' },
+  profileName:       { fontSize: 16, fontWeight: '800' },
+  puestoBadge:       { flexDirection: 'row', alignItems: 'center', gap: 5, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3, marginTop: 5, alignSelf: 'flex-start' },
   puestoText:        { fontSize: 9, fontWeight: '800', letterSpacing: 2 },
-  cameraBtn:         { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center', borderWidth: 1 },
+  photoActions:      { flexDirection: 'row', gap: 6 },
+  photoBtn:          { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center', borderWidth: 1 },
 
-  // Grupos de opciones
-  group: { marginTop: 16 },
-  optionRow: {
+  // Grupos
+  group:    { marginTop: 12 },
+  row: {
     flexDirection: 'row', alignItems: 'center', gap: 14,
-    padding: 16, borderWidth: 1, marginTop: -1,
+    padding: 15, borderWidth: 1, marginTop: -1,
   },
-  optionRowFirst: { borderTopLeftRadius: 16, borderTopRightRadius: 16, marginTop: 0 },
-  optionRowLast:  { borderBottomLeftRadius: 16, borderBottomRightRadius: 16 },
-  optionIconBox:  { width: 34, height: 34, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
-  optionTexts:    { flex: 1 },
-  optionTitle:    { fontSize: 15, fontWeight: '700' },
-  optionSub:      { fontSize: 12, fontWeight: '500', marginTop: 2 },
+  rowFirst: { borderTopLeftRadius: 16, borderTopRightRadius: 16, marginTop: 0 },
+  rowLast:  { borderBottomLeftRadius: 16, borderBottomRightRadius: 16 },
+  rowIcon:  { width: 34, height: 34, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  rowTexts: { flex: 1 },
+  rowTitle: { fontSize: 15, fontWeight: '700' },
+  rowSub:   { fontSize: 12, fontWeight: '500', marginTop: 1 },
 
-  // Barra admin
-  adminBar: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    borderRadius: 14, padding: 14, marginTop: 16,
-  },
-  adminBarLeft: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  adminBarText: { fontSize: 12, fontWeight: '800', letterSpacing: 1 },
-  adminExit:    { fontSize: 13, fontWeight: '700' },
   sectionLabel: { fontSize: 10, fontWeight: '800', letterSpacing: 3, marginTop: 24, marginBottom: 8 },
 
   // Worker cards
-  workerCard: {
-    borderWidth: 1, padding: 14, marginTop: -1,
-  },
-  workerTop:    { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  workerPhoto:  { width: 42, height: 42, borderRadius: 21, resizeMode: 'cover' },
-  workerAvatar: { width: 42, height: 42, borderRadius: 21, alignItems: 'center', justifyContent: 'center' },
+  workerCard:    { borderWidth: 1, padding: 14, marginTop: -1 },
+  workerTop:     { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  workerPhoto:   { width: 42, height: 42, borderRadius: 21, resizeMode: 'cover' },
+  workerAvatar:  { width: 42, height: 42, borderRadius: 21, alignItems: 'center', justifyContent: 'center' },
   workerInitial: { fontSize: 16, fontWeight: '900', color: '#000' },
-  workerInfo:   { flex: 1 },
-  workerName:   { fontSize: 15, fontWeight: '700' },
+  workerMeta:    { flex: 1 },
+  workerName:    { fontSize: 15, fontWeight: '700' },
   workerPuestoRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 3 },
-  workerPuesto: { fontSize: 11, fontWeight: '600' },
-  deleteBtn:    { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
+  workerPuesto:  { fontSize: 11, fontWeight: '600' },
+  trashBtn:      { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
+  workerDetails: { flexDirection: 'row', alignItems: 'center', marginTop: 12, paddingTop: 12, borderTopWidth: 1 },
+  detailCol:     { flex: 1 },
+  detailLabel:   { fontSize: 9, fontWeight: '800', letterSpacing: 2, marginBottom: 4 },
+  detailValue:   { fontSize: 14, fontWeight: '700' },
+  detailDivider: { width: 1, height: 32, marginHorizontal: 16 },
+  pinRow:        { flexDirection: 'row', alignItems: 'center' },
 
-  workerDetails:   { flexDirection: 'row', alignItems: 'center', marginTop: 12, paddingTop: 12, borderTopWidth: 1 },
-  workerDetailCol: { flex: 1 },
-  detailLabel:     { fontSize: 9, fontWeight: '800', letterSpacing: 2, marginBottom: 4 },
-  detailValue:     { fontSize: 14, fontWeight: '700' },
-  detailDivider:   { width: 1, height: 32, marginHorizontal: 16 },
-  pinRow:          { flexDirection: 'row', alignItems: 'center' },
-
-  // Botón agregar empleado
-  addWorkerBtn: {
+  addBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
     borderRadius: 14, paddingVertical: 16, borderWidth: 1,
     borderStyle: 'dashed', marginTop: 8,
   },
-  addWorkerText: { fontSize: 14, fontWeight: '700' },
+  addBtnText: { fontSize: 14, fontWeight: '700' },
 
-  // Modales
-  modalOverlay: { flex: 1, justifyContent: 'center', paddingHorizontal: 24 },
-  modalBox: {
-    borderRadius: 20, padding: 24, borderWidth: 1,
+  // Overlay base
+  overlay: { flex: 1, justifyContent: 'center', paddingHorizontal: 24 },
+
+  // Modal detalle perfil
+  profileDetailCard: {
+    borderRadius: 24, padding: 28, borderWidth: 1, alignItems: 'center',
   },
-  modalIconWrap: { width: 52, height: 52, borderRadius: 26, alignItems: 'center', justifyContent: 'center', alignSelf: 'center', marginBottom: 16 },
-  modalTitle:    { fontSize: 15, fontWeight: '900', letterSpacing: 3, textAlign: 'center', marginBottom: 6 },
-  modalSub:      { fontSize: 12, fontWeight: '600', textAlign: 'center', marginBottom: 20 },
-  modalInput: {
-    borderRadius: 12, paddingHorizontal: 16, paddingVertical: 14,
-    fontSize: 20, fontWeight: '700', borderWidth: 1, textAlign: 'center', letterSpacing: 6, marginBottom: 4,
+  detailPhoto:      { width: 80, height: 80, borderRadius: 40, resizeMode: 'cover', marginBottom: 16 },
+  detailAvatar:     { width: 80, height: 80, borderRadius: 40, alignItems: 'center', justifyContent: 'center', marginBottom: 16 },
+  detailAvatarText: { fontSize: 32, fontWeight: '900' },
+  detailName:       { fontSize: 22, fontWeight: '900', textAlign: 'center' },
+  detailPuestoBadge:{ flexDirection: 'row', alignItems: 'center', gap: 6, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 5, marginTop: 8 },
+  detailPuestoText: { fontSize: 10, fontWeight: '800', letterSpacing: 2 },
+  detailInfoRow:    { width: '100%', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderTopWidth: 1, paddingTop: 16, marginTop: 16 },
+  detailInfoLabel:  { fontSize: 10, fontWeight: '800', letterSpacing: 2 },
+  detailInfoValue:  { fontSize: 14, fontWeight: '700' },
+  detailCloseBtn:   { marginTop: 20, borderRadius: 12, paddingVertical: 12, paddingHorizontal: 32, borderWidth: 1 },
+  detailCloseBtnText: { fontSize: 13, fontWeight: '700' },
+
+  // Modal confirmar
+  confirmCard: {
+    borderRadius: 24, padding: 28, borderWidth: 1, alignItems: 'center',
   },
-  modalBtn:      { borderRadius: 14, paddingVertical: 16, alignItems: 'center', marginTop: 16 },
-  modalBtnText:  { fontSize: 15, fontWeight: '900', letterSpacing: 2 },
-  modalCancel:   { paddingVertical: 14, alignItems: 'center' },
-  modalCancelText: { fontSize: 14, fontWeight: '600' },
+  confirmIconWrap: { width: 60, height: 60, borderRadius: 30, alignItems: 'center', justifyContent: 'center', marginBottom: 16 },
+  confirmTitle:    { fontSize: 16, fontWeight: '900', letterSpacing: 3, textAlign: 'center' },
+  confirmSub:      { fontSize: 13, fontWeight: '500', textAlign: 'center', marginTop: 10, marginBottom: 4, lineHeight: 20 },
+  confirmBtn:      { width: '100%', borderRadius: 14, paddingVertical: 16, alignItems: 'center', marginTop: 20 },
+  confirmBtnText:  { fontSize: 15, fontWeight: '900', letterSpacing: 2 },
+  confirmCancel:   { paddingVertical: 14 },
+  confirmCancelText: { fontSize: 14, fontWeight: '600' },
 
   // Sheet agregar empleado
-  addWorkerSheet: {
+  sheet: {
     borderTopLeftRadius: 24, borderTopRightRadius: 24,
-    borderWidth: 1, padding: 24, paddingBottom: 34,
-    position: 'absolute', bottom: 0, left: 0, right: 0,
-    maxHeight: '90%',
+    borderWidth: 1, padding: 24, paddingBottom: 34, maxHeight: '92%',
   },
   sheetHandle: { width: 40, height: 4, borderRadius: 2, alignSelf: 'center', marginBottom: 20 },
+  sheetHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
+  sheetTitle:  { fontSize: 14, fontWeight: '900', letterSpacing: 3 },
+  sheetScroll: { gap: 6 },
+  sheetBtn:    { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, borderRadius: 14, paddingVertical: 16, marginTop: 12 },
+  sheetBtnText:{ fontSize: 15, fontWeight: '900', letterSpacing: 2 },
 
   // Campos
-  fieldLabel: { fontSize: 10, fontWeight: '800', letterSpacing: 2, marginBottom: 6 },
-  fieldInput: {
-    borderRadius: 12, paddingHorizontal: 16, paddingVertical: 14,
-    fontSize: 15, fontWeight: '600', borderWidth: 1,
-  },
+  fieldLabel: { fontSize: 10, fontWeight: '800', letterSpacing: 2, marginBottom: 6, marginTop: 8 },
+  fieldInput: { borderRadius: 12, paddingHorizontal: 16, paddingVertical: 14, fontSize: 15, fontWeight: '600', borderWidth: 1 },
+  fieldHint:  { fontSize: 11, fontWeight: '500', marginTop: 5, marginBottom: 4 },
+
+  // PIN generado
+  pinGenWrap:  { flexDirection: 'row', alignItems: 'center', borderRadius: 12, paddingHorizontal: 16, paddingVertical: 12, borderWidth: 1 },
+  pinGenValue: { flex: 1, fontSize: 28, fontWeight: '900', letterSpacing: 12 },
+  pinGenBtn:   { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
 
   // Puesto autocomplete
-  puestoInputWrap: {
-    flexDirection: 'row', alignItems: 'center',
-    borderRadius: 12, paddingHorizontal: 14, paddingVertical: 14, borderWidth: 1,
-  },
-  puestoInput:     { flex: 1, fontSize: 15, fontWeight: '600', padding: 0 },
-  puestoDropdown: {
-    borderRadius: 12, borderWidth: 1, marginTop: 4,
-    overflow: 'hidden',
-  },
-  puestoOption: {
-    flexDirection: 'row', alignItems: 'center', gap: 10,
-    paddingVertical: 13, paddingHorizontal: 16, borderBottomWidth: 1,
-  },
+  puestoWrap:       { flexDirection: 'row', alignItems: 'center', borderRadius: 12, paddingHorizontal: 14, paddingVertical: 14, borderWidth: 1 },
+  puestoInput:      { flex: 1, fontSize: 15, fontWeight: '600', padding: 0 },
+  puestoDropdown:   { borderRadius: 12, borderWidth: 1, marginTop: 4, overflow: 'hidden' },
+  puestoOption:     { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 13, paddingHorizontal: 16, borderBottomWidth: 1 },
   puestoOptionText: { fontSize: 14, fontWeight: '600' },
+
+  // Error banner
+  errorBanner:     { flexDirection: 'row', alignItems: 'center', gap: 8, borderRadius: 10, padding: 12, borderWidth: 1, marginTop: 8 },
+  errorBannerText: { fontSize: 13, fontWeight: '600', color: '#FF3B30', flex: 1 },
 });

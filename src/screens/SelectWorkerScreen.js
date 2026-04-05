@@ -23,17 +23,26 @@ export default function SelectWorkerScreen({ navigation }) {
 
       <View style={styles.header}>
         <Text style={[styles.logo, { color: theme.text }]}>VENTASSV</Text>
-        <Text style={[styles.title, { color: theme.textSecondary }]}>¿Quién trabaja hoy?</Text>
+        <Text style={[styles.subtitle, { color: theme.textSecondary }]}>¿Quién trabaja hoy?</Text>
       </View>
 
-      <ScrollView contentContainerStyle={styles.grid} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={styles.grid}
+        showsVerticalScrollIndicator={false}
+      >
         {workers.map((worker) => {
-          const puesto     = worker.puesto || (worker.role === 'admin' ? 'Administrador' : 'Cajero');
-          const iconName   = PUESTO_ICONS[puesto] || 'account';
+          const puesto   = worker.puesto || 'Cajero';
+          const iconName = PUESTO_ICONS[puesto] || 'account';
+          const isDueno  = worker.role === 'owner';
+
           return (
             <TouchableOpacity
               key={worker.id}
-              style={[styles.workerCard, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}
+              style={[
+                styles.workerCard,
+                { backgroundColor: theme.card, borderColor: theme.cardBorder },
+                isDueno && { borderColor: theme.accent, borderWidth: 1.5 },
+              ]}
               activeOpacity={0.8}
               onPress={() => navigation.navigate('PinEntry', { worker })}
             >
@@ -41,17 +50,29 @@ export default function SelectWorkerScreen({ navigation }) {
                 <Image source={{ uri: worker.photo }} style={styles.workerPhoto} />
               ) : (
                 <View style={[styles.workerAvatar, { backgroundColor: worker.color || theme.accent }]}>
-                  <Text style={[styles.workerInitial, { color: '#000' }]}>
+                  <Text style={[styles.workerInitial, { color: isDueno ? theme.accentText : '#000' }]}>
                     {worker.name.charAt(0).toUpperCase()}
                   </Text>
                 </View>
               )}
+
               <Text style={[styles.workerName, { color: theme.text }]} numberOfLines={1}>
                 {worker.name}
               </Text>
-              <View style={[styles.rolePill, { backgroundColor: theme.bg }]}>
-                <MaterialCommunityIcons name={iconName} size={10} color={theme.textMuted} />
-                <Text style={[styles.roleText, { color: theme.textMuted }]}>
+
+              <View style={[
+                styles.rolePill,
+                { backgroundColor: isDueno ? theme.accent : theme.bg },
+              ]}>
+                <MaterialCommunityIcons
+                  name={iconName}
+                  size={10}
+                  color={isDueno ? theme.accentText : theme.textMuted}
+                />
+                <Text style={[
+                  styles.roleText,
+                  { color: isDueno ? theme.accentText : theme.textMuted },
+                ]}>
                   {puesto.toUpperCase()}
                 </Text>
               </View>
@@ -65,21 +86,28 @@ export default function SelectWorkerScreen({ navigation }) {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  header: { paddingHorizontal: PADDING, paddingTop: 40, paddingBottom: 30, alignItems: 'center' },
-  logo:  { fontSize: 32, fontWeight: '900', letterSpacing: 8 },
-  title: { fontSize: 18, fontWeight: '600', marginTop: 12 },
+  header: {
+    paddingHorizontal: PADDING, paddingTop: 48,
+    paddingBottom: 32, alignItems: 'center',
+  },
+  logo:     { fontSize: 32, fontWeight: '900', letterSpacing: 8 },
+  subtitle: { fontSize: 16, fontWeight: '600', marginTop: 10 },
   grid: {
     flexDirection: 'row', flexWrap: 'wrap',
-    paddingHorizontal: PADDING, gap: CARD_GAP, paddingBottom: 60, justifyContent: 'center',
+    paddingHorizontal: PADDING, gap: CARD_GAP,
+    paddingBottom: 60, justifyContent: 'center',
   },
   workerCard: {
     width: CARD_SIZE, borderRadius: 22, paddingVertical: 28,
     alignItems: 'center', borderWidth: 1, gap: 12,
   },
-  workerPhoto:  { width: 72, height: 72, borderRadius: 36, resizeMode: 'cover' },
-  workerAvatar: { width: 72, height: 72, borderRadius: 36, alignItems: 'center', justifyContent: 'center' },
+  workerPhoto:   { width: 72, height: 72, borderRadius: 36, resizeMode: 'cover' },
+  workerAvatar:  { width: 72, height: 72, borderRadius: 36, alignItems: 'center', justifyContent: 'center' },
   workerInitial: { fontSize: 30, fontWeight: '900' },
-  workerName: { fontSize: 16, fontWeight: '800', paddingHorizontal: 12, textAlign: 'center' },
-  rolePill: { flexDirection: 'row', alignItems: 'center', gap: 4, borderRadius: 6, paddingHorizontal: 10, paddingVertical: 4 },
+  workerName:    { fontSize: 16, fontWeight: '800', paddingHorizontal: 12, textAlign: 'center' },
+  rolePill: {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4,
+  },
   roleText: { fontSize: 9, fontWeight: '800', letterSpacing: 2 },
 });
