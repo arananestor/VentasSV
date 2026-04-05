@@ -6,7 +6,7 @@ const AuthContext = createContext();
 export const PUESTOS = ['Co-Administrador', 'Cajero', 'Cocinero', 'Motorista', 'Camarero'];
 
 export const PUESTO_ICONS = {
-  'Owner':             'crown',
+  'Dueño':             'crown',
   'Co-Administrador':  'shield-account',
   'Cajero':            'cash-register',
   'Cocinero':          'chef-hat',
@@ -48,7 +48,7 @@ export function AuthProvider({ children }) {
       name: name.trim(),
       pin,
       role: 'owner',
-      puesto: 'Owner',
+      puesto: 'Dueño',
       dui: '',
       photo: null,
       color: '#FFFFFF',
