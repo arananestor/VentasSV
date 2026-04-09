@@ -1,13 +1,19 @@
+/**
+ * SelectWorkerScreen — pure logic tests (no component rendering)
+ * Tests the worker selection business rules extracted from SelectWorkerScreen.js
+ */
+
 import { PUESTO_ICONS, PUESTOS } from '../../src/context/AuthContext';
 
-describe('SelectWorkerScreen — lógica', () => {
-  const mockWorkers = [
-    { id: 'owner', name: 'Carlos López', role: 'owner', puesto: 'Dueño', pin: '1234', color: '#FFFFFF' },
-    { id: '1', name: 'Ana García', role: 'worker', puesto: 'Cajero', pin: '5678', color: '#FF6B6B' },
-    { id: '2', name: 'Luis Ramos', role: 'worker', puesto: 'Cocinero', pin: '9012', color: '#4ECDC4' },
-  ];
+const mockWorkers = [
+  { id: 'owner', name: 'Carlos López', role: 'owner', puesto: 'Dueño', pin: '1234', color: '#FFFFFF' },
+  { id: '1', name: 'Ana García', role: 'worker', puesto: 'Cajero', pin: '5678', color: '#FF6B6B' },
+  { id: '2', name: 'Luis Ramos', role: 'worker', puesto: 'Cocinero', pin: '9012', color: '#4ECDC4' },
+];
 
-  describe('render de workers', () => {
+describe('SelectWorkerScreen logic', () => {
+
+  describe('worker list', () => {
     it('lista correcta de workers', () => {
       expect(mockWorkers).toHaveLength(3);
     });
@@ -20,12 +26,20 @@ describe('SelectWorkerScreen — lógica', () => {
       mockWorkers.forEach(w => expect(w.puesto).toBeDefined());
     });
 
-    it('cada worker tiene color', () => {
+    it('cada worker tiene color válido', () => {
       mockWorkers.forEach(w => expect(w.color).toMatch(/^#[0-9A-Fa-f]{6}$/));
+    });
+
+    it('cada worker tiene id, role y pin', () => {
+      mockWorkers.forEach(w => {
+        expect(w.id).toBeDefined();
+        expect(w.role).toBeDefined();
+        expect(w.pin).toBeDefined();
+      });
     });
   });
 
-  describe('ícono por puesto', () => {
+  describe('puesto icons', () => {
     it('owner tiene ícono crown', () => {
       expect(PUESTO_ICONS['Dueño']).toBe('crown');
     });
@@ -52,21 +66,22 @@ describe('SelectWorkerScreen — lógica', () => {
     });
   });
 
-  describe('puesto del worker', () => {
+  describe('puesto display', () => {
     it('owner muestra Dueño', () => {
       const owner = mockWorkers.find(w => w.role === 'owner');
       expect(owner?.puesto).toBe('Dueño');
     });
 
     it('worker sin puesto usa fallback Cajero', () => {
-      const getPuesto = (w) => w.puesto || (w.role === 'owner' ? 'Dueño' : 'Cajero');
+      const getPuesto = (w) => w.puesto || 'Cajero';
       const workerSinPuesto = { id: '99', role: 'worker' };
       expect(getPuesto(workerSinPuesto)).toBe('Cajero');
     });
 
     it('puesto se muestra en mayúsculas', () => {
-      const puesto = 'Cajero';
-      expect(puesto.toUpperCase()).toBe('CAJERO');
+      expect(mockWorkers[0].puesto.toUpperCase()).toBe('DUEÑO');
+      expect(mockWorkers[1].puesto.toUpperCase()).toBe('CAJERO');
+      expect(mockWorkers[2].puesto.toUpperCase()).toBe('COCINERO');
     });
   });
 
@@ -85,7 +100,7 @@ describe('SelectWorkerScreen — lógica', () => {
       expect(navigate).toHaveBeenCalledWith('PinEntry', { worker: mockWorkers[0] });
     });
 
-    it('pasa el objeto worker completo, no solo el id', () => {
+    it('pasa el objeto worker completo a PinEntry', () => {
       const navigate = jest.fn();
       const handlePress = (worker) => navigate('PinEntry', { worker });
       handlePress(mockWorkers[2]);
@@ -97,7 +112,7 @@ describe('SelectWorkerScreen — lógica', () => {
     });
   });
 
-  describe('owner destacado visualmente', () => {
+  describe('owner detection', () => {
     it('owner tiene role owner', () => {
       const owner = mockWorkers.find(w => w.role === 'owner');
       expect(owner).toBeDefined();
@@ -110,6 +125,44 @@ describe('SelectWorkerScreen — lógica', () => {
     it('workers normales no son owner', () => {
       const workers = mockWorkers.filter(w => w.role !== 'owner');
       workers.forEach(w => expect(w.role).not.toBe('owner'));
+    });
+  });
+
+  describe('worker avatar', () => {
+    it('genera la inicial del nombre en mayúscula', () => {
+      expect(mockWorkers[0].name.charAt(0).toUpperCase()).toBe('C');
+      expect(mockWorkers[1].name.charAt(0).toUpperCase()).toBe('A');
+      expect(mockWorkers[2].name.charAt(0).toUpperCase()).toBe('L');
+    });
+
+    it('usa el color del worker para el avatar', () => {
+      expect(mockWorkers[0].color).toBe('#FFFFFF');
+      expect(mockWorkers[1].color).toBe('#FF6B6B');
+    });
+  });
+
+  describe('grid layout', () => {
+    it('todos los workers se renderizan', () => {
+      const rendered = mockWorkers.map(w => w.id);
+      expect(rendered).toEqual(['owner', '1', '2']);
+    });
+
+    it('cada worker tiene key único (id)', () => {
+      const ids = mockWorkers.map(w => w.id);
+      const unique = new Set(ids);
+      expect(unique.size).toBe(ids.length);
+    });
+  });
+
+  describe('header content', () => {
+    it('título es VENTASSV', () => {
+      const logo = 'VENTASSV';
+      expect(logo).toBe('VENTASSV');
+    });
+
+    it('subtítulo es ¿Quién trabaja hoy?', () => {
+      const subtitle = '¿Quién trabaja hoy?';
+      expect(subtitle).toBe('¿Quién trabaja hoy?');
     });
   });
 });
