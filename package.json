@@ -28,7 +28,7 @@
     "expo-print": "~15.0.8",
     "expo-sharing": "~14.0.8",
     "expo-status-bar": "~3.0.9",
-    "react": "19.1.0",
+    "react": "19.2.5",
     "react-native": "0.81.5",
     "react-native-draggable": "^3.3.0",
     "react-native-reanimated": "~4.1.1",
@@ -38,7 +38,10 @@
   },
   "private": true,
   "devDependencies": {
-    "react-native-svg-transformer": "^1.5.3"
+    "@testing-library/react-native": "^13.3.3",
+    "jest-expo": "~54.0.0",
+    "react-native-svg-transformer": "^1.5.3",
+    "react-test-renderer": "19.2.5"
   },
   "jest": {
     "preset": "jest-expo",
