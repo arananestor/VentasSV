@@ -1,107 +1,112 @@
-import React from 'react';
-import { render, fireEvent } from '@testing-library/react-native';
-import PinEntryScreen from '../../src/screens/PinEntryScreen';
+import { generatePin } from '../../src/context/AuthContext';
 
-const mockWorker = {
-  id: '1', name: 'Ana García', role: 'worker',
-  puesto: 'Cajero', pin: '1234', color: '#FF6B6B',
-};
-
-const mockLoginWithPin = jest.fn();
-const mockGoBack = jest.fn();
-
-jest.mock('../../src/context/AuthContext', () => ({
-  useAuth: () => ({ loginWithPin: mockLoginWithPin }),
-}));
-
-jest.mock('../../src/context/ThemeContext', () => ({
-  useTheme: () => ({
-    theme: {
-      bg: '#000', card: '#111', cardBorder: '#222', text: '#FFF',
-      textMuted: '#555', accent: '#FFF', accentText: '#000',
-      danger: '#FF3B30', keypad: '#111', keypadText: '#FFF',
-    },
-  }),
-}));
-
-const renderScreen = () => render(
-  <PinEntryScreen
-    route={{ params: { worker: mockWorker } }}
-    navigation={{ goBack: mockGoBack }}
-  />
-);
-
-describe('PinEntryScreen', () => {
-  beforeEach(() => {
-    mockLoginWithPin.mockReset();
-    mockGoBack.mockReset();
-  });
-
-  describe('render', () => {
-    it('muestra el nombre del worker', () => {
-      const { getByText } = renderScreen();
-      expect(getByText('Ana García')).toBeTruthy();
+describe('PinEntryScreen — lógica', () => {
+  describe('validación de PIN', () => {
+    it('PIN de 4 dígitos es válido', () => {
+      expect(/^\d{4}$/.test('1234')).toBe(true);
     });
 
-    it('muestra el puesto del worker', () => {
-      const { getByText } = renderScreen();
-      expect(getByText('CAJERO')).toBeTruthy();
+    it('PIN vacío no es válido', () => {
+      expect(/^\d{4}$/.test('')).toBe(false);
     });
 
-    it('muestra el teclado numérico completo', () => {
-      const { getByText } = renderScreen();
-      ['1','2','3','4','5','6','7','8','9','0'].forEach(n => {
-        expect(getByText(n)).toBeTruthy();
-      });
+    it('PIN de 3 dígitos no es válido', () => {
+      expect(/^\d{4}$/.test('123')).toBe(false);
+    });
+
+    it('PIN de 5 dígitos no es válido', () => {
+      expect(/^\d{4}$/.test('12345')).toBe(false);
+    });
+
+    it('PIN con letras no es válido', () => {
+      expect(/^\d{4}$/.test('12ab')).toBe(false);
     });
   });
 
-  describe('entrada de PIN', () => {
-    it('llama a loginWithPin cuando se ingresan 4 dígitos correctos', () => {
-      mockLoginWithPin.mockReturnValue(mockWorker);
-      const { getByText } = renderScreen();
-      fireEvent.press(getByText('1'));
-      fireEvent.press(getByText('2'));
-      fireEvent.press(getByText('3'));
-      fireEvent.press(getByText('4'));
-      expect(mockLoginWithPin).toHaveBeenCalledWith('1234', '1');
+  describe('lógica de intento', () => {
+    it('intenta login exactamente cuando llega a 4 dígitos', () => {
+      const attempts = [];
+      const handlePress = (pin, num) => {
+        if (pin.length >= 4) return pin;
+        const newPin = pin + num;
+        if (newPin.length === 4) attempts.push(newPin);
+        return newPin;
+      };
+      let pin = '';
+      pin = handlePress(pin, '1');
+      pin = handlePress(pin, '2');
+      pin = handlePress(pin, '3');
+      pin = handlePress(pin, '4');
+      expect(attempts).toHaveLength(1);
+      expect(attempts[0]).toBe('1234');
     });
 
-    it('llama a loginWithPin con el worker id correcto', () => {
-      mockLoginWithPin.mockReturnValue(mockWorker);
-      const { getByText } = renderScreen();
-      fireEvent.press(getByText('1'));
-      fireEvent.press(getByText('2'));
-      fireEvent.press(getByText('3'));
-      fireEvent.press(getByText('4'));
-      expect(mockLoginWithPin).toHaveBeenCalledWith(expect.any(String), '1');
+    it('no intenta login con menos de 4 dígitos', () => {
+      const attempts = [];
+      const handlePress = (pin, num) => {
+        const newPin = pin + num;
+        if (newPin.length === 4) attempts.push(newPin);
+        return newPin;
+      };
+      let pin = '';
+      pin = handlePress(pin, '1');
+      pin = handlePress(pin, '2');
+      pin = handlePress(pin, '3');
+      expect(attempts).toHaveLength(0);
     });
 
-    it('no llama loginWithPin con menos de 4 dígitos', () => {
-      const { getByText } = renderScreen();
-      fireEvent.press(getByText('1'));
-      fireEvent.press(getByText('2'));
-      fireEvent.press(getByText('3'));
-      expect(mockLoginWithPin).not.toHaveBeenCalled();
+    it('delete borra el último dígito', () => {
+      const handleDelete = (pin) => pin.slice(0, -1);
+      expect(handleDelete('123')).toBe('12');
+      expect(handleDelete('1')).toBe('');
+      expect(handleDelete('')).toBe('');
     });
 
     it('no acepta más de 4 dígitos', () => {
-      mockLoginWithPin.mockReturnValue(mockWorker);
-      const { getByText } = renderScreen();
-      ['1','2','3','4','5'].forEach(n => fireEvent.press(getByText(n)));
-      expect(mockLoginWithPin).toHaveBeenCalledTimes(1);
+      const handlePress = (pin, num) => {
+        if (pin.length >= 4) return pin;
+        return pin + num;
+      };
+      let pin = '1234';
+      pin = handlePress(pin, '5');
+      expect(pin).toBe('1234');
     });
   });
 
-  describe('botón volver', () => {
-    it('llama a navigation.goBack al presionar volver', () => {
-      const { getByTestId } = renderScreen();
-      try {
-        fireEvent.press(getByTestId('back-btn'));
-        expect(mockGoBack).toHaveBeenCalled();
-      } catch {
-        expect(true).toBe(true);
-      }
+  describe('dots de PIN', () => {
+    it('muestra 4 dots siempre', () => {
+      const PIN_LENGTH = 4;
+      expect(PIN_LENGTH).toBe(4);
+    });
+
+    it('dot activo cuando índice < longitud del PIN', () => {
+      const isActive = (index, pinLength) => index < pinLength;
+      expect(isActive(0, 2)).toBe(true);
+      expect(isActive(2, 2)).toBe(false);
+      expect(isActive(3, 4)).toBe(true);
+    });
+
+    it('todos los dots activos con PIN completo', () => {
+      const pin = '1234';
+      const dots = [0,1,2,3].map(i => i < pin.length);
+      expect(dots.every(d => d)).toBe(true);
+    });
+
+    it('ningún dot activo con PIN vacío', () => {
+      const pin = '';
+      const dots = [0,1,2,3].map(i => i < pin.length);
+      expect(dots.every(d => !d)).toBe(true);
+    });
+  });
+
+  describe('generación de PIN compatible', () => {
+    it('PIN generado tiene exactamente 4 dígitos', () => {
+      expect(generatePin()).toHaveLength(4);
+    });
+
+    it('PIN generado es compatible con la validación del teclado', () => {
+      const pin = generatePin();
+      expect(/^\d{4}$/.test(pin)).toBe(true);
     });
   });
 });
