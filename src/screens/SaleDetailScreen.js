@@ -13,6 +13,8 @@ import {
   buildTicketMessage, buildTransferMessage,
 } from '../utils/businessConfig';
 import { formatDate, formatTime, methodLabel } from '../utils/formatters';
+import StatusBadge from '../components/StatusBadge';
+import InfoCard from '../components/InfoCard';
 import ScreenHeader from '../components/ScreenHeader';
 import Divider from '../components/Divider';
 
@@ -86,9 +88,8 @@ export default function SaleDetailScreen({ route, navigation }) {
         <View style={styles.amountSection}>
           <Text style={[styles.orderNumber, { color: theme.textMuted }]}>{orderDisplay}</Text>
           <Text style={[styles.amount, { color: theme.text }]}>${sale.total.toFixed(2)}</Text>
-          <View style={[styles.statusBadge, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
-            <View style={[styles.statusDot, { backgroundColor: theme.success }]} />
-            <Text style={[styles.statusText, { color: theme.textMuted }]}>COMPLETADA</Text>
+          <View style={{ marginTop: 12 }}>
+            <StatusBadge label="COMPLETADA" color={theme.success} />
           </View>
         </View>
 
@@ -99,10 +100,7 @@ export default function SaleDetailScreen({ route, navigation }) {
             { label: 'MÉTODO', value: payMethodLabel },
             { label: 'CAJERO', value: sale.workerName || '—' },
           ].map((item, i) => (
-            <View key={i} style={[styles.infoCard, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
-              <Text style={[styles.infoLabel, { color: theme.textMuted }]}>{item.label}</Text>
-              <Text style={[styles.infoValue, { color: theme.text }]}>{item.value}</Text>
-            </View>
+            <InfoCard key={i} label={item.label} value={item.value} />
           ))}
         </View>
 
@@ -290,16 +288,7 @@ const styles = StyleSheet.create({
   amountSection: { alignItems: 'center', paddingVertical: 30 },
   orderNumber: { fontSize: 13, fontWeight: '700', letterSpacing: 2, marginBottom: 8 },
   amount: { fontSize: 52, fontWeight: '900' },
-  statusBadge: {
-    flexDirection: 'row', alignItems: 'center', gap: 6,
-    borderRadius: 8, paddingHorizontal: 14, paddingVertical: 6, marginTop: 12, borderWidth: 1,
-  },
-  statusDot: { width: 6, height: 6, borderRadius: 3 },
-  statusText: { fontSize: 10, fontWeight: '800', letterSpacing: 2 },
   infoGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 4 },
-  infoCard: { width: '48%', borderRadius: 14, padding: 16, borderWidth: 1 },
-  infoLabel: { fontSize: 10, fontWeight: '800', letterSpacing: 2 },
-  infoValue: { fontSize: 14, fontWeight: '700', marginTop: 6 },
   sectionLabel: { fontSize: 10, fontWeight: '800', letterSpacing: 3, marginTop: 24, marginBottom: 10 },
   card: { borderRadius: 16, padding: 18, borderWidth: 1 },
   productName: { fontSize: 17, fontWeight: '800', marginBottom: 14 },
