@@ -4,7 +4,6 @@ import {
   Image, ScrollView, ActivityIndicator, Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Feather } from '@expo/vector-icons';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import Constants from 'expo-constants';
 import { useTheme } from '../context/ThemeContext';
@@ -13,6 +12,9 @@ import {
   loadWhatsAppNumber, loadBankConfig,
   buildTicketMessage, buildTransferMessage,
 } from '../utils/businessConfig';
+import { formatDate, formatTime, methodLabel } from '../utils/formatters';
+import ScreenHeader from '../components/ScreenHeader';
+import Divider from '../components/Divider';
 
 const SHARE_COLOR = '#0A84FF';
 const WA_COLOR = '#25D366';
@@ -25,20 +27,6 @@ export default function SaleDetailScreen({ route, navigation }) {
   const [activeBtn, setActiveBtn] = useState(null);
   const [waNumber, setWaNumber] = useState(null);
   const [bankConfig, setBankConfig] = useState(null);
-
-  const date = new Date(sale.timestamp);
-
-  const formatTime = (d) => {
-    const h = d.getHours();
-    const m = d.getMinutes().toString().padStart(2, '0');
-    return `${h % 12 || 12}:${m} ${h >= 12 ? 'PM' : 'AM'}`;
-  };
-
-  const formatDate = (d) => {
-    const days = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
-    const months = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
-    return `${days[d.getDay()]}, ${d.getDate()} ${months[d.getMonth()]}`;
-  };
 
   useEffect(() => {
     (async () => {
@@ -73,9 +61,7 @@ export default function SaleDetailScreen({ route, navigation }) {
     });
   };
 
-  const methodLabel = {
-    cash: 'Efectivo', transfer: 'Transferencia', card: 'Tarjeta',
-  }[sale.paymentMethod] || sale.paymentMethod;
+  const payMethodLabel = methodLabel(sale.paymentMethod);
 
   const orderDisplay = sale.orderNumber ? `#${sale.orderNumber}` : `#${sale.id.slice(-4)}`;
   const hasGeo = sale.geo?.latitude != null;
@@ -93,16 +79,7 @@ export default function SaleDetailScreen({ route, navigation }) {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.bg }]}>
-      <View style={styles.header}>
-        <TouchableOpacity
-          style={[styles.backBtn, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}
-          onPress={() => navigation.goBack()}
-        >
-          <Feather name="chevron-left" size={22} color={theme.text} />
-        </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: theme.text }]}>DETALLE</Text>
-        <View style={{ width: 44 }} />
-      </View>
+      <ScreenHeader title="DETALLE" onBack={() => navigation.goBack()} />
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
 
@@ -117,9 +94,9 @@ export default function SaleDetailScreen({ route, navigation }) {
 
         <View style={styles.infoGrid}>
           {[
-            { label: 'FECHA', value: formatDate(date) },
-            { label: 'HORA', value: formatTime(date) },
-            { label: 'MÉTODO', value: methodLabel },
+            { label: 'FECHA', value: formatDate(sale.timestamp) },
+            { label: 'HORA', value: formatTime(sale.timestamp) },
+            { label: 'MÉTODO', value: payMethodLabel },
             { label: 'CAJERO', value: sale.workerName || '—' },
           ].map((item, i) => (
             <View key={i} style={[styles.infoCard, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
@@ -132,7 +109,7 @@ export default function SaleDetailScreen({ route, navigation }) {
         <Text style={[styles.sectionLabel, { color: theme.textMuted }]}>PRODUCTO</Text>
         <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
           <Text style={[styles.productName, { color: theme.text }]}>{sale.productName}</Text>
-          <View style={[styles.divider, { backgroundColor: theme.cardBorder }]} />
+          <Divider />
 
           <View style={styles.detailRow}>
             <Text style={[styles.detailLabel, { color: theme.textMuted }]}>Tamaño</Text>
@@ -153,7 +130,7 @@ export default function SaleDetailScreen({ route, navigation }) {
           {/* Unidades con detalle completo */}
           {sale.units?.length > 0 && (
             <>
-              <View style={[styles.divider, { backgroundColor: theme.cardBorder, marginTop: 12 }]} />
+              <Divider spacing={12} />
               <Text style={[styles.unitsLabel, { color: theme.textMuted }]}>UNIDADES</Text>
               {sale.units.map((unit, i) => {
                 const unitIngredients = unit.ingredients || unit.flavors || [];
@@ -309,12 +286,6 @@ export default function SaleDetailScreen({ route, navigation }) {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  header: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 16, paddingVertical: 12,
-  },
-  backBtn: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', borderWidth: 1 },
-  headerTitle: { fontSize: 14, fontWeight: '800', letterSpacing: 3 },
   scroll: { paddingHorizontal: 16, paddingBottom: 60 },
   amountSection: { alignItems: 'center', paddingVertical: 30 },
   orderNumber: { fontSize: 13, fontWeight: '700', letterSpacing: 2, marginBottom: 8 },
@@ -332,7 +303,6 @@ const styles = StyleSheet.create({
   sectionLabel: { fontSize: 10, fontWeight: '800', letterSpacing: 3, marginTop: 24, marginBottom: 10 },
   card: { borderRadius: 16, padding: 18, borderWidth: 1 },
   productName: { fontSize: 17, fontWeight: '800', marginBottom: 14 },
-  divider: { height: 1, marginBottom: 8 },
   detailRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 8 },
   detailLabel: { fontSize: 13, fontWeight: '600' },
   detailValue: { fontSize: 13, fontWeight: '700' },

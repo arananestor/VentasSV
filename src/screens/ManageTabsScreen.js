@@ -6,6 +6,8 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTab } from '../context/TabContext';
 import { useTheme } from '../context/ThemeContext';
+import ScreenHeader from '../components/ScreenHeader';
+import PrimaryButton from '../components/PrimaryButton';
 
 const TAB_COLORS = [
   '#FFFFFF', '#FF6B6B', '#4ECDC4', '#45B7D1',
@@ -109,9 +111,7 @@ export default function ManageTabsScreen({ navigation }) {
         ))}
       </View>
 
-      <TouchableOpacity style={[styles.saveBtn, { backgroundColor: theme.accent }]} onPress={onSave}>
-        <Text style={[styles.saveBtnText, { color: theme.accentText }]}>{saveLabel}</Text>
-      </TouchableOpacity>
+      <PrimaryButton label={saveLabel} onPress={onSave} />
       <TouchableOpacity style={styles.cancelBtn}
         onPress={() => { setShowAdd(false); setShowEdit(null); resetForm(); }}>
         <Text style={[styles.cancelText, { color: theme.textMuted }]}>Cancelar</Text>
@@ -121,19 +121,18 @@ export default function ManageTabsScreen({ navigation }) {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.bg }]}>
-      <View style={styles.header}>
-        <TouchableOpacity style={[styles.backBtn, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}
-          onPress={() => navigation.goBack()}>
-          <Text style={[styles.backText, { color: theme.text }]}>‹</Text>
-        </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: theme.text }]}>PESTAÑAS</Text>
-        <TouchableOpacity
-          style={[styles.addBtn, { backgroundColor: theme.accent }]}
-          onPress={() => { resetForm(); setShowAdd(true); }}
-        >
-          <Text style={[styles.addBtnText, { color: theme.accentText }]}>+</Text>
-        </TouchableOpacity>
-      </View>
+      <ScreenHeader
+        title="PESTAÑAS"
+        onBack={() => navigation.goBack()}
+        rightAction={
+          <TouchableOpacity
+            style={[styles.addBtn, { backgroundColor: theme.accent }]}
+            onPress={() => { resetForm(); setShowAdd(true); }}
+          >
+            <Text style={[styles.addBtnText, { color: theme.accentText }]}>+</Text>
+          </TouchableOpacity>
+        }
+      />
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         {tabs.map((tab) => (
@@ -187,13 +186,6 @@ export default function ManageTabsScreen({ navigation }) {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  header: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 16, paddingVertical: 12,
-  },
-  backBtn: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', borderWidth: 1 },
-  backText: { fontSize: 24, fontWeight: '300', marginTop: -2 },
-  headerTitle: { fontSize: 14, fontWeight: '800', letterSpacing: 3 },
   addBtn: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
   addBtnText: { fontSize: 24, fontWeight: '600' },
   scroll: { paddingHorizontal: 16, paddingBottom: 40 },
@@ -234,8 +226,6 @@ const styles = StyleSheet.create({
   },
   colorBtnActive: { borderColor: '#000', borderWidth: 3 },
   colorCheck: { fontSize: 16, fontWeight: '900', color: '#000' },
-  saveBtn: { borderRadius: 14, paddingVertical: 16, alignItems: 'center', marginTop: 20 },
-  saveBtnText: { fontSize: 15, fontWeight: '900', letterSpacing: 2 },
   cancelBtn: { paddingVertical: 14, alignItems: 'center' },
   cancelText: { fontSize: 14, fontWeight: '600' },
 });
