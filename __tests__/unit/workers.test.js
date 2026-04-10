@@ -2,7 +2,7 @@ describe('workers', () => {
   const mockWorkers = [
     { id: 'owner', name: 'Carlos', role: 'owner', puesto: 'Dueño', pin: '1234', color: '#FFFFFF' },
     { id: '1', name: 'Ana', role: 'worker', puesto: 'Cajero', pin: '5678', color: '#FF6B6B' },
-    { id: '2', name: 'Luis', role: 'co-admin', puesto: 'Co-Administrador', pin: '9012', color: '#4ECDC4' },
+    { id: '2', name: 'Luis', role: 'co-admin', puesto: 'Encargado', pin: '9012', color: '#4ECDC4' },
     { id: '3', name: 'María', role: 'worker', puesto: 'Cocinero', pin: '3456', color: '#45B7D1' },
   ];
 

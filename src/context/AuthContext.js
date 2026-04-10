@@ -3,11 +3,11 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const AuthContext = createContext();
 
-export const PUESTOS = ['Co-Administrador', 'Cajero', 'Cocinero', 'Motorista', 'Camarero'];
+export const PUESTOS = ['Encargado', 'Cajero', 'Cocinero', 'Motorista', 'Camarero'];
 
 export const PUESTO_ICONS = {
   'Dueño':             'crown',
-  'Co-Administrador':  'shield-account',
+  'Encargado':         'shield-account',
   'Cajero':            'cash-register',
   'Cocinero':          'chef-hat',
   'Motorista':         'moped',
@@ -85,7 +85,7 @@ export function AuthProvider({ children }) {
     const exists = workers.find(w => w.pin === pin);
     if (exists)                     return { error: 'Ese PIN ya existe' };
 
-    const role   = puesto === 'Co-Administrador' ? 'co-admin' : 'worker';
+    const role   = puesto === 'Encargado' ? 'co-admin' : 'worker';
     const colors = ['#FF6B6B','#4ECDC4','#45B7D1','#96CEB4','#FFEAA7','#DDA0DD','#98D8C8','#F7DC6F'];
     const color  = colors[workers.length % colors.length];
     const worker = {
