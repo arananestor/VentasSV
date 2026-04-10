@@ -13,6 +13,7 @@ import { useTheme } from '../context/ThemeContext';
 import { useTab } from '../context/TabContext';
 import ScreenHeader from '../components/ScreenHeader';
 import PrimaryButton from '../components/PrimaryButton';
+import BottomSheetModal from '../components/BottomSheetModal';
 
 const FOOD_ICONS = [
   'food', 'food-outline', 'food-variant', 'food-fork-drink',
@@ -555,15 +556,11 @@ export default function AddProductScreen({ navigation }) {
       </View>
 
       {/* ICON PICKER — producto */}
-      <Modal visible={showIconPicker} transparent animationType="slide">
-        <View style={[styles.sheetOverlay, { backgroundColor: theme.overlay }]}>
-          <View style={[styles.sheetModal, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
-            <View style={styles.sheetHeader}>
-              <Text style={[styles.sheetTitle, { color: theme.text }]}>ÍCONO DEL PRODUCTO</Text>
-              <TouchableOpacity onPress={() => setShowIconPicker(false)}>
-                <Feather name="x" size={22} color={theme.textMuted} />
-              </TouchableOpacity>
-            </View>
+      <BottomSheetModal
+        visible={showIconPicker}
+        onClose={() => setShowIconPicker(false)}
+        title="ÍCONO DEL PRODUCTO"
+      >
             <FlatList
               data={FOOD_ICONS}
               numColumns={6}
@@ -584,20 +581,14 @@ export default function AddProductScreen({ navigation }) {
                 );
               }}
             />
-          </View>
-        </View>
-      </Modal>
+      </BottomSheetModal>
 
       {/* ICON PICKER — ingrediente */}
-      <Modal visible={showIngredientIconPicker} transparent animationType="slide">
-        <View style={[styles.sheetOverlay, { backgroundColor: theme.overlay }]}>
-          <View style={[styles.sheetModal, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
-            <View style={styles.sheetHeader}>
-              <Text style={[styles.sheetTitle, { color: theme.text }]}>ÍCONO DEL INGREDIENTE</Text>
-              <TouchableOpacity onPress={() => setShowIngredientIconPicker(false)}>
-                <Feather name="x" size={22} color={theme.textMuted} />
-              </TouchableOpacity>
-            </View>
+      <BottomSheetModal
+        visible={showIngredientIconPicker}
+        onClose={() => setShowIngredientIconPicker(false)}
+        title="ÍCONO DEL INGREDIENTE"
+      >
             <FlatList
               data={FOOD_ICONS}
               numColumns={6}
@@ -624,9 +615,7 @@ export default function AddProductScreen({ navigation }) {
                 );
               }}
             />
-          </View>
-        </View>
-      </Modal>
+      </BottomSheetModal>
 
       {/* COLOR FONDO PRODUCTO */}
       <Modal visible={showColorPicker} transparent animationType="fade">
@@ -793,13 +782,6 @@ const styles = StyleSheet.create({
 
   // Modales
   bottomBar: { position: 'absolute', bottom: 0, left: 0, right: 0, padding: 16, paddingBottom: 34, borderTopWidth: 1 },
-  sheetOverlay: { flex: 1, justifyContent: 'flex-end' },
-  sheetModal: { borderTopLeftRadius: 24, borderTopRightRadius: 24, borderWidth: 1, maxHeight: '78%' },
-  sheetHeader: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 20, paddingVertical: 18,
-  },
-  sheetTitle: { fontSize: 13, fontWeight: '800', letterSpacing: 2 },
   iconGrid: { paddingHorizontal: 8, paddingBottom: 40 },
   iconGridBtn: {
     width: ICON_BTN_SIZE, height: ICON_BTN_SIZE,
