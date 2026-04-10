@@ -116,6 +116,8 @@ Commits always in English: `type(scope): description`
 
 Types: feat, fix, refactor, test, docs, chore, style
 
+No signatures, no attributions. Never include "Co-Authored-By", "Generated with Claude Code", or any similar footer in commits, PRs, or code comments.
+
 ## Documentation — Mandatory
 
 ```
@@ -126,6 +128,8 @@ docs/feature_retros/       ← retrospectives after each merge
 - Before each major feature: create `docs/architecture_design/[name].md`
 - After each merge: create `docs/feature_retros/[date]_[name].md`
 - Always read existing docs before starting work
+
+Architecture design docs are REQUIRED before starting any major feature. Feature retros are REQUIRED after every merge to develop. No exceptions.
 
 ## Development Rules — No Exceptions
 
