@@ -10,6 +10,7 @@ import { Feather } from '@expo/vector-icons';
 import { useTheme } from '../context/ThemeContext';
 import ScreenHeader from '../components/ScreenHeader';
 import PrimaryButton from '../components/PrimaryButton';
+import ThemedTextInput from '../components/ThemedTextInput';
 import {
   saveBankConfig, loadBankConfig,
   saveWhatsAppNumber, loadWhatsAppNumber,
@@ -114,18 +115,14 @@ export default function BusinessConfigScreen({ navigation }) {
           {/* WHATSAPP */}
           <View style={styles.section}>
             <Text style={[styles.sectionLabel, { color: theme.textMuted }]}>WHATSAPP DEL NEGOCIO</Text>
-            <View style={[styles.inputRow, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
-              <Text style={[styles.prefix, { color: theme.textMuted }]}>+503</Text>
-              <TextInput
-                style={[styles.input, { color: theme.text }]}
-                value={waNumber}
-                onChangeText={setWaNumber}
-                placeholder="7000-0000"
-                placeholderTextColor={theme.textMuted}
-                keyboardType="phone-pad"
-                maxLength={12}
-              />
-            </View>
+            <ThemedTextInput
+              value={waNumber}
+              onChangeText={setWaNumber}
+              placeholder="7000-0000"
+              prefix="+503"
+              keyboardType="phone-pad"
+              maxLength={12}
+            />
             {waComplete && (
               <View style={styles.benefitList}>
                 {[
@@ -150,16 +147,11 @@ export default function BusinessConfigScreen({ navigation }) {
               { placeholder: 'Titular de la cuenta', value: holder, setter: setHolder, max: 60 },
               { placeholder: 'Número de cuenta', value: account, setter: setAccount, max: 30, numeric: true },
             ].map((f, i) => (
-              <View key={i} style={[styles.inputRow, {
-                backgroundColor: theme.card, borderColor: theme.cardBorder,
-                marginTop: i === 0 ? 0 : 8,
-              }]}>
-                <TextInput
-                  style={[styles.inputFull, { color: theme.text }]}
+              <View key={i} style={i > 0 ? { marginTop: 8 } : undefined}>
+                <ThemedTextInput
                   value={f.value}
                   onChangeText={f.setter}
                   placeholder={f.placeholder}
-                  placeholderTextColor={theme.textMuted}
                   keyboardType={f.numeric ? 'numeric' : 'default'}
                   maxLength={f.max}
                 />
@@ -224,13 +216,6 @@ const styles = StyleSheet.create({
   statusText: { fontSize: 11, fontWeight: '600' },
   section: { marginTop: 28 },
   sectionLabel: { fontSize: 10, fontWeight: '800', letterSpacing: 2, marginBottom: 10 },
-  inputRow: {
-    flexDirection: 'row', alignItems: 'center',
-    borderRadius: 14, paddingHorizontal: 16, borderWidth: 1,
-  },
-  prefix:    { fontSize: 15, fontWeight: '600', marginRight: 8 },
-  input:     { flex: 1, fontSize: 17, fontWeight: '600', paddingVertical: 16 },
-  inputFull: { flex: 1, fontSize: 15, fontWeight: '600', paddingVertical: 16 },
   benefitList: { marginTop: 12, gap: 8 },
   benefitRow:  { flexDirection: 'row', alignItems: 'center', gap: 10 },
   benefitDot:  { width: 6, height: 6, borderRadius: 3 },

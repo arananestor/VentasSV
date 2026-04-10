@@ -11,6 +11,7 @@ import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { useTab } from '../context/TabContext';
 import ProductSticker from '../components/ProductSticker';
+import CenterModal from '../components/CenterModal';
 
 const { width } = Dimensions.get('window');
 const CARD_GAP = 12;
@@ -465,44 +466,45 @@ export default function HomeScreen({ navigation }) {
       </Modal>
 
       {/* ADMIN PIN */}
-      <Modal visible={showAdminPin} transparent animationType="fade">
-        <View style={[styles.adminOverlay, { backgroundColor: theme.overlay }]}>
-          <View style={[styles.adminModal, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
-            <View style={[styles.adminIconWrap, { backgroundColor: theme.bg }]}>
-              <Feather name="lock" size={24} color={theme.text} />
-            </View>
-            <Text style={[styles.adminTitle, { color: theme.text }]}>AUTORIZACIÓN</Text>
-            <Text style={[styles.adminSub, { color: theme.textMuted }]}>PIN de administrador</Text>
-            <TextInput
-              style={[styles.adminInput, {
-                backgroundColor: theme.input,
-                borderColor: theme.inputBorder,
-                color: theme.text,
-              }]}
-              value={adminPinInput}
-              onChangeText={setAdminPinInput}
-              placeholder="PIN"
-              placeholderTextColor={theme.textMuted}
-              keyboardType="numeric"
-              secureTextEntry
-              maxLength={8}
-              autoFocus
-            />
-            <TouchableOpacity
-              style={[styles.adminBtn, { backgroundColor: theme.accent }]}
-              onPress={handleAdminVerify}
-            >
-              <Text style={[styles.adminBtnText, { color: theme.accentText }]}>VERIFICAR</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.adminCancel}
-              onPress={() => { setShowAdminPin(false); setAdminPinInput(''); setPendingAction(null); }}
-            >
-              <Text style={[styles.adminCancelText, { color: theme.textMuted }]}>Cancelar</Text>
-            </TouchableOpacity>
+      <CenterModal
+        visible={showAdminPin}
+        onClose={() => { setShowAdminPin(false); setAdminPinInput(''); setPendingAction(null); }}
+      >
+        <View style={{ alignItems: 'center' }}>
+          <View style={[styles.adminIconWrap, { backgroundColor: theme.bg }]}>
+            <Feather name="lock" size={24} color={theme.text} />
           </View>
+          <Text style={[styles.adminTitle, { color: theme.text }]}>AUTORIZACIÓN</Text>
+          <Text style={[styles.adminSub, { color: theme.textMuted }]}>PIN de administrador</Text>
         </View>
-      </Modal>
+        <TextInput
+          style={[styles.adminInput, {
+            backgroundColor: theme.input,
+            borderColor: theme.inputBorder,
+            color: theme.text,
+          }]}
+          value={adminPinInput}
+          onChangeText={setAdminPinInput}
+          placeholder="PIN"
+          placeholderTextColor={theme.textMuted}
+          keyboardType="numeric"
+          secureTextEntry
+          maxLength={8}
+          autoFocus
+        />
+        <TouchableOpacity
+          style={[styles.adminBtn, { backgroundColor: theme.accent }]}
+          onPress={handleAdminVerify}
+        >
+          <Text style={[styles.adminBtnText, { color: theme.accentText }]}>VERIFICAR</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.adminCancel}
+          onPress={() => { setShowAdminPin(false); setAdminPinInput(''); setPendingAction(null); }}
+        >
+          <Text style={[styles.adminCancelText, { color: theme.textMuted }]}>Cancelar</Text>
+        </TouchableOpacity>
+      </CenterModal>
     </SafeAreaView>
   );
 }
@@ -649,8 +651,6 @@ const styles = StyleSheet.create({
   },
   simpleConfirmText: { fontSize: 16, fontWeight: '900', letterSpacing: 1 },
   simpleConfirmTotal: { fontSize: 20, fontWeight: '900' },
-  adminOverlay: { flex: 1, justifyContent: 'center', paddingHorizontal: 24 },
-  adminModal: { borderRadius: 20, padding: 24, borderWidth: 1, alignItems: 'center' },
   adminIconWrap: { width: 56, height: 56, borderRadius: 28, alignItems: 'center', justifyContent: 'center', marginBottom: 16 },
   adminTitle: { fontSize: 16, fontWeight: '900', letterSpacing: 3 },
   adminSub: { fontSize: 13, fontWeight: '600', marginTop: 6, marginBottom: 20 },

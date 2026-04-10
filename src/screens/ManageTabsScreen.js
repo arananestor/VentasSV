@@ -1,13 +1,14 @@
 import React, { useState } from 'react';
 import {
-  View, Text, TouchableOpacity, ScrollView, StyleSheet,
-   TextInput, Alert, Modal,
+  View, Text, TouchableOpacity, ScrollView, StyleSheet, Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTab } from '../context/TabContext';
 import { useTheme } from '../context/ThemeContext';
 import ScreenHeader from '../components/ScreenHeader';
 import PrimaryButton from '../components/PrimaryButton';
+import CenterModal from '../components/CenterModal';
+import ThemedTextInput from '../components/ThemedTextInput';
 
 const TAB_COLORS = [
   '#FFFFFF', '#FF6B6B', '#4ECDC4', '#45B7D1',
@@ -60,18 +61,12 @@ export default function ManageTabsScreen({ navigation }) {
   };
 
   const renderForm = (onSave, saveLabel) => (
-    <View style={[styles.modal, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
-      <Text style={[styles.modalTitle, { color: theme.text }]}>
-        {saveLabel === 'GUARDAR' ? 'EDITAR PESTAÑA' : 'NUEVA PESTAÑA'}
-      </Text>
-
-      <Text style={[styles.formLabel, { color: theme.textMuted }]}>NOMBRE</Text>
-      <TextInput
-        style={[styles.formInput, { backgroundColor: theme.input, borderColor: theme.inputBorder, color: theme.text }]}
+    <>
+      <ThemedTextInput
+        label="NOMBRE"
         value={name}
         onChangeText={setName}
         placeholder="Ej: Feria de Agosto"
-        placeholderTextColor={theme.textMuted}
         autoFocus
       />
 
@@ -116,7 +111,7 @@ export default function ManageTabsScreen({ navigation }) {
         onPress={() => { setShowAdd(false); setShowEdit(null); resetForm(); }}>
         <Text style={[styles.cancelText, { color: theme.textMuted }]}>Cancelar</Text>
       </TouchableOpacity>
-    </View>
+    </>
   );
 
   return (
@@ -168,18 +163,22 @@ export default function ManageTabsScreen({ navigation }) {
       </ScrollView>
 
       {/* Add Modal */}
-      <Modal visible={showAdd} transparent animationType="fade">
-        <View style={[styles.modalOverlay, { backgroundColor: theme.overlay }]}>
-          {renderForm(handleAdd, 'CREAR')}
-        </View>
-      </Modal>
+      <CenterModal
+        visible={showAdd}
+        onClose={() => { setShowAdd(false); resetForm(); }}
+        title="NUEVA PESTAÑA"
+      >
+        {renderForm(handleAdd, 'CREAR')}
+      </CenterModal>
 
       {/* Edit Modal */}
-      <Modal visible={showEdit !== null} transparent animationType="fade">
-        <View style={[styles.modalOverlay, { backgroundColor: theme.overlay }]}>
-          {renderForm(handleUpdate, 'GUARDAR')}
-        </View>
-      </Modal>
+      <CenterModal
+        visible={showEdit !== null}
+        onClose={() => { setShowEdit(null); resetForm(); }}
+        title="EDITAR PESTAÑA"
+      >
+        {renderForm(handleUpdate, 'GUARDAR')}
+      </CenterModal>
     </SafeAreaView>
   );
 }
@@ -203,14 +202,7 @@ const styles = StyleSheet.create({
   deleteBtn: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
   deleteBtnText: { color: '#FF3B30', fontSize: 14, fontWeight: '700' },
   chevron: { fontSize: 20, fontWeight: '300' },
-  modalOverlay: { flex: 1, justifyContent: 'center', paddingHorizontal: 24 },
-  modal: { borderRadius: 20, padding: 24, borderWidth: 1 },
-  modalTitle: { fontSize: 16, fontWeight: '900', letterSpacing: 3, textAlign: 'center', marginBottom: 20 },
   formLabel: { fontSize: 11, fontWeight: '800', letterSpacing: 3, marginTop: 16, marginBottom: 8 },
-  formInput: {
-    borderRadius: 12, paddingHorizontal: 16, paddingVertical: 14,
-    fontSize: 16, fontWeight: '600', borderWidth: 1,
-  },
   typeRow: { flexDirection: 'row', gap: 10 },
   typeBtn: {
     flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',

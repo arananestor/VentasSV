@@ -10,6 +10,8 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { useAuth, PUESTOS, PUESTO_ICONS, generatePin } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
+import CenterModal from '../components/CenterModal';
+import ThemedTextInput from '../components/ThemedTextInput';
 
 export default function ProfileScreen({ navigation }) {
   const {
@@ -324,120 +326,111 @@ export default function ProfileScreen({ navigation }) {
       </ScrollView>
 
       {/* ── MODAL: DETALLE DE PERFIL ──────────────────── */}
-      <Modal visible={showProfileDetail} transparent animationType="fade">
-        <TouchableWithoutFeedback onPress={() => setShowProfileDetail(false)}>
-          <View style={[styles.overlay, { backgroundColor: theme.overlay }]}>
-            <TouchableWithoutFeedback>
-              <View style={[styles.profileDetailCard, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
-                {currentWorker?.photo ? (
-                  <Image source={{ uri: currentWorker.photo }} style={styles.detailPhoto} />
-                ) : (
-                  <View style={[styles.detailAvatar, { backgroundColor: currentWorker?.color || theme.accent }]}>
-                    <Text style={[styles.detailAvatarText, { color: theme.accentText }]}>
-                      {currentWorker?.name?.charAt(0)?.toUpperCase()}
-                    </Text>
-                  </View>
-                )}
-                <Text style={[styles.detailName, { color: theme.text }]}>{currentWorker?.name}</Text>
-                <View style={[styles.detailPuestoBadge, { backgroundColor: theme.bg }]}>
-                  <MaterialCommunityIcons name={puestoIcon} size={13} color={theme.textMuted} />
-                  <Text style={[styles.detailPuestoText, { color: theme.textMuted }]}>
-                    {puestoLabel.toUpperCase()}
-                  </Text>
-                </View>
-                {currentWorker?.dui ? (
-                  <View style={[styles.detailInfoRow, { borderTopColor: theme.cardBorder }]}>
-                    <Text style={[styles.detailInfoLabel, { color: theme.textMuted }]}>DUI</Text>
-                    <Text style={[styles.detailInfoValue, { color: theme.text }]}>{currentWorker.dui}</Text>
-                  </View>
-                ) : null}
-                <TouchableOpacity
-                  style={[styles.detailCloseBtn, { backgroundColor: theme.bg, borderColor: theme.cardBorder }]}
-                  onPress={() => setShowProfileDetail(false)}
-                >
-                  <Text style={[styles.detailCloseBtnText, { color: theme.textMuted }]}>Cerrar</Text>
-                </TouchableOpacity>
-              </View>
-            </TouchableWithoutFeedback>
+      <CenterModal
+        visible={showProfileDetail}
+        onClose={() => setShowProfileDetail(false)}
+      >
+        <View style={{ alignItems: 'center' }}>
+          {currentWorker?.photo ? (
+            <Image source={{ uri: currentWorker.photo }} style={styles.detailPhoto} />
+          ) : (
+            <View style={[styles.detailAvatar, { backgroundColor: currentWorker?.color || theme.accent }]}>
+              <Text style={[styles.detailAvatarText, { color: theme.accentText }]}>
+                {currentWorker?.name?.charAt(0)?.toUpperCase()}
+              </Text>
+            </View>
+          )}
+          <Text style={[styles.detailName, { color: theme.text }]}>{currentWorker?.name}</Text>
+          <View style={[styles.detailPuestoBadge, { backgroundColor: theme.bg }]}>
+            <MaterialCommunityIcons name={puestoIcon} size={13} color={theme.textMuted} />
+            <Text style={[styles.detailPuestoText, { color: theme.textMuted }]}>
+              {puestoLabel.toUpperCase()}
+            </Text>
           </View>
-        </TouchableWithoutFeedback>
-      </Modal>
+          {currentWorker?.dui ? (
+            <View style={[styles.detailInfoRow, { borderTopColor: theme.cardBorder }]}>
+              <Text style={[styles.detailInfoLabel, { color: theme.textMuted }]}>DUI</Text>
+              <Text style={[styles.detailInfoValue, { color: theme.text }]}>{currentWorker.dui}</Text>
+            </View>
+          ) : null}
+          <TouchableOpacity
+            style={[styles.detailCloseBtn, { backgroundColor: theme.bg, borderColor: theme.cardBorder }]}
+            onPress={() => setShowProfileDetail(false)}
+          >
+            <Text style={[styles.detailCloseBtnText, { color: theme.textMuted }]}>Cerrar</Text>
+          </TouchableOpacity>
+        </View>
+      </CenterModal>
 
       {/* ── MODAL: CAMBIAR TURNO / CERRAR SESIÓN ─────── */}
-      <Modal visible={showSwitchModal} transparent animationType="fade">
-        <TouchableWithoutFeedback onPress={() => setShowSwitchModal(false)}>
-          <View style={[styles.overlay, { backgroundColor: theme.overlay }]}>
-            <TouchableWithoutFeedback>
-              <View style={[styles.confirmCard, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
-                <View style={[styles.confirmIconWrap, { backgroundColor: theme.bg }]}>
-                  <Feather
-                    name={deviceType === 'fixed' ? 'users' : 'log-out'}
-                    size={24} color={theme.text}
-                  />
-                </View>
-                <Text style={[styles.confirmTitle, { color: theme.text }]}>
-                  {deviceType === 'fixed' ? 'CAMBIAR TURNO' : 'CERRAR SESIÓN'}
-                </Text>
-                <Text style={[styles.confirmSub, { color: theme.textMuted }]}>
-                  {deviceType === 'fixed'
-                    ? `${currentWorker?.name} va a cerrar su turno.\nOtro empleado podrá entrar con su PIN.`
-                    : `Vas a salir de tu turno.\n¿Seguro que querés continuar?`
-                  }
-                </Text>
-                <TouchableOpacity
-                  style={[styles.confirmBtn, { backgroundColor: theme.accent }]}
-                  onPress={handleSwitchConfirm}
-                >
-                  <Text style={[styles.confirmBtnText, { color: theme.accentText }]}>
-                    {deviceType === 'fixed' ? 'CAMBIAR TURNO' : 'SALIR'}
-                  </Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.confirmCancel}
-                  onPress={() => setShowSwitchModal(false)}
-                >
-                  <Text style={[styles.confirmCancelText, { color: theme.textMuted }]}>Cancelar</Text>
-                </TouchableOpacity>
-              </View>
-            </TouchableWithoutFeedback>
+      <CenterModal
+        visible={showSwitchModal}
+        onClose={() => setShowSwitchModal(false)}
+      >
+        <View style={{ alignItems: 'center' }}>
+          <View style={[styles.confirmIconWrap, { backgroundColor: theme.bg }]}>
+            <Feather
+              name={deviceType === 'fixed' ? 'users' : 'log-out'}
+              size={24} color={theme.text}
+            />
           </View>
-        </TouchableWithoutFeedback>
-      </Modal>
+          <Text style={[styles.confirmTitle, { color: theme.text }]}>
+            {deviceType === 'fixed' ? 'CAMBIAR TURNO' : 'CERRAR SESIÓN'}
+          </Text>
+          <Text style={[styles.confirmSub, { color: theme.textMuted }]}>
+            {deviceType === 'fixed'
+              ? `${currentWorker?.name} va a cerrar su turno.\nOtro empleado podrá entrar con su PIN.`
+              : `Vas a salir de tu turno.\n¿Seguro que querés continuar?`
+            }
+          </Text>
+          <TouchableOpacity
+            style={[styles.confirmBtn, { backgroundColor: theme.accent }]}
+            onPress={handleSwitchConfirm}
+          >
+            <Text style={[styles.confirmBtnText, { color: theme.accentText }]}>
+              {deviceType === 'fixed' ? 'CAMBIAR TURNO' : 'SALIR'}
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.confirmCancel}
+            onPress={() => setShowSwitchModal(false)}
+          >
+            <Text style={[styles.confirmCancelText, { color: theme.textMuted }]}>Cancelar</Text>
+          </TouchableOpacity>
+        </View>
+      </CenterModal>
 
       {/* ── MODAL: ELIMINAR EMPLEADO ──────────────────── */}
-      <Modal visible={showDeleteModal} transparent animationType="fade">
-        <TouchableWithoutFeedback onPress={() => setShowDeleteModal(false)}>
-          <View style={[styles.overlay, { backgroundColor: theme.overlay }]}>
-            <TouchableWithoutFeedback>
-              <View style={[styles.confirmCard, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
-                <View style={[styles.confirmIconWrap, { backgroundColor: '#FF3B3020' }]}>
-                  <Feather name="trash-2" size={24} color="#FF3B30" />
-                </View>
-                <Text style={[styles.confirmTitle, { color: theme.text }]}>ELIMINAR EMPLEADO</Text>
-                <Text style={[styles.confirmSub, { color: theme.textMuted }]}>
-                  ¿Eliminar a <Text style={{ color: theme.text, fontWeight: '700' }}>{workerToDelete?.name}</Text>?{'\n'}
-                  Esta acción no se puede deshacer.
-                </Text>
-                <TouchableOpacity
-                  style={[styles.confirmBtn, { backgroundColor: '#FF3B30' }]}
-                  onPress={async () => {
-                    if (workerToDelete) await removeWorker(workerToDelete.id);
-                    setShowDeleteModal(false); setWorkerToDelete(null);
-                  }}
-                >
-                  <Text style={[styles.confirmBtnText, { color: '#FFF' }]}>SÍ, ELIMINAR</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.confirmCancel}
-                  onPress={() => { setShowDeleteModal(false); setWorkerToDelete(null); }}
-                >
-                  <Text style={[styles.confirmCancelText, { color: theme.textMuted }]}>Cancelar</Text>
-                </TouchableOpacity>
-              </View>
-            </TouchableWithoutFeedback>
+      <CenterModal
+        visible={showDeleteModal}
+        onClose={() => { setShowDeleteModal(false); setWorkerToDelete(null); }}
+      >
+        <View style={{ alignItems: 'center' }}>
+          <View style={[styles.confirmIconWrap, { backgroundColor: '#FF3B3020' }]}>
+            <Feather name="trash-2" size={24} color="#FF3B30" />
           </View>
-        </TouchableWithoutFeedback>
-      </Modal>
+          <Text style={[styles.confirmTitle, { color: theme.text }]}>ELIMINAR EMPLEADO</Text>
+          <Text style={[styles.confirmSub, { color: theme.textMuted }]}>
+            ¿Eliminar a <Text style={{ color: theme.text, fontWeight: '700' }}>{workerToDelete?.name}</Text>?{'\n'}
+            Esta acción no se puede deshacer.
+          </Text>
+          <TouchableOpacity
+            style={[styles.confirmBtn, { backgroundColor: '#FF3B30' }]}
+            onPress={async () => {
+              if (workerToDelete) await removeWorker(workerToDelete.id);
+              setShowDeleteModal(false); setWorkerToDelete(null);
+            }}
+          >
+            <Text style={[styles.confirmBtnText, { color: '#FFF' }]}>SÍ, ELIMINAR</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.confirmCancel}
+            onPress={() => { setShowDeleteModal(false); setWorkerToDelete(null); }}
+          >
+            <Text style={[styles.confirmCancelText, { color: theme.textMuted }]}>Cancelar</Text>
+          </TouchableOpacity>
+        </View>
+      </CenterModal>
 
       {/* ── MODAL: AGREGAR EMPLEADO ───────────────────── */}
       <Modal visible={showAddWorker} transparent animationType="slide">
@@ -463,24 +456,20 @@ export default function ProfileScreen({ navigation }) {
                   contentContainerStyle={styles.sheetScroll}
                 >
                   {/* Nombre */}
-                  <Text style={[styles.fieldLabel, { color: theme.textMuted }]}>NOMBRE</Text>
-                  <TextInput
-                    style={[styles.fieldInput, { backgroundColor: theme.input, borderColor: theme.inputBorder, color: theme.text }]}
+                  <ThemedTextInput
+                    label="NOMBRE"
                     value={newName}
                     onChangeText={setNewName}
                     placeholder="Nombre completo"
-                    placeholderTextColor={theme.textMuted}
                     autoCapitalize="words"
                   />
 
                   {/* DUI */}
-                  <Text style={[styles.fieldLabel, { color: theme.textMuted }]}>DUI</Text>
-                  <TextInput
-                    style={[styles.fieldInput, { backgroundColor: theme.input, borderColor: theme.inputBorder, color: theme.text }]}
+                  <ThemedTextInput
+                    label="DUI"
                     value={newDui}
                     onChangeText={setNewDui}
                     placeholder="00000000-0  (opcional)"
-                    placeholderTextColor={theme.textMuted}
                     keyboardType="numeric"
                     maxLength={10}
                   />
@@ -640,13 +629,7 @@ const styles = StyleSheet.create({
   },
   addBtnText: { fontSize: 14, fontWeight: '700' },
 
-  // Overlay base
-  overlay: { flex: 1, justifyContent: 'center', paddingHorizontal: 24 },
-
   // Modal detalle perfil
-  profileDetailCard: {
-    borderRadius: 24, padding: 28, borderWidth: 1, alignItems: 'center',
-  },
   detailPhoto:      { width: 80, height: 80, borderRadius: 40, resizeMode: 'cover', marginBottom: 16 },
   detailAvatar:     { width: 80, height: 80, borderRadius: 40, alignItems: 'center', justifyContent: 'center', marginBottom: 16 },
   detailAvatarText: { fontSize: 32, fontWeight: '900' },
@@ -660,9 +643,6 @@ const styles = StyleSheet.create({
   detailCloseBtnText: { fontSize: 13, fontWeight: '700' },
 
   // Modal confirmar
-  confirmCard: {
-    borderRadius: 24, padding: 28, borderWidth: 1, alignItems: 'center',
-  },
   confirmIconWrap: { width: 60, height: 60, borderRadius: 30, alignItems: 'center', justifyContent: 'center', marginBottom: 16 },
   confirmTitle:    { fontSize: 16, fontWeight: '900', letterSpacing: 3, textAlign: 'center' },
   confirmSub:      { fontSize: 13, fontWeight: '500', textAlign: 'center', marginTop: 10, marginBottom: 4, lineHeight: 20 },
@@ -685,7 +665,6 @@ const styles = StyleSheet.create({
 
   // Campos
   fieldLabel: { fontSize: 10, fontWeight: '800', letterSpacing: 2, marginBottom: 6, marginTop: 8 },
-  fieldInput: { borderRadius: 12, paddingHorizontal: 16, paddingVertical: 14, fontSize: 15, fontWeight: '600', borderWidth: 1 },
   fieldHint:  { fontSize: 11, fontWeight: '500', marginTop: 5, marginBottom: 4 },
 
   // PIN generado
