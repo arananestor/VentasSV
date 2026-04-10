@@ -6,6 +6,8 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Feather } from '@expo/vector-icons';
+import ScreenHeader from '../components/ScreenHeader';
+import Divider from '../components/Divider';
 import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
 import { useApp } from '../context/AppContext';
@@ -144,16 +146,7 @@ export default function PaymentScreen({ route, navigation }) {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.bg }]}>
-      <View style={styles.header}>
-        <TouchableOpacity
-          style={[styles.backBtn, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}
-          onPress={() => navigation.goBack()}
-        >
-          <Feather name="chevron-left" size={22} color={theme.text} />
-        </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: theme.text }]}>COBRAR</Text>
-        <View style={{ width: 44 }} />
-      </View>
+      <ScreenHeader title="COBRAR" onBack={() => navigation.goBack()} />
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}
         keyboardShouldPersistTaps="handled">
@@ -249,12 +242,12 @@ export default function PaymentScreen({ route, navigation }) {
                       <Text style={[styles.bankKey, { color: theme.textMuted }]}>{r.k}</Text>
                       <Text style={[styles.bankVal, { color: theme.text }]}>{r.v}</Text>
                     </View>
-                    {i < arr.length - 1 && <View style={[styles.divider, { backgroundColor: theme.cardBorder }]} />}
+                    {i < arr.length - 1 && <Divider />}
                   </View>
                 ))}
                 {bankConfig.qrImage && (
                   <View style={styles.qrSection}>
-                    <View style={[styles.divider, { backgroundColor: theme.cardBorder, marginBottom: 16 }]} />
+                    <Divider />
                     <Image source={{ uri: bankConfig.qrImage }} style={styles.qrDisplay} />
                   </View>
                 )}
@@ -321,12 +314,6 @@ export default function PaymentScreen({ route, navigation }) {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  header: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 16, paddingVertical: 12,
-  },
-  backBtn: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', borderWidth: 1 },
-  headerTitle: { fontSize: 14, fontWeight: '800', letterSpacing: 3 },
   scroll: { paddingBottom: 120 },
   totalSection: { alignItems: 'center', paddingVertical: 30, marginHorizontal: 16 },
   totalLabel: { fontSize: 11, fontWeight: '800', letterSpacing: 3 },
@@ -352,7 +339,6 @@ const styles = StyleSheet.create({
   bankRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 10 },
   bankKey: { fontSize: 12, fontWeight: '600' },
   bankVal: { fontSize: 15, fontWeight: '700' },
-  divider: { height: 1 },
   qrSection: { alignItems: 'center', marginTop: 4 },
   qrDisplay: { width: 160, height: 160, borderRadius: 10 },
   noBankCard: { borderRadius: 16, padding: 24, borderWidth: 1, alignItems: 'center', gap: 8 },

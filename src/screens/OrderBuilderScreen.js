@@ -8,17 +8,10 @@ import { Feather } from '@expo/vector-icons';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '../context/ThemeContext';
 import { useApp } from '../context/AppContext';
+import { getTextColor } from '../utils/colorUtils';
+import ScreenHeader from '../components/ScreenHeader';
 
 const { width } = Dimensions.get('window');
-
-const getTextColor = (bg) => {
-  if (!bg) return '#FFF';
-  const hex = bg.replace('#', '');
-  const r = parseInt(hex.substr(0, 2), 16);
-  const g = parseInt(hex.substr(2, 2), 16);
-  const b = parseInt(hex.substr(4, 2), 16);
-  return (r * 299 + g * 587 + b * 114) / 1000 > 150 ? '#000' : '#FFF';
-};
 
 export default function OrderBuilderScreen({ route, navigation }) {
   const { product } = route.params;
@@ -153,18 +146,15 @@ export default function OrderBuilderScreen({ route, navigation }) {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.bg }]}>
-      <View style={styles.header}>
-        <TouchableOpacity
-          style={[styles.backBtn, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}
-          onPress={() => navigation.goBack()}
-        >
-          <Feather name="chevron-left" size={22} color={theme.text} />
-        </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: theme.text }]} numberOfLines={1}>{product.name}</Text>
-        <View style={[styles.countBadge, { backgroundColor: theme.accent }]}>
-          <Text style={[styles.countText, { color: theme.accentText }]}>{units.length}</Text>
-        </View>
-      </View>
+      <ScreenHeader
+        title={product.name}
+        onBack={() => navigation.goBack()}
+        rightAction={
+          <View style={[styles.countBadge, { backgroundColor: theme.accent }]}>
+            <Text style={[styles.countText, { color: theme.accentText }]}>{units.length}</Text>
+          </View>
+        }
+      />
 
       {/* TAMAÑOS — de la unidad activa, adaptables */}
       {product.sizes.length > 1 && (
@@ -378,12 +368,6 @@ export default function OrderBuilderScreen({ route, navigation }) {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  header: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 16, paddingVertical: 12,
-  },
-  backBtn: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', borderWidth: 1 },
-  headerTitle: { fontSize: 16, fontWeight: '800', letterSpacing: 1, textTransform: 'uppercase', flex: 1, textAlign: 'center', marginHorizontal: 8 },
   countBadge: { minWidth: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 10 },
   countText: { fontSize: 16, fontWeight: '900' },
   sizeSection: { paddingHorizontal: 16, marginBottom: 4 },
