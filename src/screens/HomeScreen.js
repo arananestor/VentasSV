@@ -20,7 +20,7 @@ const CARD_SIZE = (width - (PADDING * 2) - CARD_GAP) / 2;
 
 export default function HomeScreen({ navigation }) {
   const {
-    products, getTodaySales, deleteProduct,
+    products, deleteProduct,
     cart, addToCart, removeFromCart, clearCart, cartTotal, cartCount,
   } = useApp();
   const { currentWorker, verifyOwnerPin } = useAuth();
@@ -39,8 +39,6 @@ export default function HomeScreen({ navigation }) {
   const [showSimpleModal, setShowSimpleModal] = useState(false);
   const [sizeQuantities, setSizeQuantities] = useState({});
 
-  const todaySales = getTodaySales();
-  const todayTotal = todaySales.reduce((sum, s) => sum + s.total, 0);
   const activeTab = getActiveTab();
   const filteredTabs = getFilteredTabs();
   const existingIds = products.map(p => p.id);
@@ -50,7 +48,7 @@ export default function HomeScreen({ navigation }) {
     : products.filter(p => activeTab.productIds.includes(p.id));
 
   const requestAdminAction = (action) => {
-    if (currentWorker?.role === 'admin') { action(); }
+    if (currentWorker?.role === 'owner' || currentWorker?.role === 'co-admin') { action(); }
     else { setPendingAction(() => action); setShowAdminPin(true); }
   };
 
@@ -232,17 +230,6 @@ export default function HomeScreen({ navigation }) {
           })}
         </ScrollView>
       </View>
-
-      <TouchableOpacity
-        style={[styles.salesBtn, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}
-        onPress={() => navigation.navigate('Sales')}
-      >
-        <View style={styles.salesInfo}>
-          <Text style={[styles.salesToday, { color: theme.text }]}>${todayTotal.toFixed(2)}</Text>
-          <Text style={[styles.salesCount, { color: theme.textSecondary }]}>{todaySales.length} ventas hoy</Text>
-        </View>
-        <Feather name="chevron-right" size={20} color={theme.textMuted} />
-      </TouchableOpacity>
 
       <ScrollView contentContainerStyle={styles.grid} showsVerticalScrollIndicator={false}>
         {tabProducts.map((product) => (
@@ -548,13 +535,6 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center', paddingHorizontal: 6,
   },
   tabCountText: { fontSize: 10, fontWeight: '800' },
-  salesBtn: {
-    flexDirection: 'row', alignItems: 'center', borderRadius: 14, padding: 14,
-    marginHorizontal: PADDING, marginBottom: 8, borderWidth: 1,
-  },
-  salesInfo: { flex: 1 },
-  salesToday: { fontSize: 24, fontWeight: '900' },
-  salesCount: { fontSize: 12, fontWeight: '600', marginTop: 2 },
   grid: {
     flexDirection: 'row', flexWrap: 'wrap',
     paddingHorizontal: PADDING, gap: CARD_GAP, paddingTop: 4,

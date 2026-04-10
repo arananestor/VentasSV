@@ -38,7 +38,7 @@ describe('PUESTOS', () => {
     expect(PUESTOS).toContain('Cocinero');
     expect(PUESTOS).toContain('Motorista');
     expect(PUESTOS).toContain('Camarero');
-    expect(PUESTOS).toContain('Co-Administrador');
+    expect(PUESTOS).toContain('Encargado');
   });
 
   it('ningún puesto está vacío', () => {
