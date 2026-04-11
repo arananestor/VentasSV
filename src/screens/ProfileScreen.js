@@ -12,6 +12,7 @@ import { useAuth, PUESTOS, PUESTO_ICONS, generatePin } from '../context/AuthCont
 import { useTheme } from '../context/ThemeContext';
 import CenterModal from '../components/CenterModal';
 import ThemedTextInput from '../components/ThemedTextInput';
+import PinKeypadModal from '../components/PinKeypadModal';
 
 export default function ProfileScreen({ navigation }) {
   const {
@@ -29,10 +30,8 @@ export default function ProfileScreen({ navigation }) {
   const [showDeleteModal, setShowDeleteModal]     = useState(false);
   const [workerToDelete, setWorkerToDelete]       = useState(null);
 
-  // Admin PIN (solo si no es owner ni co-admin accediendo a funciones de owner)
-  const [showOwnerPin, setShowOwnerPin]   = useState(false);
-  const [ownerPinInput, setOwnerPinInput] = useState('');
-  const [ownerPinError, setOwnerPinError] = useState(false);
+  // Admin PIN (solo si no es owner accediendo a funciones de owner)
+  const [showOwnerPin, setShowOwnerPin] = useState(false);
   const [pendingAdminAction, setPendingAdminAction] = useState(null);
 
   // Agregar empleado
@@ -55,15 +54,6 @@ export default function ProfileScreen({ navigation }) {
     if (currentWorker?.role === 'owner') { action(); return; }
     setPendingAdminAction(() => action);
     setShowOwnerPin(true);
-  };
-
-  const handleOwnerPinVerify = () => {
-    if (verifyOwnerPin(ownerPinInput)) {
-      setShowOwnerPin(false); setOwnerPinInput(''); setOwnerPinError(false);
-      if (pendingAdminAction) { pendingAdminAction(); setPendingAdminAction(null); }
-    } else {
-      setOwnerPinError(true); setOwnerPinInput('');
-    }
   };
 
   const handleAddWorker = async () => {
@@ -559,6 +549,18 @@ export default function ProfileScreen({ navigation }) {
           </KeyboardAvoidingView>
         </TouchableWithoutFeedback>
       </Modal>
+
+      <PinKeypadModal
+        visible={showOwnerPin}
+        onClose={() => { setShowOwnerPin(false); setPendingAdminAction(null); }}
+        onVerify={(pin) => {
+          if (verifyOwnerPin(pin)) {
+            if (pendingAdminAction) { pendingAdminAction(); setPendingAdminAction(null); }
+            return true;
+          }
+          return false;
+        }}
+      />
 
     </SafeAreaView>
   );

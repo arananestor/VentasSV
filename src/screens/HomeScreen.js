@@ -1,7 +1,7 @@
-import React, { useState, useRef } from 'react';
+import React, { useState } from 'react';
 import {
   View, Text, TouchableOpacity, ScrollView, StyleSheet,
-  Dimensions, Image, StatusBar, Alert, Modal, Animated,
+  Dimensions, Image, StatusBar, Alert, Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
@@ -11,7 +11,7 @@ import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { useTab } from '../context/TabContext';
 import ProductSticker from '../components/ProductSticker';
-import CenterModal from '../components/CenterModal';
+import PinKeypadModal from '../components/PinKeypadModal';
 
 const { width } = Dimensions.get('window');
 const CARD_GAP = 12;
@@ -31,11 +31,8 @@ export default function HomeScreen({ navigation }) {
   } = useTab();
 
   const [showAdminPin, setShowAdminPin] = useState(false);
-  const [adminPin, setAdminPin] = useState('');
-  const [adminPinError, setAdminPinError] = useState(false);
   const [pendingAction, setPendingAction] = useState(null);
   const [editMode, setEditMode] = useState(false);
-  const shakeAnim = useRef(new Animated.Value(0)).current;
 
   const isAdminUser = currentWorker?.role === 'owner' || currentWorker?.role === 'co-admin';
   const [showCart, setShowCart] = useState(false);
@@ -56,40 +53,14 @@ export default function HomeScreen({ navigation }) {
     setShowAdminPin(true);
   };
 
-  const closeAdminPin = () => {
-    setShowAdminPin(false); setAdminPin(''); setAdminPinError(false);
+  const handlePinVerified = () => {
+    if (pendingAction) pendingAction();
     setPendingAction(null);
   };
 
-  const shakePin = () => {
-    Animated.sequence([
-      Animated.timing(shakeAnim, { toValue: 10,  duration: 60, useNativeDriver: true }),
-      Animated.timing(shakeAnim, { toValue: -10, duration: 60, useNativeDriver: true }),
-      Animated.timing(shakeAnim, { toValue: 6,   duration: 50, useNativeDriver: true }),
-      Animated.timing(shakeAnim, { toValue: -6,  duration: 50, useNativeDriver: true }),
-      Animated.timing(shakeAnim, { toValue: 0,   duration: 40, useNativeDriver: true }),
-    ]).start(() => setTimeout(() => { setAdminPin(''); setAdminPinError(false); }, 300));
-  };
-
-  const handlePinPress = (num) => {
-    if (adminPin.length >= 4) return;
-    const newPin = adminPin + num;
-    setAdminPin(newPin);
-    setAdminPinError(false);
-    if (newPin.length === 4) {
-      if (verifyOwnerPin(newPin)) {
-        setShowAdminPin(false); setAdminPin(''); setAdminPinError(false);
-        if (pendingAction) pendingAction();
-        setPendingAction(null);
-      } else {
-        setAdminPinError(true);
-        shakePin();
-      }
-    }
-  };
-
-  const handlePinDelete = () => {
-    if (adminPin.length > 0) { setAdminPin(adminPin.slice(0, -1)); setAdminPinError(false); }
+  const closeAdminPin = () => {
+    setShowAdminPin(false);
+    setPendingAction(null);
   };
 
   const handleProductTap = (product) => {
@@ -463,61 +434,14 @@ export default function HomeScreen({ navigation }) {
         </TouchableOpacity>
       </Modal>
 
-      {/* ADMIN PIN — dot keypad */}
-      <CenterModal visible={showAdminPin} onClose={closeAdminPin}>
-        <View style={{ alignItems: 'center' }}>
-          <View style={[styles.adminIconWrap, { backgroundColor: theme.bg }]}>
-            <Feather name="lock" size={24} color={theme.text} />
-          </View>
-          <Text style={[styles.adminTitle, { color: theme.text }]}>AUTORIZACIÓN</Text>
-          <Text style={[styles.adminSub, { color: theme.textMuted }]}>PIN de autorización</Text>
-
-          <Animated.View style={[styles.dotsRow, { transform: [{ translateX: shakeAnim }] }]}>
-            {[0, 1, 2, 3].map(i => (
-              <View key={i} style={[
-                styles.pinDot,
-                { borderColor: adminPinError ? theme.danger : theme.textMuted },
-                i < adminPin.length && {
-                  backgroundColor: adminPinError ? theme.danger : theme.accent,
-                  borderColor: adminPinError ? theme.danger : theme.accent,
-                },
-              ]} />
-            ))}
-          </Animated.View>
-
-          {adminPinError && (
-            <Text style={[styles.pinErrorText, { color: theme.danger }]}>PIN incorrecto</Text>
-          )}
-        </View>
-
-        <View style={styles.keypad}>
-          {[['1','2','3'],['4','5','6'],['7','8','9'],['','0','⌫']].map((row, ri) => (
-            <View key={ri} style={styles.keyRow}>
-              {row.map((key, ki) => {
-                if (key === '') return <View key={`e-${ri}-${ki}`} style={styles.keyEmpty} />;
-                return (
-                  <TouchableOpacity
-                    key={`k-${ri}-${ki}`}
-                    style={[styles.key, { backgroundColor: theme.card, borderColor: theme.cardBorder },
-                      key === '⌫' && { backgroundColor: 'transparent', borderColor: 'transparent' }]}
-                    onPress={() => key === '⌫' ? handlePinDelete() : handlePinPress(key)}
-                    activeOpacity={0.6}
-                  >
-                    {key === '⌫'
-                      ? <Feather name="delete" size={20} color={theme.textMuted} />
-                      : <Text style={[styles.keyText, { color: theme.text }]}>{key}</Text>
-                    }
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-          ))}
-        </View>
-
-        <TouchableOpacity style={styles.adminCancel} onPress={closeAdminPin}>
-          <Text style={[styles.adminCancelText, { color: theme.textMuted }]}>Cancelar</Text>
-        </TouchableOpacity>
-      </CenterModal>
+      <PinKeypadModal
+        visible={showAdminPin}
+        onClose={closeAdminPin}
+        onVerify={(pin) => {
+          if (verifyOwnerPin(pin)) { handlePinVerified(); return true; }
+          return false;
+        }}
+      />
     </SafeAreaView>
   );
 }
@@ -655,17 +579,4 @@ const styles = StyleSheet.create({
   },
   simpleConfirmText: { fontSize: 16, fontWeight: '900', letterSpacing: 1 },
   simpleConfirmTotal: { fontSize: 20, fontWeight: '900' },
-  adminIconWrap: { width: 56, height: 56, borderRadius: 28, alignItems: 'center', justifyContent: 'center', marginBottom: 16 },
-  adminTitle: { fontSize: 16, fontWeight: '900', letterSpacing: 3 },
-  adminSub: { fontSize: 13, fontWeight: '600', marginTop: 6, marginBottom: 20 },
-  dotsRow: { flexDirection: 'row', gap: 18, marginBottom: 8 },
-  pinDot: { width: 16, height: 16, borderRadius: 8, borderWidth: 2 },
-  pinErrorText: { fontSize: 13, fontWeight: '700', marginTop: 12 },
-  keypad: { marginTop: 16 },
-  keyRow: { flexDirection: 'row', justifyContent: 'center', gap: 16, marginBottom: 12 },
-  key: { width: 64, height: 64, borderRadius: 32, alignItems: 'center', justifyContent: 'center', borderWidth: 1 },
-  keyEmpty: { width: 64, height: 64 },
-  keyText: { fontSize: 24, fontWeight: '600' },
-  adminCancel: { paddingVertical: 14 },
-  adminCancelText: { fontSize: 14, fontWeight: '600' },
 });
