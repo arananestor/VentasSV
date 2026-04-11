@@ -184,12 +184,6 @@ export default function HomeScreen({ navigation }) {
         </View>
         <View style={styles.headerRight}>
           <TouchableOpacity
-            style={[styles.settingsBtn, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}
-            onPress={() => requestPinAction(() => navigation.navigate('ManageTabs'))}
-          >
-            <Feather name="settings" size={16} color={theme.textMuted} />
-          </TouchableOpacity>
-          <TouchableOpacity
             style={[styles.editBtn, {
               backgroundColor: editMode ? theme.accent : theme.card,
               borderColor: editMode ? theme.accent : theme.cardBorder,
@@ -233,8 +227,20 @@ export default function HomeScreen({ navigation }) {
               </TouchableOpacity>
             );
           })}
+          <TouchableOpacity
+            style={[styles.tabManageBtn, { borderColor: theme.cardBorder }]}
+            onPress={() => requestPinAction(() => navigation.navigate('ManageTabs'))}
+          >
+            <Feather name="folder-plus" size={14} color={theme.textMuted} />
+            <Text style={[styles.tabManageText, { color: theme.textMuted }]}>Pestañas</Text>
+          </TouchableOpacity>
         </ScrollView>
       </View>
+      {filteredTabs.length <= 1 && (
+        <Text style={[styles.tabHint, { color: theme.textMuted }]}>
+          Creá pestañas para organizar tus productos por categoría
+        </Text>
+      )}
 
       <ScrollView contentContainerStyle={styles.grid} showsVerticalScrollIndicator={false}>
         {tabProducts.map((product) => (
@@ -464,7 +470,7 @@ export default function HomeScreen({ navigation }) {
             <Feather name="lock" size={24} color={theme.text} />
           </View>
           <Text style={[styles.adminTitle, { color: theme.text }]}>AUTORIZACIÓN</Text>
-          <Text style={[styles.adminSub, { color: theme.textMuted }]}>PIN de administrador</Text>
+          <Text style={[styles.adminSub, { color: theme.textMuted }]}>PIN de autorización</Text>
 
           <Animated.View style={[styles.dotsRow, { transform: [{ translateX: shakeAnim }] }]}>
             {[0, 1, 2, 3].map(i => (
@@ -526,10 +532,6 @@ const styles = StyleSheet.create({
   statusDot: { width: 10, height: 10, borderRadius: 5 },
   workerName: { fontSize: 17, fontWeight: '800' },
   headerRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  settingsBtn: {
-    width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center',
-    borderWidth: 1,
-  },
   editBtn: {
     height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center',
     borderWidth: 1, paddingHorizontal: 14,
@@ -547,6 +549,16 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center', paddingHorizontal: 6,
   },
   tabCountText: { fontSize: 10, fontWeight: '800' },
+  tabManageBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    height: 40, paddingHorizontal: 14, borderRadius: 20,
+    borderWidth: 1.5, borderStyle: 'dashed',
+  },
+  tabManageText: { fontSize: 12, fontWeight: '700' },
+  tabHint: {
+    fontSize: 12, fontWeight: '500', textAlign: 'center',
+    paddingHorizontal: PADDING, marginBottom: 6, marginTop: -2,
+  },
   grid: {
     flexDirection: 'row', flexWrap: 'wrap',
     paddingHorizontal: PADDING, gap: CARD_GAP, paddingTop: 4,
