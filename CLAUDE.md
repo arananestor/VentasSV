@@ -23,7 +23,7 @@ make dev-clear         # Start with cache cleared
 make tunnel            # Expo with tunnel (restrictive networks)
 
 # Testing
-npm test               # Run all tests (212 tests, 15 suites — must be 0 failures)
+npm test               # Run all tests (300 tests, 19 suites — must be 0 failures)
 npm run test:unit      # Unit tests only (__tests__/unit/)
 npm run test:integration  # Integration tests only (__tests__/integration/)
 npm run test:coverage  # Coverage report (70% threshold)
@@ -66,11 +66,11 @@ make update m='msg'    # OTA update to production
 ## Testing
 
 - Runner: jest-expo. Config in package.json `jest` field
-- Unit tests (`__tests__/unit/`): auth, cart, migration, products, sales, tabs, workers, businessConfig, theme, snackbar, setup, pinEntry, selectWorker
+- Unit tests (`__tests__/unit/`): auth, businessConfig, cart, displayComponents, formComponents, homeScreen, migration, pinEntry, productPermissions, products, sales, selectWorker, setup, snackbar, tabs, theme, workers
 - Integration tests (`__tests__/integration/`): payment, orders
 - Mocks in `__mocks__/` for AsyncStorage, vector-icons, safe-area-context
 - Coverage threshold: 70% on branches, functions, lines, statements
-- **Rule: 212 tests, 0 failures before any merge. No exceptions.**
+- **Rule: 300 tests (minimum), 0 failures before any merge. No exceptions.**
 
 ## Repository
 
@@ -145,6 +145,12 @@ Architecture design docs are REQUIRED before starting any major feature. Feature
 - Feature retro AFTER merge
 - Always give Nestor complete, detailed steps for each PR
 
+## Process Rules — Learned from Retros
+
+- **Role changes require global grep**: Any PR that modifies role logic must include `grep -r "role ===" src/` output in the PR description to verify no orphaned role checks exist. (Source: PRs #13, #16 — `role === 'admin'` bug appeared twice)
+- **Reuse estimation requires diff analysis**: Before extracting a component for reuse, count actual consumers at the diff level, not by visual similarity. (Source: PR #10-12 retro — StatusBadge/InfoCard had less reuse than estimated)
+- **CLAUDE.md must be verified on every PR**: Before opening any PR, read CLAUDE.md and update test counts, suite lists, and priority status if they have changed. This file is the primary context source — if it drifts, all future work drifts with it.
+
 ## UI Conventions
 
 - Functional components with hooks; contexts consumed via useContext
@@ -167,13 +173,14 @@ Before adding any feature, ask: **Does this help a business owner in El Salvador
 
 ## Current Priority — Beta v0.1
 
-1. Merge `fix/revert-react-version` → `develop` (ready, 212 tests passing)
-2. Merge `develop` → `main` (once #1 is in develop)
-3. Onboarding — solo vs team → configure available tools → lazy loading
-4. Owner dashboard — live orders, daily sales, active team
-5. ProfileScreen fixes — custom shift modal, card → profile summary, camera vs gallery, remove admin bar
-6. PinEntryScreen — adaptive dots per worker digit count
-7. Role interfaces — cajero (POS), cocinero (comandas), motorista (entregas), camarero (mesas)
-8. Cash register close — for fixed devices on shift change
-9. Feature retros — add retro for each completed feature
-10. GitHub Actions — CI/CD to run tests on every PR
+1. ~~Merge fix/revert-react-version → develop~~ ✅ Done
+2. ~~Merge develop → main~~ (Nestor decides when)
+3. ~~GitHub Actions CI/CD~~ ✅ Done (PR #7)
+4. Extract PinKeypadModal as reusable component — standardize PIN modal across all screens
+5. ProfileScreen fixes — custom shift modal, compact summary, camera vs gallery
+6. Sales date picker + historical CSV export with full columns
+7. Verify static map + geo URI flow in SaleDetailScreen
+8. Onboarding — solo vs team → configure available tools → lazy loading
+9. Owner dashboard — live orders, daily sales, active team
+10. Cash register close — for fixed devices on shift change
+11. Role interfaces — cajero (POS), cocinero (comandas), motorista (entregas), camarero (mesas)
