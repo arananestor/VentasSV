@@ -155,8 +155,8 @@ export default function AddProductScreen({ navigation }) {
 
   // ── Guardar ──
   const handleSave = async () => {
-    if (currentWorker?.role !== 'admin') {
-      Alert.alert('', 'Solo el administrador puede agregar productos'); return;
+    if (currentWorker?.role !== 'owner' && currentWorker?.role !== 'co-admin') {
+      Alert.alert('', 'Solo el dueño o encargado puede agregar productos'); return;
     }
     if (!productType) { Alert.alert('', 'Elegí el tipo de producto'); return; }
     if (!name.trim()) { Alert.alert('', 'Ponele un nombre'); return; }
