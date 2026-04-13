@@ -14,6 +14,7 @@ import { useApp } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { loadBankConfig, loadWhatsAppNumber, loadKitchenNumber, buildKitchenMessage } from '../utils/businessConfig';
+import { shouldRequestPermission, canGetLocation, buildGeoPayload } from '../utils/geoLogic';
 
 export default function PaymentScreen({ route, navigation }) {
   const { fromCart } = route.params || {};
@@ -46,17 +47,26 @@ export default function PaymentScreen({ route, navigation }) {
       setBankConfig(await loadBankConfig());
       setWaNumber(await loadWhatsAppNumber());
       setKitchenNumber(await loadKitchenNumber());
-      await Location.requestForegroundPermissionsAsync();
     })();
   }, []);
 
   const getLocation = async () => {
     try {
-      const { status } = await Location.getForegroundPermissionsAsync();
-      if (status !== 'granted') return null;
-      const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-      return { latitude: loc.coords.latitude, longitude: loc.coords.longitude, accuracy: loc.coords.accuracy };
-    } catch { return null; }
+      let { status } = await Location.getForegroundPermissionsAsync();
+      if (shouldRequestPermission(status)) {
+        const response = await Location.requestForegroundPermissionsAsync();
+        status = response.status;
+      }
+      if (!canGetLocation(status)) return null;
+      const loc = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced,
+        timeout: 5000,
+      });
+      return buildGeoPayload(loc.coords);
+    } catch (err) {
+      console.warn('[location]', err);
+      return null;
+    }
   };
 
   const handleComplete = async () => {
