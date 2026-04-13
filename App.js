@@ -8,6 +8,7 @@ import { Feather } from '@expo/vector-icons';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { AppProvider } from './src/context/AppContext';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
+import { getTabsForWorker } from './src/utils/roleConfig';
 import { ThemeProvider, useTheme } from './src/context/ThemeContext';
 import { TabProvider } from './src/context/TabContext';
 import SetupScreen from './src/screens/SetupScreen';
@@ -64,6 +65,7 @@ function MainTabs() {
   const { currentWorker } = useAuth();
   const { theme } = useTheme();
   const insets = useSafeAreaInsets();
+  const allowedTabs = getTabsForWorker(currentWorker);
 
   return (
     <Tab.Navigator
@@ -82,65 +84,73 @@ function MainTabs() {
         tabBarLabelStyle: { fontSize: 10, fontWeight: '700', letterSpacing: 0.5 },
       }}
     >
-      <Tab.Screen
-        name="Venta"
-        component={HomeStack}
-        options={{
-          tabBarIcon: ({ color }) => (
-            <MaterialCommunityIcons name="storefront-outline" size={24} color={color} />
-          ),
-        }}
-      />
-      <Tab.Screen
-        name="Comandas"
-        component={OrdersScreen}
-        options={{
-          tabBarIcon: ({ color }) => (
-            <MaterialCommunityIcons name="clipboard-list-outline" size={24} color={color} />
-          ),
-        }}
-      />
-      <Tab.Screen
-        name="Ventas"
-        component={SalesStack}
-        options={{
-          tabBarIcon: ({ color }) => (
-            <Feather name="bar-chart-2" size={22} color={color} />
-          ),
-        }}
-      />
-      <Tab.Screen
-        name="Perfil"
-        component={ProfileStack}
-        options={{
-          tabBarIcon: () => (
-            currentWorker?.photo ? (
-              <Image
-                source={{ uri: currentWorker.photo }}
-                style={{ width: 28, height: 28, borderRadius: 14 }}
-              />
-            ) : (
-              <View style={{
-                width: 28, height: 28, borderRadius: 14,
-                backgroundColor: theme.mode === 'dark' ? '#fff' : '#000',
-                alignItems: 'center', justifyContent: 'center',
-              }}>
-                <Text style={{
-                  color: theme.mode === 'dark' ? '#000' : '#fff',
-                  fontSize: 12, fontWeight: '900',
+      {allowedTabs.includes('Venta') && (
+        <Tab.Screen
+          name="Venta"
+          component={HomeStack}
+          options={{
+            tabBarIcon: ({ color }) => (
+              <MaterialCommunityIcons name="storefront-outline" size={24} color={color} />
+            ),
+          }}
+        />
+      )}
+      {allowedTabs.includes('Comandas') && (
+        <Tab.Screen
+          name="Comandas"
+          component={OrdersScreen}
+          options={{
+            tabBarIcon: ({ color }) => (
+              <MaterialCommunityIcons name="clipboard-list-outline" size={24} color={color} />
+            ),
+          }}
+        />
+      )}
+      {allowedTabs.includes('Ventas') && (
+        <Tab.Screen
+          name="Ventas"
+          component={SalesStack}
+          options={{
+            tabBarIcon: ({ color }) => (
+              <Feather name="bar-chart-2" size={22} color={color} />
+            ),
+          }}
+        />
+      )}
+      {allowedTabs.includes('Perfil') && (
+        <Tab.Screen
+          name="Perfil"
+          component={ProfileStack}
+          options={{
+            tabBarIcon: () => (
+              currentWorker?.photo ? (
+                <Image
+                  source={{ uri: currentWorker.photo }}
+                  style={{ width: 28, height: 28, borderRadius: 14 }}
+                />
+              ) : (
+                <View style={{
+                  width: 28, height: 28, borderRadius: 14,
+                  backgroundColor: theme.mode === 'dark' ? '#fff' : '#000',
+                  alignItems: 'center', justifyContent: 'center',
                 }}>
-                  {currentWorker?.name?.charAt(0)?.toUpperCase() || '?'}
-                </Text>
-              </View>
-            )
-          ),
-          tabBarLabel: ({ focused, color }) => (
-            <Text style={{ fontSize: 10, fontWeight: '700', color, marginTop: -2 }}>
-              {currentWorker?.name?.split(' ')[0] || 'Perfil'}
-            </Text>
-          ),
-        }}
-      />
+                  <Text style={{
+                    color: theme.mode === 'dark' ? '#000' : '#fff',
+                    fontSize: 12, fontWeight: '900',
+                  }}>
+                    {currentWorker?.name?.charAt(0)?.toUpperCase() || '?'}
+                  </Text>
+                </View>
+              )
+            ),
+            tabBarLabel: ({ focused, color }) => (
+              <Text style={{ fontSize: 10, fontWeight: '700', color, marginTop: -2 }}>
+                {currentWorker?.name?.split(' ')[0] || 'Perfil'}
+              </Text>
+            ),
+          }}
+        />
+      )}
     </Tab.Navigator>
   );
 }
