@@ -29,6 +29,14 @@ export default {
     web: {
       favicon: "./assets/favicon.png",
     },
+    plugins: [
+      [
+        "expo-location",
+        {
+          locationWhenInUsePermission: "VentasSV usa tu ubicación para registrar dónde se realizó cada venta. Esta información solo se guarda localmente en tu dispositivo.",
+        },
+      ],
+    ],
     extra: {
       googleMapsKey: process.env.GOOGLE_MAPS_KEY,
       eas: {
