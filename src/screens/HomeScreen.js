@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
   View, Text, TouchableOpacity, ScrollView, StyleSheet,
-  Dimensions, Image, StatusBar, Alert, Modal, TextInput,
+  Dimensions, Image, StatusBar, Alert, Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
@@ -11,6 +11,7 @@ import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { useTab } from '../context/TabContext';
 import ProductSticker from '../components/ProductSticker';
+import PinKeypadModal from '../components/PinKeypadModal';
 
 const { width } = Dimensions.get('window');
 const CARD_GAP = 12;
@@ -19,27 +20,26 @@ const CARD_SIZE = (width - (PADDING * 2) - CARD_GAP) / 2;
 
 export default function HomeScreen({ navigation }) {
   const {
-    products, getTodaySales, deleteProduct,
+    products, deleteProduct,
     cart, addToCart, removeFromCart, clearCart, cartTotal, cartCount,
   } = useApp();
   const { currentWorker, verifyOwnerPin } = useAuth();
   const { theme } = useTheme();
   const {
-    tabs, activeTabId, filterType, getActiveTab, getFilteredTabs,
-    selectTab, setFilterType, removeProductFromTab, removeProductFromAllTabs,
+    tabs, activeTabId, getActiveTab, getFilteredTabs,
+    selectTab, removeProductFromTab, removeProductFromAllTabs,
   } = useTab();
 
   const [showAdminPin, setShowAdminPin] = useState(false);
-  const [adminPinInput, setAdminPinInput] = useState('');
   const [pendingAction, setPendingAction] = useState(null);
   const [editMode, setEditMode] = useState(false);
+
+  const isAdminUser = currentWorker?.role === 'owner' || currentWorker?.role === 'co-admin';
   const [showCart, setShowCart] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [showSimpleModal, setShowSimpleModal] = useState(false);
   const [sizeQuantities, setSizeQuantities] = useState({});
 
-  const todaySales = getTodaySales();
-  const todayTotal = todaySales.reduce((sum, s) => sum + s.total, 0);
   const activeTab = getActiveTab();
   const filteredTabs = getFilteredTabs();
   const existingIds = products.map(p => p.id);
@@ -48,17 +48,19 @@ export default function HomeScreen({ navigation }) {
     ? products
     : products.filter(p => activeTab.productIds.includes(p.id));
 
-  const requestAdminAction = (action) => {
-    if (currentWorker?.role === 'admin') { action(); }
-    else { setPendingAction(() => action); setShowAdminPin(true); }
+  const requestPinAction = (action) => {
+    setPendingAction(() => action);
+    setShowAdminPin(true);
   };
 
-  const handleAdminVerify = () => {
-    if (verifyOwnerPin(adminPinInput)) {
-      setShowAdminPin(false); setAdminPinInput('');
-      if (pendingAction) pendingAction();
-      setPendingAction(null);
-    } else { Alert.alert('', 'PIN incorrecto'); setAdminPinInput(''); }
+  const handlePinVerified = () => {
+    if (pendingAction) pendingAction();
+    setPendingAction(null);
+  };
+
+  const closeAdminPin = () => {
+    setShowAdminPin(false);
+    setPendingAction(null);
   };
 
   const handleProductTap = (product) => {
@@ -130,7 +132,8 @@ export default function HomeScreen({ navigation }) {
 
   const toggleEditMode = () => {
     if (editMode) setEditMode(false);
-    else requestAdminAction(() => setEditMode(true));
+    else if (isAdminUser) setEditMode(true);
+    else requestPinAction(() => setEditMode(true));
   };
 
   const handleCheckout = () => {
@@ -139,20 +142,16 @@ export default function HomeScreen({ navigation }) {
     navigation.navigate('Payment', { fromCart: true });
   };
 
-  const filterIcons = {
-    all: { name: 'view-grid' },
-    fixed: { name: 'map-marker' },
-    event: { name: 'calendar-star' },
-  };
-
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.bg }]}>
       <StatusBar barStyle={theme.statusBar} backgroundColor={theme.bg} />
 
       <View style={styles.header}>
-        <View>
-          <Text style={[styles.logo, { color: theme.text }]}>VENTASSV</Text>
-          <Text style={[styles.logoSub, { color: theme.textMuted }]}>PUNTO DE VENTA</Text>
+        <View style={styles.headerLeft}>
+          <View style={[styles.statusDot, { backgroundColor: theme.success }]} />
+          <Text style={[styles.workerName, { color: theme.text }]} numberOfLines={1}>
+            {currentWorker?.name}
+          </Text>
         </View>
         <View style={styles.headerRight}>
           <TouchableOpacity
@@ -170,38 +169,8 @@ export default function HomeScreen({ navigation }) {
         </View>
       </View>
 
-      <View style={styles.workerBar}>
-        <View style={[styles.workerDot, { backgroundColor: theme.dot }]} />
-        <Text style={[styles.workerText, { color: theme.textSecondary }]}>
-          En turno: <Text style={[styles.workerName, { color: theme.text }]}>{currentWorker?.name}</Text>
-        </Text>
-      </View>
-
-      <View style={styles.filterRow}>
-        {['all', 'fixed', 'event'].map(f => (
-          <TouchableOpacity key={f}
-            style={[styles.filterBtn, { backgroundColor: theme.card, borderColor: theme.cardBorder },
-              filterType === f && { backgroundColor: theme.accent, borderColor: theme.accent }]}
-            onPress={() => setFilterType(f)}
-          >
-            <MaterialCommunityIcons
-              name={filterIcons[f].name}
-              size={14}
-              color={filterType === f ? theme.accentText : theme.textSecondary}
-            />
-            <Text style={[styles.filterText, { color: theme.textSecondary },
-              filterType === f && { color: theme.accentText }]}>
-              {f === 'all' ? 'Todos' : f === 'fixed' ? 'Fijos' : 'Eventos'}
-            </Text>
-          </TouchableOpacity>
-        ))}
-        <TouchableOpacity
-          style={[styles.filterBtn, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}
-          onPress={() => requestAdminAction(() => navigation.navigate('ManageTabs'))}
-        >
-          <Feather name="settings" size={14} color={theme.textMuted} />
-        </TouchableOpacity>
-      </View>
+      {/* Filter tabs hidden for beta — reactivate post-beta */}
+      {/* <View style={styles.filterRow}>...</View> */}
 
       <View style={styles.tabBarWrapper}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabBar}>
@@ -229,19 +198,20 @@ export default function HomeScreen({ navigation }) {
               </TouchableOpacity>
             );
           })}
+          <TouchableOpacity
+            style={[styles.tabManageBtn, { borderColor: theme.cardBorder }]}
+            onPress={() => requestPinAction(() => navigation.navigate('ManageTabs'))}
+          >
+            <Feather name="folder-plus" size={14} color={theme.textMuted} />
+            <Text style={[styles.tabManageText, { color: theme.textMuted }]}>Pestañas</Text>
+          </TouchableOpacity>
         </ScrollView>
       </View>
-
-      <TouchableOpacity
-        style={[styles.salesBtn, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}
-        onPress={() => navigation.navigate('Sales')}
-      >
-        <View style={styles.salesInfo}>
-          <Text style={[styles.salesToday, { color: theme.text }]}>${todayTotal.toFixed(2)}</Text>
-          <Text style={[styles.salesCount, { color: theme.textSecondary }]}>{todaySales.length} ventas hoy</Text>
-        </View>
-        <Feather name="chevron-right" size={20} color={theme.textMuted} />
-      </TouchableOpacity>
+      {filteredTabs.length <= 1 && (
+        <Text style={[styles.tabHint, { color: theme.textMuted }]}>
+          Creá pestañas para organizar tus productos por categoría
+        </Text>
+      )}
 
       <ScrollView contentContainerStyle={styles.grid} showsVerticalScrollIndicator={false}>
         {tabProducts.map((product) => (
@@ -286,7 +256,7 @@ export default function HomeScreen({ navigation }) {
         <TouchableOpacity
           style={[styles.addCard, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}
           activeOpacity={0.8}
-          onPress={() => requestAdminAction(() => navigation.navigate('AddProduct'))}
+          onPress={() => isAdminUser ? navigation.navigate('AddProduct') : requestPinAction(() => navigation.navigate('AddProduct'))}
         >
           <View style={[styles.addPlus, { backgroundColor: theme.mode === 'dark' ? '#222' : '#F0F0F0' }]}>
             <Feather name="plus" size={28} color={theme.textMuted} />
@@ -464,45 +434,14 @@ export default function HomeScreen({ navigation }) {
         </TouchableOpacity>
       </Modal>
 
-      {/* ADMIN PIN */}
-      <Modal visible={showAdminPin} transparent animationType="fade">
-        <View style={[styles.adminOverlay, { backgroundColor: theme.overlay }]}>
-          <View style={[styles.adminModal, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
-            <View style={[styles.adminIconWrap, { backgroundColor: theme.bg }]}>
-              <Feather name="lock" size={24} color={theme.text} />
-            </View>
-            <Text style={[styles.adminTitle, { color: theme.text }]}>AUTORIZACIÓN</Text>
-            <Text style={[styles.adminSub, { color: theme.textMuted }]}>PIN de administrador</Text>
-            <TextInput
-              style={[styles.adminInput, {
-                backgroundColor: theme.input,
-                borderColor: theme.inputBorder,
-                color: theme.text,
-              }]}
-              value={adminPinInput}
-              onChangeText={setAdminPinInput}
-              placeholder="PIN"
-              placeholderTextColor={theme.textMuted}
-              keyboardType="numeric"
-              secureTextEntry
-              maxLength={8}
-              autoFocus
-            />
-            <TouchableOpacity
-              style={[styles.adminBtn, { backgroundColor: theme.accent }]}
-              onPress={handleAdminVerify}
-            >
-              <Text style={[styles.adminBtnText, { color: theme.accentText }]}>VERIFICAR</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.adminCancel}
-              onPress={() => { setShowAdminPin(false); setAdminPinInput(''); setPendingAction(null); }}
-            >
-              <Text style={[styles.adminCancelText, { color: theme.textMuted }]}>Cancelar</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
+      <PinKeypadModal
+        visible={showAdminPin}
+        onClose={closeAdminPin}
+        onVerify={(pin) => {
+          if (verifyOwnerPin(pin)) { handlePinVerified(); return true; }
+          return false;
+        }}
+      />
     </SafeAreaView>
   );
 }
@@ -511,29 +450,17 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   header: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    paddingHorizontal: PADDING, paddingTop: 12,
+    paddingHorizontal: PADDING, paddingTop: 12, paddingBottom: 10,
   },
-  logo: { fontSize: 26, fontWeight: '900', letterSpacing: 5 },
-  logoSub: { fontSize: 10, fontWeight: '600', letterSpacing: 4, marginTop: 2 },
-  headerRight: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  headerLeft: { flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 },
+  statusDot: { width: 10, height: 10, borderRadius: 5 },
+  workerName: { fontSize: 17, fontWeight: '800' },
+  headerRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   editBtn: {
     height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center',
     borderWidth: 1, paddingHorizontal: 14,
   },
   editBtnText: { fontSize: 13, fontWeight: '700' },
-  workerBar: {
-    flexDirection: 'row', alignItems: 'center',
-    paddingHorizontal: PADDING, paddingTop: 10, paddingBottom: 6, gap: 8,
-  },
-  workerDot: { width: 8, height: 8, borderRadius: 4 },
-  workerText: { fontSize: 13, fontWeight: '600' },
-  workerName: { fontWeight: '800' },
-  filterRow: { flexDirection: 'row', gap: 6, paddingHorizontal: PADDING, paddingBottom: 8 },
-  filterBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: 5,
-    paddingHorizontal: 12, paddingVertical: 7, borderRadius: 10, borderWidth: 1,
-  },
-  filterText: { fontSize: 12, fontWeight: '700' },
   tabBarWrapper: { height: 48, marginBottom: 6 },
   tabBar: { paddingHorizontal: PADDING, alignItems: 'center', gap: 8 },
   tabPill: {
@@ -546,13 +473,16 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center', paddingHorizontal: 6,
   },
   tabCountText: { fontSize: 10, fontWeight: '800' },
-  salesBtn: {
-    flexDirection: 'row', alignItems: 'center', borderRadius: 14, padding: 14,
-    marginHorizontal: PADDING, marginBottom: 8, borderWidth: 1,
+  tabManageBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    height: 40, paddingHorizontal: 14, borderRadius: 20,
+    borderWidth: 1.5, borderStyle: 'dashed',
   },
-  salesInfo: { flex: 1 },
-  salesToday: { fontSize: 24, fontWeight: '900' },
-  salesCount: { fontSize: 12, fontWeight: '600', marginTop: 2 },
+  tabManageText: { fontSize: 12, fontWeight: '700' },
+  tabHint: {
+    fontSize: 12, fontWeight: '500', textAlign: 'center',
+    paddingHorizontal: PADDING, marginBottom: 6, marginTop: -2,
+  },
   grid: {
     flexDirection: 'row', flexWrap: 'wrap',
     paddingHorizontal: PADDING, gap: CARD_GAP, paddingTop: 4,
@@ -649,17 +579,4 @@ const styles = StyleSheet.create({
   },
   simpleConfirmText: { fontSize: 16, fontWeight: '900', letterSpacing: 1 },
   simpleConfirmTotal: { fontSize: 20, fontWeight: '900' },
-  adminOverlay: { flex: 1, justifyContent: 'center', paddingHorizontal: 24 },
-  adminModal: { borderRadius: 20, padding: 24, borderWidth: 1, alignItems: 'center' },
-  adminIconWrap: { width: 56, height: 56, borderRadius: 28, alignItems: 'center', justifyContent: 'center', marginBottom: 16 },
-  adminTitle: { fontSize: 16, fontWeight: '900', letterSpacing: 3 },
-  adminSub: { fontSize: 13, fontWeight: '600', marginTop: 6, marginBottom: 20 },
-  adminInput: {
-    width: '100%', borderRadius: 12, paddingHorizontal: 16, paddingVertical: 14,
-    fontSize: 22, fontWeight: '700', borderWidth: 1, textAlign: 'center', letterSpacing: 6,
-  },
-  adminBtn: { width: '100%', borderRadius: 14, paddingVertical: 16, alignItems: 'center', marginTop: 16 },
-  adminBtnText: { fontSize: 15, fontWeight: '900', letterSpacing: 2 },
-  adminCancel: { paddingVertical: 14 },
-  adminCancelText: { fontSize: 14, fontWeight: '600' },
 });

@@ -11,6 +11,9 @@ import { useApp } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { useTab } from '../context/TabContext';
+import ScreenHeader from '../components/ScreenHeader';
+import PrimaryButton from '../components/PrimaryButton';
+import BottomSheetModal from '../components/BottomSheetModal';
 
 const FOOD_ICONS = [
   'food', 'food-outline', 'food-variant', 'food-fork-drink',
@@ -152,8 +155,8 @@ export default function AddProductScreen({ navigation }) {
 
   // ── Guardar ──
   const handleSave = async () => {
-    if (currentWorker?.role !== 'admin') {
-      Alert.alert('', 'Solo el administrador puede agregar productos'); return;
+    if (currentWorker?.role !== 'owner' && currentWorker?.role !== 'co-admin') {
+      Alert.alert('', 'Solo el dueño o encargado puede agregar productos'); return;
     }
     if (!productType) { Alert.alert('', 'Elegí el tipo de producto'); return; }
     if (!name.trim()) { Alert.alert('', 'Ponele un nombre'); return; }
@@ -200,16 +203,7 @@ export default function AddProductScreen({ navigation }) {
   if (!productType) {
     return (
       <SafeAreaView style={[styles.container, { backgroundColor: theme.bg }]}>
-        <View style={styles.header}>
-          <TouchableOpacity
-            style={[styles.backBtn, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}
-            onPress={() => navigation.goBack()}
-          >
-            <Feather name="chevron-left" size={22} color={theme.text} />
-          </TouchableOpacity>
-          <Text style={[styles.headerTitle, { color: theme.text }]}>NUEVO PRODUCTO</Text>
-          <View style={{ width: 44 }} />
-        </View>
+        <ScreenHeader title="NUEVO PRODUCTO" onBack={() => navigation.goBack()} />
 
         <View style={styles.typeScreen}>
           <Text style={[styles.typeTitle, { color: theme.text }]}>¿Qué tipo de producto es?</Text>
@@ -260,18 +254,10 @@ export default function AddProductScreen({ navigation }) {
   // ── Formulario principal ──
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.bg }]}>
-      <View style={styles.header}>
-        <TouchableOpacity
-          style={[styles.backBtn, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}
-          onPress={() => setProductType(null)}
-        >
-          <Feather name="chevron-left" size={22} color={theme.text} />
-        </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: theme.text }]}>
-          {productType === 'simple' ? 'PRODUCTO SIMPLE' : 'PRODUCTO ELABORADO'}
-        </Text>
-        <View style={{ width: 44 }} />
-      </View>
+      <ScreenHeader
+        title={productType === 'simple' ? 'PRODUCTO SIMPLE' : 'PRODUCTO ELABORADO'}
+        onBack={() => setProductType(null)}
+      />
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
 
@@ -566,21 +552,15 @@ export default function AddProductScreen({ navigation }) {
       </ScrollView>
 
       <View style={[styles.bottomBar, { backgroundColor: theme.bg, borderColor: theme.cardBorder }]}>
-        <TouchableOpacity style={[styles.saveBtn, { backgroundColor: theme.accent }]} onPress={handleSave}>
-          <Text style={[styles.saveText, { color: theme.accentText }]}>GUARDAR</Text>
-        </TouchableOpacity>
+        <PrimaryButton label="GUARDAR" onPress={handleSave} />
       </View>
 
       {/* ICON PICKER — producto */}
-      <Modal visible={showIconPicker} transparent animationType="slide">
-        <View style={[styles.sheetOverlay, { backgroundColor: theme.overlay }]}>
-          <View style={[styles.sheetModal, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
-            <View style={styles.sheetHeader}>
-              <Text style={[styles.sheetTitle, { color: theme.text }]}>ÍCONO DEL PRODUCTO</Text>
-              <TouchableOpacity onPress={() => setShowIconPicker(false)}>
-                <Feather name="x" size={22} color={theme.textMuted} />
-              </TouchableOpacity>
-            </View>
+      <BottomSheetModal
+        visible={showIconPicker}
+        onClose={() => setShowIconPicker(false)}
+        title="ÍCONO DEL PRODUCTO"
+      >
             <FlatList
               data={FOOD_ICONS}
               numColumns={6}
@@ -601,20 +581,14 @@ export default function AddProductScreen({ navigation }) {
                 );
               }}
             />
-          </View>
-        </View>
-      </Modal>
+      </BottomSheetModal>
 
       {/* ICON PICKER — ingrediente */}
-      <Modal visible={showIngredientIconPicker} transparent animationType="slide">
-        <View style={[styles.sheetOverlay, { backgroundColor: theme.overlay }]}>
-          <View style={[styles.sheetModal, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
-            <View style={styles.sheetHeader}>
-              <Text style={[styles.sheetTitle, { color: theme.text }]}>ÍCONO DEL INGREDIENTE</Text>
-              <TouchableOpacity onPress={() => setShowIngredientIconPicker(false)}>
-                <Feather name="x" size={22} color={theme.textMuted} />
-              </TouchableOpacity>
-            </View>
+      <BottomSheetModal
+        visible={showIngredientIconPicker}
+        onClose={() => setShowIngredientIconPicker(false)}
+        title="ÍCONO DEL INGREDIENTE"
+      >
             <FlatList
               data={FOOD_ICONS}
               numColumns={6}
@@ -641,9 +615,7 @@ export default function AddProductScreen({ navigation }) {
                 );
               }}
             />
-          </View>
-        </View>
-      </Modal>
+      </BottomSheetModal>
 
       {/* COLOR FONDO PRODUCTO */}
       <Modal visible={showColorPicker} transparent animationType="fade">
@@ -724,13 +696,6 @@ export default function AddProductScreen({ navigation }) {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  header: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 16, paddingVertical: 12,
-  },
-  backBtn: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', borderWidth: 1 },
-  headerTitle: { fontSize: 14, fontWeight: '800', letterSpacing: 3 },
-
   // Selector de tipo
   typeScreen: { flex: 1, paddingHorizontal: 20, paddingTop: 32, gap: 16 },
   typeTitle: { fontSize: 22, fontWeight: '900', marginBottom: 4 },
@@ -817,15 +782,6 @@ const styles = StyleSheet.create({
 
   // Modales
   bottomBar: { position: 'absolute', bottom: 0, left: 0, right: 0, padding: 16, paddingBottom: 34, borderTopWidth: 1 },
-  saveBtn: { borderRadius: 16, paddingVertical: 18, alignItems: 'center' },
-  saveText: { fontSize: 18, fontWeight: '900', letterSpacing: 3 },
-  sheetOverlay: { flex: 1, justifyContent: 'flex-end' },
-  sheetModal: { borderTopLeftRadius: 24, borderTopRightRadius: 24, borderWidth: 1, maxHeight: '78%' },
-  sheetHeader: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 20, paddingVertical: 18,
-  },
-  sheetTitle: { fontSize: 13, fontWeight: '800', letterSpacing: 2 },
   iconGrid: { paddingHorizontal: 8, paddingBottom: 40 },
   iconGridBtn: {
     width: ICON_BTN_SIZE, height: ICON_BTN_SIZE,

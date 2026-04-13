@@ -1,11 +1,14 @@
 import React, { useState } from 'react';
 import {
-  View, Text, TouchableOpacity, ScrollView, StyleSheet,
-   TextInput, Alert, Modal,
+  View, Text, TouchableOpacity, ScrollView, StyleSheet, Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTab } from '../context/TabContext';
 import { useTheme } from '../context/ThemeContext';
+import ScreenHeader from '../components/ScreenHeader';
+import PrimaryButton from '../components/PrimaryButton';
+import CenterModal from '../components/CenterModal';
+import ThemedTextInput from '../components/ThemedTextInput';
 
 const TAB_COLORS = [
   '#FFFFFF', '#FF6B6B', '#4ECDC4', '#45B7D1',
@@ -58,18 +61,12 @@ export default function ManageTabsScreen({ navigation }) {
   };
 
   const renderForm = (onSave, saveLabel) => (
-    <View style={[styles.modal, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
-      <Text style={[styles.modalTitle, { color: theme.text }]}>
-        {saveLabel === 'GUARDAR' ? 'EDITAR PESTAÑA' : 'NUEVA PESTAÑA'}
-      </Text>
-
-      <Text style={[styles.formLabel, { color: theme.textMuted }]}>NOMBRE</Text>
-      <TextInput
-        style={[styles.formInput, { backgroundColor: theme.input, borderColor: theme.inputBorder, color: theme.text }]}
+    <>
+      <ThemedTextInput
+        label="NOMBRE"
         value={name}
         onChangeText={setName}
         placeholder="Ej: Feria de Agosto"
-        placeholderTextColor={theme.textMuted}
         autoFocus
       />
 
@@ -109,31 +106,28 @@ export default function ManageTabsScreen({ navigation }) {
         ))}
       </View>
 
-      <TouchableOpacity style={[styles.saveBtn, { backgroundColor: theme.accent }]} onPress={onSave}>
-        <Text style={[styles.saveBtnText, { color: theme.accentText }]}>{saveLabel}</Text>
-      </TouchableOpacity>
+      <PrimaryButton label={saveLabel} onPress={onSave} />
       <TouchableOpacity style={styles.cancelBtn}
         onPress={() => { setShowAdd(false); setShowEdit(null); resetForm(); }}>
         <Text style={[styles.cancelText, { color: theme.textMuted }]}>Cancelar</Text>
       </TouchableOpacity>
-    </View>
+    </>
   );
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.bg }]}>
-      <View style={styles.header}>
-        <TouchableOpacity style={[styles.backBtn, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}
-          onPress={() => navigation.goBack()}>
-          <Text style={[styles.backText, { color: theme.text }]}>‹</Text>
-        </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: theme.text }]}>PESTAÑAS</Text>
-        <TouchableOpacity
-          style={[styles.addBtn, { backgroundColor: theme.accent }]}
-          onPress={() => { resetForm(); setShowAdd(true); }}
-        >
-          <Text style={[styles.addBtnText, { color: theme.accentText }]}>+</Text>
-        </TouchableOpacity>
-      </View>
+      <ScreenHeader
+        title="PESTAÑAS"
+        onBack={() => navigation.goBack()}
+        rightAction={
+          <TouchableOpacity
+            style={[styles.addBtn, { backgroundColor: theme.accent }]}
+            onPress={() => { resetForm(); setShowAdd(true); }}
+          >
+            <Text style={[styles.addBtnText, { color: theme.accentText }]}>+</Text>
+          </TouchableOpacity>
+        }
+      />
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         {tabs.map((tab) => (
@@ -169,31 +163,28 @@ export default function ManageTabsScreen({ navigation }) {
       </ScrollView>
 
       {/* Add Modal */}
-      <Modal visible={showAdd} transparent animationType="fade">
-        <View style={[styles.modalOverlay, { backgroundColor: theme.overlay }]}>
-          {renderForm(handleAdd, 'CREAR')}
-        </View>
-      </Modal>
+      <CenterModal
+        visible={showAdd}
+        onClose={() => { setShowAdd(false); resetForm(); }}
+        title="NUEVA PESTAÑA"
+      >
+        {renderForm(handleAdd, 'CREAR')}
+      </CenterModal>
 
       {/* Edit Modal */}
-      <Modal visible={showEdit !== null} transparent animationType="fade">
-        <View style={[styles.modalOverlay, { backgroundColor: theme.overlay }]}>
-          {renderForm(handleUpdate, 'GUARDAR')}
-        </View>
-      </Modal>
+      <CenterModal
+        visible={showEdit !== null}
+        onClose={() => { setShowEdit(null); resetForm(); }}
+        title="EDITAR PESTAÑA"
+      >
+        {renderForm(handleUpdate, 'GUARDAR')}
+      </CenterModal>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  header: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 16, paddingVertical: 12,
-  },
-  backBtn: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', borderWidth: 1 },
-  backText: { fontSize: 24, fontWeight: '300', marginTop: -2 },
-  headerTitle: { fontSize: 14, fontWeight: '800', letterSpacing: 3 },
   addBtn: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
   addBtnText: { fontSize: 24, fontWeight: '600' },
   scroll: { paddingHorizontal: 16, paddingBottom: 40 },
@@ -211,14 +202,7 @@ const styles = StyleSheet.create({
   deleteBtn: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
   deleteBtnText: { color: '#FF3B30', fontSize: 14, fontWeight: '700' },
   chevron: { fontSize: 20, fontWeight: '300' },
-  modalOverlay: { flex: 1, justifyContent: 'center', paddingHorizontal: 24 },
-  modal: { borderRadius: 20, padding: 24, borderWidth: 1 },
-  modalTitle: { fontSize: 16, fontWeight: '900', letterSpacing: 3, textAlign: 'center', marginBottom: 20 },
   formLabel: { fontSize: 11, fontWeight: '800', letterSpacing: 3, marginTop: 16, marginBottom: 8 },
-  formInput: {
-    borderRadius: 12, paddingHorizontal: 16, paddingVertical: 14,
-    fontSize: 16, fontWeight: '600', borderWidth: 1,
-  },
   typeRow: { flexDirection: 'row', gap: 10 },
   typeBtn: {
     flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
@@ -234,8 +218,6 @@ const styles = StyleSheet.create({
   },
   colorBtnActive: { borderColor: '#000', borderWidth: 3 },
   colorCheck: { fontSize: 16, fontWeight: '900', color: '#000' },
-  saveBtn: { borderRadius: 14, paddingVertical: 16, alignItems: 'center', marginTop: 20 },
-  saveBtnText: { fontSize: 15, fontWeight: '900', letterSpacing: 2 },
   cancelBtn: { paddingVertical: 14, alignItems: 'center' },
   cancelText: { fontSize: 14, fontWeight: '600' },
 });

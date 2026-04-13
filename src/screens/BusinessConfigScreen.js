@@ -8,6 +8,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import { Feather } from '@expo/vector-icons';
 import { useTheme } from '../context/ThemeContext';
+import ScreenHeader from '../components/ScreenHeader';
+import PrimaryButton from '../components/PrimaryButton';
+import ThemedTextInput from '../components/ThemedTextInput';
 import {
   saveBankConfig, loadBankConfig,
   saveWhatsAppNumber, loadWhatsAppNumber,
@@ -79,16 +82,7 @@ export default function BusinessConfigScreen({ navigation }) {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.bg }]}>
-      <View style={styles.header}>
-        <TouchableOpacity
-          style={[styles.backBtn, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}
-          onPress={() => navigation.goBack()}
-        >
-          <Feather name="chevron-left" size={22} color={theme.text} />
-        </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: theme.text }]}>CONFIGURACIÓN DE COBRO</Text>
-        <View style={{ width: 44 }} />
-      </View>
+      <ScreenHeader title="CONFIGURACIÓN DE COBRO" onBack={() => navigation.goBack()} />
 
       <KeyboardAvoidingView
         style={{ flex: 1 }}
@@ -121,18 +115,14 @@ export default function BusinessConfigScreen({ navigation }) {
           {/* WHATSAPP */}
           <View style={styles.section}>
             <Text style={[styles.sectionLabel, { color: theme.textMuted }]}>WHATSAPP DEL NEGOCIO</Text>
-            <View style={[styles.inputRow, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
-              <Text style={[styles.prefix, { color: theme.textMuted }]}>+503</Text>
-              <TextInput
-                style={[styles.input, { color: theme.text }]}
-                value={waNumber}
-                onChangeText={setWaNumber}
-                placeholder="7000-0000"
-                placeholderTextColor={theme.textMuted}
-                keyboardType="phone-pad"
-                maxLength={12}
-              />
-            </View>
+            <ThemedTextInput
+              value={waNumber}
+              onChangeText={setWaNumber}
+              placeholder="7000-0000"
+              prefix="+503"
+              keyboardType="phone-pad"
+              maxLength={12}
+            />
             {waComplete && (
               <View style={styles.benefitList}>
                 {[
@@ -157,16 +147,11 @@ export default function BusinessConfigScreen({ navigation }) {
               { placeholder: 'Titular de la cuenta', value: holder, setter: setHolder, max: 60 },
               { placeholder: 'Número de cuenta', value: account, setter: setAccount, max: 30, numeric: true },
             ].map((f, i) => (
-              <View key={i} style={[styles.inputRow, {
-                backgroundColor: theme.card, borderColor: theme.cardBorder,
-                marginTop: i === 0 ? 0 : 8,
-              }]}>
-                <TextInput
-                  style={[styles.inputFull, { color: theme.text }]}
+              <View key={i} style={i > 0 ? { marginTop: 8 } : undefined}>
+                <ThemedTextInput
                   value={f.value}
                   onChangeText={f.setter}
                   placeholder={f.placeholder}
-                  placeholderTextColor={theme.textMuted}
                   keyboardType={f.numeric ? 'numeric' : 'default'}
                   maxLength={f.max}
                 />
@@ -205,16 +190,12 @@ export default function BusinessConfigScreen({ navigation }) {
       </KeyboardAvoidingView>
 
       <View style={[styles.bottomBar, { backgroundColor: theme.bg, borderColor: theme.cardBorder }]}>
-        <TouchableOpacity
-          style={[styles.saveBtn, { backgroundColor: theme.accent }]}
-          onPress={handleSave}
-          disabled={saving}
-        >
-          {saving
-            ? <ActivityIndicator color={theme.accentText} />
-            : <Text style={[styles.saveBtnText, { color: theme.accentText }]}>GUARDAR</Text>
-          }
-        </TouchableOpacity>
+        {saving
+          ? <View style={[styles.loadingBtn, { backgroundColor: theme.accent }]}>
+              <ActivityIndicator color={theme.accentText} />
+            </View>
+          : <PrimaryButton label="GUARDAR" onPress={handleSave} disabled={saving} />
+        }
       </View>
     </SafeAreaView>
   );
@@ -222,12 +203,6 @@ export default function BusinessConfigScreen({ navigation }) {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  header: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 16, paddingVertical: 12,
-  },
-  backBtn: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', borderWidth: 1 },
-  headerTitle: { fontSize: 12, fontWeight: '800', letterSpacing: 2 },
   scroll: { paddingHorizontal: 16, paddingBottom: 120 },
   savedScreen: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 14 },
   savedDot: { width: 12, height: 12, borderRadius: 6 },
@@ -241,13 +216,6 @@ const styles = StyleSheet.create({
   statusText: { fontSize: 11, fontWeight: '600' },
   section: { marginTop: 28 },
   sectionLabel: { fontSize: 10, fontWeight: '800', letterSpacing: 2, marginBottom: 10 },
-  inputRow: {
-    flexDirection: 'row', alignItems: 'center',
-    borderRadius: 14, paddingHorizontal: 16, borderWidth: 1,
-  },
-  prefix:    { fontSize: 15, fontWeight: '600', marginRight: 8 },
-  input:     { flex: 1, fontSize: 17, fontWeight: '600', paddingVertical: 16 },
-  inputFull: { flex: 1, fontSize: 15, fontWeight: '600', paddingVertical: 16 },
   benefitList: { marginTop: 12, gap: 8 },
   benefitRow:  { flexDirection: 'row', alignItems: 'center', gap: 10 },
   benefitDot:  { width: 6, height: 6, borderRadius: 3 },
@@ -266,6 +234,5 @@ const styles = StyleSheet.create({
     position: 'absolute', bottom: 0, left: 0, right: 0,
     padding: 16, paddingBottom: 34, borderTopWidth: 1,
   },
-  saveBtn:     { borderRadius: 16, paddingVertical: 18, alignItems: 'center' },
-  saveBtnText: { fontSize: 15, fontWeight: '900', letterSpacing: 3 },
+  loadingBtn: { borderRadius: 16, paddingVertical: 18, alignItems: 'center' },
 });

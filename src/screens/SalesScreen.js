@@ -6,6 +6,8 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { methodLabel } from '../utils/formatters';
+import ScreenHeader from '../components/ScreenHeader';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import { useApp } from '../context/AppContext';
@@ -99,37 +101,32 @@ export default function SalesScreen({ navigation }) {
     }
   };
 
-  const methodLabel = (m) => ({ cash: 'Efectivo', transfer: 'Transferencia', card: 'Tarjeta' }[m] || m);
-  
   const geoCount = sales.filter(s => s.geo?.latitude != null).length;
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.bg }]}>
-      <View style={styles.header}>
-        <TouchableOpacity
-          style={[styles.backBtn, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}
-          onPress={() => navigation.goBack()}
-        >
-          <Feather name="chevron-left" size={22} color={theme.text} />
-        </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: theme.text }]}>VENTAS HOY</Text>
-        <TouchableOpacity
-          style={[
-            styles.exportBtn,
-            { backgroundColor: theme.card, borderColor: theme.cardBorder },
-            exporting && { opacity: 0.4 },
-          ]}
-          onPress={handleExportCSV}
-          disabled={exporting}
-        >
-          <Feather name="download" size={16} color={theme.text} />
-          {geoCount > 0 && (
-            <View style={[styles.geoBadge, { backgroundColor: theme.success }]}>
-              <Text style={styles.geoBadgeText}>{geoCount}</Text>
-            </View>
-          )}
-        </TouchableOpacity>
-      </View>
+      <ScreenHeader
+        title="VENTAS HOY"
+        onBack={() => navigation.goBack()}
+        rightAction={
+          <TouchableOpacity
+            style={[
+              styles.exportBtn,
+              { backgroundColor: theme.card, borderColor: theme.cardBorder },
+              exporting && { opacity: 0.4 },
+            ]}
+            onPress={handleExportCSV}
+            disabled={exporting}
+          >
+            <Feather name="download" size={16} color={theme.text} />
+            {geoCount > 0 && (
+              <View style={[styles.geoBadge, { backgroundColor: theme.success }]}>
+                <Text style={styles.geoBadgeText}>{geoCount}</Text>
+              </View>
+            )}
+          </TouchableOpacity>
+        }
+      />
 
       <View style={styles.summaryRow}>
         <View style={[styles.summaryMain, { backgroundColor: theme.accent }]}>
@@ -213,12 +210,6 @@ export default function SalesScreen({ navigation }) {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  header: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 16, paddingVertical: 12,
-  },
-  backBtn: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', borderWidth: 1 },
-  headerTitle: { fontSize: 14, fontWeight: '800', letterSpacing: 3 },
   exportBtn: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', borderWidth: 1 },
   geoBadge: {
     position: 'absolute', top: -4, right: -4,
