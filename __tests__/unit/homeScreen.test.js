@@ -1,210 +1,339 @@
 /**
  * HomeScreen — pure logic tests (no component rendering)
  * Tests PIN authorization rules and keypad logic
+ * using real functions from workerLogic, pinLogic
  */
+
+import {
+  isAdmin,
+  canSaveProduct,
+  verifyOwnerPin,
+} from '../../src/utils/workerLogic';
+import {
+  PIN_LENGTH,
+  KEYPAD_LAYOUT,
+  appendDigit,
+  deleteLastDigit,
+  isPinComplete,
+  buildDotsState,
+} from '../../src/utils/pinLogic';
+
+const owner = { id: 'owner', role: 'owner', name: 'Carlos' };
+const coAdmin = { id: '2', role: 'co-admin', name: 'Luis' };
+const worker = { id: '1', role: 'worker', name: 'Ana' };
+const workers = [
+  { id: 'owner', role: 'owner', pin: '1234', name: 'Carlos' },
+  { id: '1', role: 'worker', pin: '5678', name: 'Ana' },
+];
 
 describe('HomeScreen PIN authorization rules', () => {
 
-  const owner = { id: 'owner', role: 'owner', name: 'Carlos' };
-  const coAdmin = { id: '2', role: 'co-admin', name: 'Luis' };
-  const worker = { id: '1', role: 'worker', name: 'Ana' };
+  describe('isAdmin', () => {
+    it('owner es admin', () => {
+      // Arrange / Act
+      const result = isAdmin(owner);
 
-  const isAdminUser = (w) => w?.role === 'owner' || w?.role === 'co-admin';
-
-  describe('isAdminUser', () => {
-    it('owner es admin', () => expect(isAdminUser(owner)).toBe(true));
-    it('co-admin es admin', () => expect(isAdminUser(coAdmin)).toBe(true));
-    it('worker no es admin', () => expect(isAdminUser(worker)).toBe(false));
-    it('null no es admin', () => expect(isAdminUser(null)).toBe(false));
-  });
-
-  describe('edit mode — no PIN para admins', () => {
-    it('owner entra a edit mode sin PIN', () => {
-      let editMode = false;
-      let pinRequested = false;
-      if (isAdminUser(owner)) editMode = true;
-      else pinRequested = true;
-      expect(editMode).toBe(true);
-      expect(pinRequested).toBe(false);
+      // Assert
+      expect(result).toBe(true);
     });
 
-    it('co-admin entra a edit mode sin PIN', () => {
-      let editMode = false;
-      let pinRequested = false;
-      if (isAdminUser(coAdmin)) editMode = true;
-      else pinRequested = true;
-      expect(editMode).toBe(true);
-      expect(pinRequested).toBe(false);
+    it('co-admin es admin', () => {
+      // Arrange / Act
+      const result = isAdmin(coAdmin);
+
+      // Assert
+      expect(result).toBe(true);
     });
 
-    it('worker necesita PIN para edit mode', () => {
-      let editMode = false;
-      let pinRequested = false;
-      if (isAdminUser(worker)) editMode = true;
-      else pinRequested = true;
-      expect(editMode).toBe(false);
-      expect(pinRequested).toBe(true);
-    });
-  });
+    it('worker normal no es admin', () => {
+      // Arrange / Act
+      const result = isAdmin(worker);
 
-  describe('add product — no PIN para admins', () => {
-    it('owner agrega producto sin PIN', () => {
-      let navigated = false;
-      let pinRequested = false;
-      if (isAdminUser(owner)) navigated = true;
-      else pinRequested = true;
-      expect(navigated).toBe(true);
-      expect(pinRequested).toBe(false);
+      // Assert
+      expect(result).toBe(false);
     });
 
-    it('worker necesita PIN para agregar producto', () => {
-      let navigated = false;
-      let pinRequested = false;
-      if (isAdminUser(worker)) navigated = true;
-      else pinRequested = true;
-      expect(navigated).toBe(false);
-      expect(pinRequested).toBe(true);
+    it('null no es admin', () => {
+      // Arrange / Act
+      const result = isAdmin(null);
+
+      // Assert
+      expect(result).toBe(false);
+    });
+
+    it('undefined no es admin', () => {
+      // Arrange / Act
+      const result = isAdmin(undefined);
+
+      // Assert
+      expect(result).toBe(false);
     });
   });
 
-  describe('manage tabs — SIEMPRE pide PIN', () => {
-    it('owner necesita PIN para ManageTabs', () => {
-      let pinRequested = false;
-      // requestPinAction always shows PIN modal regardless of role
-      pinRequested = true;
-      expect(pinRequested).toBe(true);
+  describe('canSaveProduct — edit mode permission', () => {
+    it('owner puede guardar/editar productos', () => {
+      // Arrange / Act
+      const result = canSaveProduct(owner);
+
+      // Assert
+      expect(result).toBe(true);
     });
 
-    it('worker necesita PIN para ManageTabs', () => {
-      let pinRequested = false;
-      pinRequested = true;
-      expect(pinRequested).toBe(true);
+    it('co-admin puede guardar/editar productos', () => {
+      // Arrange / Act
+      const result = canSaveProduct(coAdmin);
+
+      // Assert
+      expect(result).toBe(true);
+    });
+
+    it('worker no puede guardar/editar productos', () => {
+      // Arrange / Act
+      const result = canSaveProduct(worker);
+
+      // Assert
+      expect(result).toBe(false);
+    });
+
+    it('null no puede guardar productos', () => {
+      // Arrange / Act
+      const result = canSaveProduct(null);
+
+      // Assert
+      expect(result).toBe(false);
     });
   });
 
-  describe('delete product — siempre disponible en edit mode', () => {
-    it('handleDeleteProduct muestra Alert sin verificación adicional', () => {
-      const editMode = true;
-      const product = { id: '1', name: 'Pupusa' };
-      // Delete action is only reachable in edit mode, which already requires auth
-      expect(editMode).toBe(true);
-      expect(product.name).toBe('Pupusa');
+  describe('verifyOwnerPin', () => {
+    it('PIN correcto del owner retorna true', () => {
+      // Arrange
+      const pin = '1234';
+
+      // Act
+      const result = verifyOwnerPin(workers, pin);
+
+      // Assert
+      expect(result).toBe(true);
+    });
+
+    it('PIN incorrecto retorna false', () => {
+      // Arrange
+      const pin = '0000';
+
+      // Act
+      const result = verifyOwnerPin(workers, pin);
+
+      // Assert
+      expect(result).toBe(false);
+    });
+
+    it('PIN vacío retorna false', () => {
+      // Arrange
+      const pin = '';
+
+      // Act
+      const result = verifyOwnerPin(workers, pin);
+
+      // Assert
+      expect(result).toBe(false);
     });
   });
 });
 
 describe('HomeScreen PIN keypad logic', () => {
 
-  describe('PIN accumulation', () => {
+  describe('appendDigit', () => {
+    it('agrega dígito al PIN vacío', () => {
+      // Arrange
+      const pin = '';
+      const digit = '1';
+
+      // Act
+      const result = appendDigit(pin, digit);
+
+      // Assert
+      expect(result).toBe('1');
+    });
+
     it('acumula dígitos uno por uno', () => {
+      // Arrange
       let pin = '';
-      ['1', '2', '3'].forEach(d => {
-        if (pin.length < 4) pin += d;
-      });
+
+      // Act
+      pin = appendDigit(pin, '1');
+      pin = appendDigit(pin, '2');
+      pin = appendDigit(pin, '3');
+
+      // Assert
       expect(pin).toBe('123');
     });
 
-    it('no acepta más de 4 dígitos', () => {
-      let pin = '';
-      ['1', '2', '3', '4', '5'].forEach(d => {
-        if (pin.length < 4) pin += d;
-      });
-      expect(pin).toBe('1234');
+    it('no acepta más de PIN_LENGTH dígitos', () => {
+      // Arrange
+      let pin = '1234';
+
+      // Act
+      const result = appendDigit(pin, '5');
+
+      // Assert
+      expect(result).toBe('1234');
+      expect(result).toHaveLength(PIN_LENGTH);
     });
   });
 
-  describe('PIN verification at 4 digits', () => {
-    it('verifica automáticamente al llegar a 4 dígitos', () => {
-      let pin = '';
-      let verified = false;
-      const verifyOwnerPin = (p) => p === '1234';
-
-      ['1', '2', '3', '4'].forEach(d => {
-        if (pin.length >= 4) return;
-        pin += d;
-        if (pin.length === 4) {
-          verified = verifyOwnerPin(pin);
-        }
-      });
-      expect(verified).toBe(true);
-    });
-
-    it('PIN incorrecto activa error', () => {
-      let pin = '';
-      let error = false;
-      const verifyOwnerPin = (p) => p === '1234';
-
-      ['9', '9', '9', '9'].forEach(d => {
-        if (pin.length >= 4) return;
-        pin += d;
-        if (pin.length === 4) {
-          if (!verifyOwnerPin(pin)) error = true;
-        }
-      });
-      expect(error).toBe(true);
-    });
-
-    it('no verifica con menos de 4 dígitos', () => {
-      let pin = '';
-      let verifyCount = 0;
-
-      ['1', '2', '3'].forEach(d => {
-        if (pin.length >= 4) return;
-        pin += d;
-        if (pin.length === 4) verifyCount++;
-      });
-      expect(verifyCount).toBe(0);
-    });
-  });
-
-  describe('PIN delete', () => {
+  describe('deleteLastDigit', () => {
     it('borra el último dígito', () => {
-      let pin = '123';
-      if (pin.length > 0) pin = pin.slice(0, -1);
-      expect(pin).toBe('12');
+      // Arrange
+      const pin = '123';
+
+      // Act
+      const result = deleteLastDigit(pin);
+
+      // Assert
+      expect(result).toBe('12');
+    });
+
+    it('borra el único dígito dejando vacío', () => {
+      // Arrange
+      const pin = '1';
+
+      // Act
+      const result = deleteLastDigit(pin);
+
+      // Assert
+      expect(result).toBe('');
     });
 
     it('no hace nada si PIN vacío', () => {
-      let pin = '';
-      if (pin.length > 0) pin = pin.slice(0, -1);
-      expect(pin).toBe('');
+      // Arrange
+      const pin = '';
+
+      // Act
+      const result = deleteLastDigit(pin);
+
+      // Assert
+      expect(result).toBe('');
     });
   });
 
-  describe('PIN dots display', () => {
-    it('4 dots siempre visibles', () => {
-      const dots = [0, 1, 2, 3];
-      expect(dots).toHaveLength(4);
+  describe('isPinComplete', () => {
+    it('retorna true con 4 dígitos', () => {
+      // Arrange
+      const pin = '1234';
+
+      // Act
+      const result = isPinComplete(pin);
+
+      // Assert
+      expect(result).toBe(true);
     });
 
-    it('dots llenos corresponden a dígitos ingresados', () => {
+    it('retorna false con 3 dígitos', () => {
+      // Arrange
+      const pin = '123';
+
+      // Act
+      const result = isPinComplete(pin);
+
+      // Assert
+      expect(result).toBe(false);
+    });
+
+    it('retorna false con PIN vacío', () => {
+      // Arrange
+      const pin = '';
+
+      // Act
+      const result = isPinComplete(pin);
+
+      // Assert
+      expect(result).toBe(false);
+    });
+  });
+
+  describe('buildDotsState', () => {
+    it('2 dígitos ingresados → [true, true, false, false]', () => {
+      // Arrange
       const pinLength = 2;
-      const filled = [0, 1, 2, 3].map(i => i < pinLength);
-      expect(filled).toEqual([true, true, false, false]);
+
+      // Act
+      const dots = buildDotsState(pinLength);
+
+      // Assert
+      expect(dots).toEqual([true, true, false, false]);
     });
 
-    it('error cambia color de dots', () => {
-      const error = true;
-      const dotColor = error ? '#FF3B30' : '#AEAEB2';
-      expect(dotColor).toBe('#FF3B30');
+    it('PIN completo → todos true', () => {
+      // Arrange
+      const pinLength = 4;
+
+      // Act
+      const dots = buildDotsState(pinLength);
+
+      // Assert
+      expect(dots).toEqual([true, true, true, true]);
+    });
+
+    it('PIN vacío → todos false', () => {
+      // Arrange
+      const pinLength = 0;
+
+      // Act
+      const dots = buildDotsState(pinLength);
+
+      // Assert
+      expect(dots).toEqual([false, false, false, false]);
+    });
+
+    it('siempre retorna exactamente PIN_LENGTH elementos', () => {
+      // Arrange
+      const pinLength = 3;
+
+      // Act
+      const dots = buildDotsState(pinLength);
+
+      // Assert
+      expect(dots).toHaveLength(PIN_LENGTH);
     });
   });
 
-  describe('keypad layout', () => {
-    const keypad = [['1','2','3'],['4','5','6'],['7','8','9'],['','0','⌫']];
+  describe('KEYPAD_LAYOUT', () => {
+    it('tiene 4 filas de 3 teclas', () => {
+      // Arrange / Act
+      const layout = KEYPAD_LAYOUT;
 
-    it('4 filas de 3 teclas', () => {
-      expect(keypad).toHaveLength(4);
-      keypad.forEach(row => expect(row).toHaveLength(3));
+      // Assert
+      expect(layout).toHaveLength(4);
+      layout.forEach(row => expect(row).toHaveLength(3));
     });
 
     it('contiene dígitos 0-9', () => {
-      const digits = keypad.flat().filter(k => /^\d$/.test(k));
-      expect(digits.sort()).toEqual(['0','1','2','3','4','5','6','7','8','9']);
+      // Arrange / Act
+      const digits = KEYPAD_LAYOUT.flat().filter(k => /^\d$/.test(k));
+
+      // Assert
+      expect(digits.sort()).toEqual(['0', '1', '2', '3', '4', '5', '6', '7', '8', '9']);
     });
 
-    it('tiene botón de borrar', () => {
-      expect(keypad.flat()).toContain('⌫');
+    it('tiene botón de borrar ⌫', () => {
+      // Arrange / Act
+      const allKeys = KEYPAD_LAYOUT.flat();
+
+      // Assert
+      expect(allKeys).toContain('⌫');
+    });
+  });
+
+  describe('manage tabs — siempre pide PIN', () => {
+    it('incluso el owner necesita PIN para ManageTabs', () => {
+      // Arrange
+      let pinRequested = false;
+
+      // Act — ManageTabs always requests PIN regardless of role
+      pinRequested = true;
+
+      // Assert
+      expect(pinRequested).toBe(true);
     });
   });
 });

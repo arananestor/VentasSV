@@ -1,11 +1,23 @@
 /**
  * PinEntryScreen — pure logic tests (no component rendering)
- * Tests the PIN entry business rules extracted from PinEntryScreen.js
+ * Tests the PIN entry business rules using real functions from pinLogic and workerLogic
  */
 
 import { generatePin } from '../../src/context/AuthContext';
-
-const PIN_LENGTH = 4;
+import {
+  PIN_LENGTH,
+  KEYPAD_LAYOUT,
+  appendDigit,
+  deleteLastDigit,
+  isPinComplete,
+  isDotFilled,
+  buildDotsState,
+} from '../../src/utils/pinLogic';
+import {
+  loginMatch,
+  isValidPin,
+} from '../../src/utils/workerLogic';
+import { getAvatarInitial, getPuestoDisplay } from '../../src/utils/uiLogic';
 
 const mockWorker = {
   id: '1', name: 'Ana García', role: 'worker',
@@ -17,223 +29,396 @@ const mockWorkerNoPuesto = {
   pin: '9012', color: '#45B7D1',
 };
 
+const workers = [mockWorker, mockWorkerNoPuesto];
+
 describe('PinEntryScreen logic', () => {
 
-  describe('validación de PIN', () => {
+  describe('isValidPin — validación de formato', () => {
     it('PIN de 4 dígitos es válido', () => {
-      expect(/^\d{4}$/.test('1234')).toBe(true);
+      // Arrange
+      const pin = '1234';
+
+      // Act
+      const result = isValidPin(pin);
+
+      // Assert
+      expect(result).toBe(true);
     });
 
     it('PIN vacío no es válido', () => {
-      expect(/^\d{4}$/.test('')).toBe(false);
+      // Arrange
+      const pin = '';
+
+      // Act
+      const result = isValidPin(pin);
+
+      // Assert
+      expect(result).toBe(false);
     });
 
     it('PIN de 3 dígitos no es válido', () => {
-      expect(/^\d{4}$/.test('123')).toBe(false);
+      // Arrange
+      const pin = '123';
+
+      // Act
+      const result = isValidPin(pin);
+
+      // Assert
+      expect(result).toBe(false);
     });
 
     it('PIN de 5 dígitos no es válido', () => {
-      expect(/^\d{4}$/.test('12345')).toBe(false);
+      // Arrange
+      const pin = '12345';
+
+      // Act
+      const result = isValidPin(pin);
+
+      // Assert
+      expect(result).toBe(false);
     });
 
     it('PIN con letras no es válido', () => {
-      expect(/^\d{4}$/.test('12ab')).toBe(false);
+      // Arrange
+      const pin = '12ab';
+
+      // Act
+      const result = isValidPin(pin);
+
+      // Assert
+      expect(result).toBe(false);
+    });
+
+    it('PIN con solo ceros es válido', () => {
+      // Arrange
+      const pin = '0000';
+
+      // Act
+      const result = isValidPin(pin);
+
+      // Assert
+      expect(result).toBe(true);
     });
   });
 
-  describe('PIN accumulation', () => {
+  describe('appendDigit — PIN accumulation', () => {
     it('acumula dígitos uno por uno', () => {
+      // Arrange
       let pin = '';
-      ['1', '2', '3'].forEach(d => { pin += d; });
+
+      // Act
+      pin = appendDigit(pin, '1');
+      pin = appendDigit(pin, '2');
+      pin = appendDigit(pin, '3');
+
+      // Assert
       expect(pin).toBe('123');
       expect(pin.length).toBe(3);
     });
 
     it('llega a PIN_LENGTH con 4 dígitos', () => {
+      // Arrange
       let pin = '';
-      ['1', '2', '3', '4'].forEach(d => { pin += d; });
+
+      // Act
+      pin = appendDigit(pin, '1');
+      pin = appendDigit(pin, '2');
+      pin = appendDigit(pin, '3');
+      pin = appendDigit(pin, '4');
+
+      // Assert
       expect(pin.length).toBe(PIN_LENGTH);
     });
 
     it('no acepta más de PIN_LENGTH dígitos', () => {
-      let pin = '';
-      const handlePress = (num) => {
-        if (pin.length >= PIN_LENGTH) return;
-        pin += num;
-      };
-      ['1', '2', '3', '4', '5'].forEach(handlePress);
-      expect(pin.length).toBe(PIN_LENGTH);
-      expect(pin).toBe('1234');
+      // Arrange
+      let pin = '1234';
+
+      // Act
+      const result = appendDigit(pin, '5');
+
+      // Assert
+      expect(result).toBe('1234');
+      expect(result).toHaveLength(PIN_LENGTH);
     });
   });
 
-  describe('loginWithPin trigger', () => {
-    it('intenta login exactamente cuando llega a 4 dígitos', () => {
-      let pin = '';
-      let loginCalled = false;
-      let loginArgs = null;
+  describe('isPinComplete — trigger de login', () => {
+    it('retorna true cuando PIN tiene 4 dígitos exactos', () => {
+      // Arrange
+      const pin = '1234';
 
-      const loginWithPin = (p, id) => { loginCalled = true; loginArgs = { pin: p, id }; return mockWorker; };
+      // Act
+      const result = isPinComplete(pin);
 
-      const handlePress = (num) => {
-        if (pin.length >= PIN_LENGTH) return;
-        pin += num;
-        if (pin.length === PIN_LENGTH) {
-          loginWithPin(pin, mockWorker.id);
-        }
-      };
-
-      ['1', '2', '3', '4'].forEach(handlePress);
-      expect(loginCalled).toBe(true);
-      expect(loginArgs).toEqual({ pin: '1234', id: '1' });
+      // Assert
+      expect(result).toBe(true);
     });
 
-    it('no intenta login con menos de 4 dígitos', () => {
-      let pin = '';
-      let loginCalled = false;
+    it('no está completo con 3 dígitos', () => {
+      // Arrange
+      const pin = '123';
 
-      const handlePress = (num) => {
-        if (pin.length >= PIN_LENGTH) return;
-        pin += num;
-        if (pin.length === PIN_LENGTH) {
-          loginCalled = true;
-        }
-      };
+      // Act
+      const result = isPinComplete(pin);
 
-      ['1', '2', '3'].forEach(handlePress);
-      expect(loginCalled).toBe(false);
+      // Assert
+      expect(result).toBe(false);
     });
 
-    it('loginWithPin se llama exactamente 1 vez aunque se presionen más teclas', () => {
-      let pin = '';
-      let loginCount = 0;
+    it('no está completo con PIN vacío', () => {
+      // Arrange
+      const pin = '';
 
-      const handlePress = (num) => {
-        if (pin.length >= PIN_LENGTH) return;
-        pin += num;
-        if (pin.length === PIN_LENGTH) {
-          loginCount++;
-        }
-      };
+      // Act
+      const result = isPinComplete(pin);
 
-      ['1', '2', '3', '4', '5', '6'].forEach(handlePress);
-      expect(loginCount).toBe(1);
+      // Assert
+      expect(result).toBe(false);
     });
   });
 
-  describe('PIN validation result', () => {
-    it('PIN correcto retorna worker', () => {
-      const loginWithPin = (pin, id) => {
-        const found = [mockWorker].find(w => w.id === id && w.pin === pin);
-        return found || null;
-      };
-      expect(loginWithPin('1234', '1')).toEqual(mockWorker);
+  describe('loginMatch — validación del PIN', () => {
+    it('PIN correcto retorna el worker', () => {
+      // Arrange
+      const pin = '1234';
+      const workerId = '1';
+
+      // Act
+      const result = loginMatch(workers, pin, workerId);
+
+      // Assert
+      expect(result).toEqual(mockWorker);
     });
 
-    it('PIN incorrecto retorna null (error state)', () => {
-      const loginWithPin = (pin, id) => {
-        const found = [mockWorker].find(w => w.id === id && w.pin === pin);
-        return found || null;
-      };
-      expect(loginWithPin('0000', '1')).toBeNull();
+    it('PIN incorrecto retorna null', () => {
+      // Arrange
+      const pin = '0000';
+      const workerId = '1';
+
+      // Act
+      const result = loginMatch(workers, pin, workerId);
+
+      // Assert
+      expect(result).toBeNull();
     });
 
     it('worker id incorrecto retorna null', () => {
-      const loginWithPin = (pin, id) => {
-        const found = [mockWorker].find(w => w.id === id && w.pin === pin);
-        return found || null;
-      };
-      expect(loginWithPin('1234', '999')).toBeNull();
+      // Arrange
+      const pin = '1234';
+      const workerId = '999';
+
+      // Act
+      const result = loginMatch(workers, pin, workerId);
+
+      // Assert
+      expect(result).toBeNull();
+    });
+
+    it('array vacío retorna null', () => {
+      // Arrange
+      const pin = '1234';
+      const workerId = '1';
+
+      // Act
+      const result = loginMatch([], pin, workerId);
+
+      // Assert
+      expect(result).toBeNull();
     });
   });
 
-  describe('handleDelete', () => {
-    it('delete borra el último dígito', () => {
-      const handleDelete = (pin) => pin.length > 0 ? pin.slice(0, -1) : pin;
-      expect(handleDelete('123')).toBe('12');
-      expect(handleDelete('1')).toBe('');
-      expect(handleDelete('')).toBe('');
+  describe('deleteLastDigit — manejo de borrar', () => {
+    it('borra el último dígito', () => {
+      // Arrange
+      const pin = '123';
+
+      // Act
+      const result = deleteLastDigit(pin);
+
+      // Assert
+      expect(result).toBe('12');
+    });
+
+    it('borra el único dígito dejando vacío', () => {
+      // Arrange
+      const pin = '1';
+
+      // Act
+      const result = deleteLastDigit(pin);
+
+      // Assert
+      expect(result).toBe('');
+    });
+
+    it('no hace nada con PIN vacío', () => {
+      // Arrange
+      const pin = '';
+
+      // Act
+      const result = deleteLastDigit(pin);
+
+      // Assert
+      expect(result).toBe('');
     });
 
     it('permite reingresar dígitos después de borrar', () => {
+      // Arrange
       let pin = '12';
-      pin = pin.slice(0, -1);
-      pin += '5';
+
+      // Act
+      pin = deleteLastDigit(pin);
+      pin = appendDigit(pin, '5');
+
+      // Assert
       expect(pin).toBe('15');
     });
   });
 
   describe('worker display data', () => {
-    it('muestra el nombre del worker', () => {
-      expect(mockWorker.name).toBe('Ana García');
+    it('getAvatarInitial retorna la inicial del nombre', () => {
+      // Arrange
+      const name = mockWorker.name;
+
+      // Act
+      const initial = getAvatarInitial(name);
+
+      // Assert
+      expect(initial).toBe('A');
     });
 
-    it('muestra el puesto en mayúsculas', () => {
-      expect(mockWorker.puesto.toUpperCase()).toBe('CAJERO');
+    it('getPuestoDisplay muestra puesto en mayúsculas', () => {
+      // Arrange
+      const puesto = mockWorker.puesto;
+
+      // Act
+      const display = getPuestoDisplay(puesto);
+
+      // Assert
+      expect(display).toBe('CAJERO');
     });
 
-    it('muestra EMPLEADO si no tiene puesto', () => {
-      const display = mockWorkerNoPuesto.puesto?.toUpperCase() || 'EMPLEADO';
+    it('getPuestoDisplay usa fallback EMPLEADO si no tiene puesto', () => {
+      // Arrange
+      const puesto = mockWorkerNoPuesto.puesto;
+
+      // Act
+      const display = getPuestoDisplay(puesto);
+
+      // Assert
       expect(display).toBe('EMPLEADO');
     });
 
-    it('muestra la inicial del nombre como avatar', () => {
-      expect(mockWorker.name.charAt(0).toUpperCase()).toBe('A');
+    it('getAvatarInitial retorna ? para nombre undefined', () => {
+      // Arrange
+      const name = undefined;
+
+      // Act
+      const initial = getAvatarInitial(name);
+
+      // Assert
+      expect(initial).toBe('?');
     });
   });
 
-  describe('keypad layout', () => {
-    const keypad = [['1','2','3'],['4','5','6'],['7','8','9'],['','0','⌫']];
-
+  describe('KEYPAD_LAYOUT', () => {
     it('tiene 4 filas', () => {
-      expect(keypad).toHaveLength(4);
+      // Arrange / Act
+      const rows = KEYPAD_LAYOUT;
+
+      // Assert
+      expect(rows).toHaveLength(4);
     });
 
     it('cada fila tiene 3 teclas', () => {
-      keypad.forEach(row => expect(row).toHaveLength(3));
+      // Arrange / Act
+      const rowLengths = KEYPAD_LAYOUT.map(row => row.length);
+
+      // Assert
+      rowLengths.forEach(len => expect(len).toBe(3));
     });
 
     it('contiene todos los dígitos 0-9', () => {
-      const digits = keypad.flat().filter(k => /^\d$/.test(k));
-      expect(digits.sort()).toEqual(['0','1','2','3','4','5','6','7','8','9']);
+      // Arrange / Act
+      const digits = KEYPAD_LAYOUT.flat().filter(k => /^\d$/.test(k));
+
+      // Assert
+      expect(digits.sort()).toEqual(['0', '1', '2', '3', '4', '5', '6', '7', '8', '9']);
     });
 
-    it('tiene tecla de borrar (⌫)', () => {
-      expect(keypad.flat()).toContain('⌫');
+    it('tiene tecla de borrar ⌫', () => {
+      // Arrange / Act
+      const allKeys = KEYPAD_LAYOUT.flat();
+
+      // Assert
+      expect(allKeys).toContain('⌫');
     });
   });
 
   describe('PIN dots display', () => {
-    it('muestra 4 dots siempre', () => {
-      expect(PIN_LENGTH).toBe(4);
+    it('isDotFilled retorna true cuando índice < pinLength', () => {
+      // Arrange
+      const index = 0;
+      const pinLength = 2;
+
+      // Act
+      const result = isDotFilled(index, pinLength);
+
+      // Assert
+      expect(result).toBe(true);
     });
 
-    it('dot activo cuando índice < longitud del PIN', () => {
-      const isActive = (index, pinLength) => index < pinLength;
-      expect(isActive(0, 2)).toBe(true);
-      expect(isActive(2, 2)).toBe(false);
-      expect(isActive(3, 4)).toBe(true);
+    it('isDotFilled retorna false cuando índice >= pinLength', () => {
+      // Arrange
+      const index = 2;
+      const pinLength = 2;
+
+      // Act
+      const result = isDotFilled(index, pinLength);
+
+      // Assert
+      expect(result).toBe(false);
     });
 
-    it('todos los dots activos con PIN completo', () => {
-      const filled = Array.from({ length: PIN_LENGTH }).map((_, i) => i < 4);
-      expect(filled.every(Boolean)).toBe(true);
+    it('buildDotsState con 2 dígitos → [true, true, false, false]', () => {
+      // Arrange
+      const pinLength = 2;
+
+      // Act
+      const dots = buildDotsState(pinLength);
+
+      // Assert
+      expect(dots).toEqual([true, true, false, false]);
     });
 
-    it('ningún dot activo con PIN vacío', () => {
-      const filled = Array.from({ length: PIN_LENGTH }).map((_, i) => i < 0);
-      expect(filled.every(d => !d)).toBe(true);
+    it('siempre retorna PIN_LENGTH elementos', () => {
+      // Arrange
+      const pinLength = 1;
+
+      // Act
+      const dots = buildDotsState(pinLength);
+
+      // Assert
+      expect(dots).toHaveLength(PIN_LENGTH);
     });
   });
 
   describe('generación de PIN compatible', () => {
     it('PIN generado tiene exactamente 4 dígitos', () => {
-      expect(generatePin()).toHaveLength(4);
+      // Arrange / Act
+      const pin = generatePin();
+
+      // Assert
+      expect(pin).toHaveLength(4);
     });
 
-    it('PIN generado es compatible con la validación del teclado', () => {
+    it('PIN generado es compatible con isValidPin', () => {
+      // Arrange / Act
       const pin = generatePin();
-      expect(/^\d{4}$/.test(pin)).toBe(true);
+      const result = isValidPin(pin);
+
+      // Assert
+      expect(result).toBe(true);
     });
   });
 });

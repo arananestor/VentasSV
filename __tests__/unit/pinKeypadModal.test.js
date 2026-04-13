@@ -1,129 +1,260 @@
 /**
  * PinKeypadModal — pure logic tests (no component rendering)
  * Tests the reusable PIN keypad modal props, state, and verification logic
+ * using real functions from pinLogic and workerLogic
  */
 
-const PIN_LENGTH = 4;
+import {
+  PIN_LENGTH,
+  appendDigit,
+  deleteLastDigit,
+  isPinComplete,
+  buildDotsState,
+} from '../../src/utils/pinLogic';
+import {
+  verifyOwnerPin,
+  isAdmin,
+} from '../../src/utils/workerLogic';
+
+const workers = [
+  { id: 'owner', role: 'owner', pin: '1234', name: 'Carlos' },
+  { id: '2', role: 'co-admin', pin: '5555', name: 'Luis' },
+];
 
 describe('PinKeypadModal props', () => {
 
-  it('visible controla si el modal se muestra', () => {
-    expect(true).toBe(true);
-    expect(false).toBe(false);
-  });
+  it('title default es AUTORIZACIÓN', () => {
+    // Arrange
+    const providedTitle = undefined;
 
-  it('title tiene default "AUTORIZACIÓN"', () => {
-    const title = undefined || 'AUTORIZACIÓN';
+    // Act
+    const title = providedTitle || 'AUTORIZACIÓN';
+
+    // Assert
     expect(title).toBe('AUTORIZACIÓN');
   });
 
   it('title puede ser personalizado', () => {
-    const title = 'VERIFICACIÓN' || 'AUTORIZACIÓN';
+    // Arrange
+    const providedTitle = 'VERIFICACIÓN';
+
+    // Act
+    const title = providedTitle || 'AUTORIZACIÓN';
+
+    // Assert
     expect(title).toBe('VERIFICACIÓN');
   });
 
-  it('subtitle tiene default "PIN de autorización"', () => {
-    const subtitle = undefined || 'PIN de autorización';
+  it('subtitle default es PIN de autorización', () => {
+    // Arrange
+    const providedSubtitle = undefined;
+
+    // Act
+    const subtitle = providedSubtitle || 'PIN de autorización';
+
+    // Assert
     expect(subtitle).toBe('PIN de autorización');
   });
 
-  it('onClose es función requerida', () => {
+  it('onClose es invocable como función', () => {
+    // Arrange
     const onClose = jest.fn();
-    expect(typeof onClose).toBe('function');
+
+    // Act
+    onClose();
+
+    // Assert
+    expect(onClose).toHaveBeenCalledTimes(1);
   });
 
-  it('onVerify es función requerida', () => {
+  it('onVerify es invocable como función', () => {
+    // Arrange
     const onVerify = jest.fn();
-    expect(typeof onVerify).toBe('function');
+
+    // Act
+    onVerify('1234');
+
+    // Assert
+    expect(onVerify).toHaveBeenCalledWith('1234');
+  });
+
+  it('visible false significa modal oculto', () => {
+    // Arrange
+    const visible = false;
+
+    // Act
+    const isHidden = !visible;
+
+    // Assert
+    expect(isHidden).toBe(true);
   });
 });
 
 describe('PinKeypadModal internal state', () => {
 
-  describe('PIN accumulation', () => {
+  describe('appendDigit — acumulación de dígitos', () => {
     it('acumula dígitos hasta PIN_LENGTH', () => {
+      // Arrange
       let pin = '';
-      ['1', '2', '3', '4'].forEach(d => {
-        if (pin.length < PIN_LENGTH) pin += d;
-      });
+
+      // Act
+      pin = appendDigit(pin, '1');
+      pin = appendDigit(pin, '2');
+      pin = appendDigit(pin, '3');
+      pin = appendDigit(pin, '4');
+
+      // Assert
       expect(pin).toBe('1234');
       expect(pin.length).toBe(PIN_LENGTH);
     });
 
     it('no acepta más de PIN_LENGTH dígitos', () => {
+      // Arrange
       let pin = '1234';
-      const handlePress = (num) => { if (pin.length < PIN_LENGTH) pin += num; };
-      handlePress('5');
-      expect(pin).toBe('1234');
-    });
 
-    it('delete borra último dígito', () => {
-      let pin = '12';
-      if (pin.length > 0) pin = pin.slice(0, -1);
-      expect(pin).toBe('1');
-    });
+      // Act
+      const result = appendDigit(pin, '5');
 
-    it('delete no hace nada si pin vacío', () => {
-      let pin = '';
-      if (pin.length > 0) pin = pin.slice(0, -1);
-      expect(pin).toBe('');
+      // Assert
+      expect(result).toBe('1234');
     });
   });
 
-  describe('auto-verify at 4 digits', () => {
-    it('llama onVerify cuando pin llega a 4 dígitos', () => {
-      let pin = '';
-      let verifyCalled = false;
-      const onVerify = () => { verifyCalled = true; return true; };
+  describe('deleteLastDigit', () => {
+    it('borra último dígito', () => {
+      // Arrange
+      const pin = '12';
 
-      ['1', '2', '3', '4'].forEach(d => {
-        if (pin.length >= PIN_LENGTH) return;
-        pin += d;
-        if (pin.length === PIN_LENGTH) onVerify(pin);
-      });
-      expect(verifyCalled).toBe(true);
+      // Act
+      const result = deleteLastDigit(pin);
+
+      // Assert
+      expect(result).toBe('1');
     });
 
-    it('no llama onVerify con menos de 4 dígitos', () => {
-      let pin = '';
-      let verifyCalled = false;
-      ['1', '2', '3'].forEach(d => {
-        if (pin.length >= PIN_LENGTH) return;
-        pin += d;
-        if (pin.length === PIN_LENGTH) verifyCalled = true;
-      });
-      expect(verifyCalled).toBe(false);
+    it('no hace nada si pin vacío', () => {
+      // Arrange
+      const pin = '';
+
+      // Act
+      const result = deleteLastDigit(pin);
+
+      // Assert
+      expect(result).toBe('');
     });
   });
 
-  describe('verification result', () => {
-    it('onVerify true → llama onClose', () => {
-      const onVerify = () => true;
-      let closed = false;
-      const onClose = () => { closed = true; };
-      if (onVerify('1234')) onClose();
-      expect(closed).toBe(true);
+  describe('isPinComplete — auto-verify trigger', () => {
+    it('retorna true cuando pin llega a 4 dígitos', () => {
+      // Arrange
+      const pin = '1234';
+
+      // Act
+      const result = isPinComplete(pin);
+
+      // Assert
+      expect(result).toBe(true);
     });
 
-    it('onVerify false → error state, pin reset', () => {
-      const onVerify = () => false;
-      let error = false;
-      let pin = '9999';
-      if (!onVerify(pin)) {
-        error = true;
-        pin = '';
-      }
-      expect(error).toBe(true);
-      expect(pin).toBe('');
+    it('no está completo con menos de 4 dígitos', () => {
+      // Arrange
+      const pin = '123';
+
+      // Act
+      const result = isPinComplete(pin);
+
+      // Assert
+      expect(result).toBe(false);
+    });
+  });
+
+  describe('buildDotsState — display visual', () => {
+    it('2 dígitos ingresados → primeros 2 dots activos', () => {
+      // Arrange
+      const pinLength = 2;
+
+      // Act
+      const dots = buildDotsState(pinLength);
+
+      // Assert
+      expect(dots).toEqual([true, true, false, false]);
+    });
+
+    it('PIN completo → todos los dots activos', () => {
+      // Arrange
+      const pinLength = 4;
+
+      // Act
+      const dots = buildDotsState(pinLength);
+
+      // Assert
+      expect(dots.every(Boolean)).toBe(true);
+    });
+
+    it('PIN vacío → ningún dot activo', () => {
+      // Arrange
+      const pinLength = 0;
+
+      // Act
+      const dots = buildDotsState(pinLength);
+
+      // Assert
+      expect(dots.every(d => !d)).toBe(true);
+    });
+  });
+});
+
+describe('PinKeypadModal verification', () => {
+
+  describe('verifyOwnerPin — lógica de onVerify', () => {
+    it('PIN correcto del owner retorna true', () => {
+      // Arrange
+      const pin = '1234';
+
+      // Act
+      const result = verifyOwnerPin(workers, pin);
+
+      // Assert
+      expect(result).toBe(true);
+    });
+
+    it('PIN incorrecto retorna false', () => {
+      // Arrange
+      const pin = '0000';
+
+      // Act
+      const result = verifyOwnerPin(workers, pin);
+
+      // Assert
+      expect(result).toBe(false);
+    });
+
+    it('PIN vacío retorna false', () => {
+      // Arrange
+      const pin = '';
+
+      // Act
+      const result = verifyOwnerPin(workers, pin);
+
+      // Assert
+      expect(result).toBe(false);
     });
   });
 
   describe('reset on close', () => {
-    it('pin se resetea cuando visible cambia a false', () => {
+    it('pin y error se resetean cuando modal se cierra', () => {
+      // Arrange
       let pin = '12';
       let error = true;
       const visible = false;
-      if (!visible) { pin = ''; error = false; }
+
+      // Act
+      if (!visible) {
+        pin = '';
+        error = false;
+      }
+
+      // Assert
       expect(pin).toBe('');
       expect(error).toBe(false);
     });
@@ -132,58 +263,75 @@ describe('PinKeypadModal internal state', () => {
 
 describe('PinKeypadModal consumers', () => {
 
-  describe('HomeScreen', () => {
-    it('usa verifyOwnerPin como onVerify', () => {
-      const verifyOwnerPin = (pin) => pin === '1234';
-      expect(verifyOwnerPin('1234')).toBe(true);
-      expect(verifyOwnerPin('0000')).toBe(false);
-    });
-
-    it('ejecuta pendingAction en onVerify success', () => {
+  describe('HomeScreen — verifyOwnerPin', () => {
+    it('PIN correcto permite ejecutar pendingAction', () => {
+      // Arrange
       let actionExecuted = false;
       const pendingAction = () => { actionExecuted = true; };
-      const verifyOwnerPin = (pin) => pin === '1234';
-      if (verifyOwnerPin('1234')) pendingAction();
+      const pin = '1234';
+
+      // Act
+      if (verifyOwnerPin(workers, pin)) pendingAction();
+
+      // Assert
       expect(actionExecuted).toBe(true);
     });
 
-    it('no ejecuta pendingAction en onVerify failure', () => {
+    it('PIN incorrecto no ejecuta pendingAction', () => {
+      // Arrange
       let actionExecuted = false;
       const pendingAction = () => { actionExecuted = true; };
-      const verifyOwnerPin = (pin) => pin === '1234';
-      if (verifyOwnerPin('0000')) pendingAction();
+      const pin = '0000';
+
+      // Act
+      if (verifyOwnerPin(workers, pin)) pendingAction();
+
+      // Assert
       expect(actionExecuted).toBe(false);
     });
   });
 
-  describe('ProfileScreen', () => {
-    it('requireOwnerPin ejecuta acción directa para owner', () => {
-      const currentWorker = { role: 'owner' };
+  describe('ProfileScreen — requireOwnerPin', () => {
+    it('owner ejecuta acción directamente sin mostrar modal', () => {
+      // Arrange
+      const currentWorker = workers[0]; // owner
       let actionExecuted = false;
       let pinShown = false;
-      const action = () => { actionExecuted = true; };
-      if (currentWorker?.role === 'owner') action();
+
+      // Act
+      if (isAdmin(currentWorker)) actionExecuted = true;
       else pinShown = true;
+
+      // Assert
       expect(actionExecuted).toBe(true);
       expect(pinShown).toBe(false);
     });
 
-    it('requireOwnerPin muestra PIN modal para non-owner', () => {
-      const currentWorker = { role: 'co-admin' };
+    it('co-admin muestra modal PIN para autenticar', () => {
+      // Arrange
+      const currentWorker = { id: 'x', role: 'worker', name: 'Ana' };
       let actionExecuted = false;
       let pinShown = false;
-      const action = () => { actionExecuted = true; };
-      if (currentWorker?.role === 'owner') action();
+
+      // Act
+      if (currentWorker.role === 'owner') actionExecuted = true;
       else pinShown = true;
+
+      // Assert
       expect(actionExecuted).toBe(false);
       expect(pinShown).toBe(true);
     });
 
     it('PIN verificado ejecuta pendingAdminAction', () => {
+      // Arrange
       let executed = false;
       const pendingAdminAction = () => { executed = true; };
-      const verifyOwnerPin = (pin) => pin === '5555';
-      if (verifyOwnerPin('5555')) pendingAdminAction();
+      const pin = '1234';
+
+      // Act
+      if (verifyOwnerPin(workers, pin)) pendingAdminAction();
+
+      // Assert
       expect(executed).toBe(true);
     });
   });

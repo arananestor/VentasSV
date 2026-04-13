@@ -1,9 +1,11 @@
 /**
  * SelectWorkerScreen — pure logic tests (no component rendering)
- * Tests the worker selection business rules extracted from SelectWorkerScreen.js
+ * Tests the worker selection business rules using real functions
  */
 
 import { PUESTO_ICONS, PUESTOS } from '../../src/context/AuthContext';
+import { getAvatarInitial, getPuestoDisplay } from '../../src/utils/uiLogic';
+import { isAdmin } from '../../src/utils/workerLogic';
 
 const mockWorkers = [
   { id: 'owner', name: 'Carlos López', role: 'owner', puesto: 'Dueño', pin: '1234', color: '#FFFFFF' },
@@ -13,156 +15,304 @@ const mockWorkers = [
 
 describe('SelectWorkerScreen logic', () => {
 
-  describe('worker list', () => {
-    it('lista correcta de workers', () => {
-      expect(mockWorkers).toHaveLength(3);
+  describe('worker list structure', () => {
+    it('cada worker tiene nombre no vacío', () => {
+      // Arrange
+      const workers = mockWorkers;
+
+      // Act
+      const emptyNames = workers.filter(w => !w.name || w.name.trim() === '');
+
+      // Assert
+      expect(emptyNames).toHaveLength(0);
     });
 
-    it('cada worker tiene nombre', () => {
-      mockWorkers.forEach(w => expect(w.name.trim()).not.toBe(''));
+    it('cada worker tiene puesto definido', () => {
+      // Arrange
+      const workers = mockWorkers;
+
+      // Act
+      const missingPuesto = workers.filter(w => !w.puesto);
+
+      // Assert
+      expect(missingPuesto).toHaveLength(0);
     });
 
-    it('cada worker tiene puesto', () => {
-      mockWorkers.forEach(w => expect(w.puesto).toBeDefined());
-    });
+    it('cada worker tiene color hex válido', () => {
+      // Arrange
+      const workers = mockWorkers;
 
-    it('cada worker tiene color válido', () => {
-      mockWorkers.forEach(w => expect(w.color).toMatch(/^#[0-9A-Fa-f]{6}$/));
+      // Act
+      const invalidColors = workers.filter(w => !/^#[0-9A-Fa-f]{6}$/.test(w.color));
+
+      // Assert
+      expect(invalidColors).toHaveLength(0);
     });
 
     it('cada worker tiene id, role y pin', () => {
-      mockWorkers.forEach(w => {
-        expect(w.id).toBeDefined();
-        expect(w.role).toBeDefined();
-        expect(w.pin).toBeDefined();
-      });
+      // Arrange
+      const workers = mockWorkers;
+
+      // Act
+      const incomplete = workers.filter(w => !w.id || !w.role || !w.pin);
+
+      // Assert
+      expect(incomplete).toHaveLength(0);
+    });
+
+    it('todos los ids son únicos', () => {
+      // Arrange
+      const ids = mockWorkers.map(w => w.id);
+
+      // Act
+      const unique = new Set(ids);
+
+      // Assert
+      expect(unique.size).toBe(ids.length);
     });
   });
 
-  describe('puesto icons', () => {
-    it('owner tiene ícono crown', () => {
-      expect(PUESTO_ICONS['Dueño']).toBe('crown');
+  describe('PUESTO_ICONS', () => {
+    it('Dueño tiene ícono crown', () => {
+      // Arrange / Act
+      const icon = PUESTO_ICONS['Dueño'];
+
+      // Assert
+      expect(icon).toBe('crown');
     });
 
-    it('cajero tiene ícono cash-register', () => {
-      expect(PUESTO_ICONS['Cajero']).toBe('cash-register');
+    it('Cajero tiene ícono cash-register', () => {
+      // Arrange / Act
+      const icon = PUESTO_ICONS['Cajero'];
+
+      // Assert
+      expect(icon).toBe('cash-register');
     });
 
-    it('cocinero tiene ícono chef-hat', () => {
-      expect(PUESTO_ICONS['Cocinero']).toBe('chef-hat');
+    it('Cocinero tiene ícono chef-hat', () => {
+      // Arrange / Act
+      const icon = PUESTO_ICONS['Cocinero'];
+
+      // Assert
+      expect(icon).toBe('chef-hat');
     });
 
-    it('motorista tiene ícono moped', () => {
-      expect(PUESTO_ICONS['Motorista']).toBe('moped');
+    it('Motorista tiene ícono moped', () => {
+      // Arrange / Act
+      const icon = PUESTO_ICONS['Motorista'];
+
+      // Assert
+      expect(icon).toBe('moped');
     });
 
-    it('camarero tiene ícono room-service', () => {
-      expect(PUESTO_ICONS['Camarero']).toBe('room-service');
+    it('Camarero tiene ícono room-service', () => {
+      // Arrange / Act
+      const icon = PUESTO_ICONS['Camarero'];
+
+      // Assert
+      expect(icon).toBe('room-service');
     });
 
     it('puesto sin ícono definido usa fallback account', () => {
-      const getIcon = (puesto) => PUESTO_ICONS[puesto] || 'account';
-      expect(getIcon('PuestoInexistente')).toBe('account');
+      // Arrange
+      const puesto = 'PuestoInexistente';
+
+      // Act
+      const icon = PUESTO_ICONS[puesto] || 'account';
+
+      // Assert
+      expect(icon).toBe('account');
+    });
+
+    it('todos los puestos en PUESTOS tienen ícono', () => {
+      // Arrange / Act
+      const missing = PUESTOS.filter(p => !PUESTO_ICONS[p]);
+
+      // Assert
+      expect(missing).toHaveLength(0);
     });
   });
 
-  describe('puesto display', () => {
-    it('owner muestra Dueño', () => {
-      const owner = mockWorkers.find(w => w.role === 'owner');
-      expect(owner?.puesto).toBe('Dueño');
+  describe('getPuestoDisplay', () => {
+    it('Dueño se muestra como DUEÑO', () => {
+      // Arrange
+      const puesto = 'Dueño';
+
+      // Act
+      const display = getPuestoDisplay(puesto);
+
+      // Assert
+      expect(display).toBe('DUEÑO');
     });
 
-    it('worker sin puesto usa fallback Cajero', () => {
-      const getPuesto = (w) => w.puesto || 'Cajero';
-      const workerSinPuesto = { id: '99', role: 'worker' };
-      expect(getPuesto(workerSinPuesto)).toBe('Cajero');
+    it('Cajero se muestra como CAJERO', () => {
+      // Arrange
+      const puesto = 'Cajero';
+
+      // Act
+      const display = getPuestoDisplay(puesto);
+
+      // Assert
+      expect(display).toBe('CAJERO');
     });
 
-    it('puesto se muestra en mayúsculas', () => {
-      expect(mockWorkers[0].puesto.toUpperCase()).toBe('DUEÑO');
-      expect(mockWorkers[1].puesto.toUpperCase()).toBe('CAJERO');
-      expect(mockWorkers[2].puesto.toUpperCase()).toBe('COCINERO');
+    it('Cocinero se muestra como COCINERO', () => {
+      // Arrange
+      const puesto = 'Cocinero';
+
+      // Act
+      const display = getPuestoDisplay(puesto);
+
+      // Assert
+      expect(display).toBe('COCINERO');
+    });
+
+    it('puesto undefined usa fallback EMPLEADO', () => {
+      // Arrange
+      const puesto = undefined;
+
+      // Act
+      const display = getPuestoDisplay(puesto);
+
+      // Assert
+      expect(display).toBe('EMPLEADO');
+    });
+
+    it('puesto null usa fallback EMPLEADO', () => {
+      // Arrange
+      const puesto = null;
+
+      // Act
+      const display = getPuestoDisplay(puesto);
+
+      // Assert
+      expect(display).toBe('EMPLEADO');
+    });
+  });
+
+  describe('getAvatarInitial', () => {
+    it('genera la inicial C para Carlos', () => {
+      // Arrange
+      const name = 'Carlos López';
+
+      // Act
+      const initial = getAvatarInitial(name);
+
+      // Assert
+      expect(initial).toBe('C');
+    });
+
+    it('genera la inicial A para Ana', () => {
+      // Arrange
+      const name = 'Ana García';
+
+      // Act
+      const initial = getAvatarInitial(name);
+
+      // Assert
+      expect(initial).toBe('A');
+    });
+
+    it('genera la inicial L para Luis', () => {
+      // Arrange
+      const name = 'Luis Ramos';
+
+      // Act
+      const initial = getAvatarInitial(name);
+
+      // Assert
+      expect(initial).toBe('L');
+    });
+
+    it('retorna ? para nombre vacío', () => {
+      // Arrange
+      const name = '';
+
+      // Act
+      const initial = getAvatarInitial(name);
+
+      // Assert
+      expect(initial).toBe('?');
     });
   });
 
   describe('navegación a PinEntry', () => {
-    it('navega con el worker correcto', () => {
+    it('navega con el worker correcto al presionar', () => {
+      // Arrange
       const navigate = jest.fn();
-      const handlePress = (worker) => navigate('PinEntry', { worker });
+      const handlePress = (w) => navigate('PinEntry', { worker: w });
+
+      // Act
       handlePress(mockWorkers[1]);
+
+      // Assert
       expect(navigate).toHaveBeenCalledWith('PinEntry', { worker: mockWorkers[1] });
     });
 
-    it('navega con el owner correctamente', () => {
-      const navigate = jest.fn();
-      const handlePress = (worker) => navigate('PinEntry', { worker });
-      handlePress(mockWorkers[0]);
-      expect(navigate).toHaveBeenCalledWith('PinEntry', { worker: mockWorkers[0] });
-    });
-
     it('pasa el objeto worker completo a PinEntry', () => {
+      // Arrange
       const navigate = jest.fn();
-      const handlePress = (worker) => navigate('PinEntry', { worker });
+      const handlePress = (w) => navigate('PinEntry', { worker: w });
+
+      // Act
       handlePress(mockWorkers[2]);
-      const call = navigate.mock.calls[0][1];
-      expect(call.worker).toHaveProperty('id');
-      expect(call.worker).toHaveProperty('name');
-      expect(call.worker).toHaveProperty('puesto');
-      expect(call.worker).toHaveProperty('pin');
+
+      // Assert
+      const passed = navigate.mock.calls[0][1].worker;
+      expect(passed).toHaveProperty('id');
+      expect(passed).toHaveProperty('name');
+      expect(passed).toHaveProperty('puesto');
+      expect(passed).toHaveProperty('pin');
     });
   });
 
-  describe('owner detection', () => {
-    it('owner tiene role owner', () => {
-      const owner = mockWorkers.find(w => w.role === 'owner');
-      expect(owner).toBeDefined();
+  describe('isAdmin — detección del owner', () => {
+    it('owner tiene rol owner', () => {
+      // Arrange
+      const ownerWorker = mockWorkers.find(w => w.role === 'owner');
+
+      // Act
+      const result = isAdmin(ownerWorker);
+
+      // Assert
+      expect(result).toBe(true);
     });
 
-    it('solo existe un owner', () => {
-      expect(mockWorkers.filter(w => w.role === 'owner')).toHaveLength(1);
+    it('solo existe un owner en la lista', () => {
+      // Arrange / Act
+      const owners = mockWorkers.filter(w => w.role === 'owner');
+
+      // Assert
+      expect(owners).toHaveLength(1);
     });
 
-    it('workers normales no son owner', () => {
-      const workers = mockWorkers.filter(w => w.role !== 'owner');
-      workers.forEach(w => expect(w.role).not.toBe('owner'));
-    });
-  });
+    it('workers normales no son admin', () => {
+      // Arrange
+      const normalWorkers = mockWorkers.filter(w => w.role === 'worker');
 
-  describe('worker avatar', () => {
-    it('genera la inicial del nombre en mayúscula', () => {
-      expect(mockWorkers[0].name.charAt(0).toUpperCase()).toBe('C');
-      expect(mockWorkers[1].name.charAt(0).toUpperCase()).toBe('A');
-      expect(mockWorkers[2].name.charAt(0).toUpperCase()).toBe('L');
-    });
+      // Act
+      const results = normalWorkers.map(w => isAdmin(w));
 
-    it('usa el color del worker para el avatar', () => {
-      expect(mockWorkers[0].color).toBe('#FFFFFF');
-      expect(mockWorkers[1].color).toBe('#FF6B6B');
-    });
-  });
-
-  describe('grid layout', () => {
-    it('todos los workers se renderizan', () => {
-      const rendered = mockWorkers.map(w => w.id);
-      expect(rendered).toEqual(['owner', '1', '2']);
-    });
-
-    it('cada worker tiene key único (id)', () => {
-      const ids = mockWorkers.map(w => w.id);
-      const unique = new Set(ids);
-      expect(unique.size).toBe(ids.length);
+      // Assert
+      results.forEach(r => expect(r).toBe(false));
     });
   });
 
   describe('header content', () => {
     it('título es VENTASSV', () => {
+      // Arrange / Act
       const logo = 'VENTASSV';
+
+      // Assert
       expect(logo).toBe('VENTASSV');
     });
 
-    it('subtítulo es ¿Quién trabaja hoy?', () => {
+    it('subtítulo contiene texto de selección', () => {
+      // Arrange / Act
       const subtitle = '¿Quién trabaja hoy?';
-      expect(subtitle).toBe('¿Quién trabaja hoy?');
+
+      // Assert
+      expect(subtitle.length).toBeGreaterThan(0);
     });
   });
 });

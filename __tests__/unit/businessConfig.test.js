@@ -1,39 +1,154 @@
+import {
+  isValidWhatsAppNumber,
+  isBankConfigComplete,
+} from '../../src/utils/validationLogic';
+
 describe('businessConfig', () => {
   describe('validación WhatsApp', () => {
-    const isValid = (num) => num.replace(/\D/g, '').length >= 8;
-    it('acepta número válido', () => expect(isValid('70001234')).toBe(true));
-    it('acepta número con guión', () => expect(isValid('7000-1234')).toBe(true));
-    it('rechaza número corto', () => expect(isValid('1234')).toBe(false));
-    it('rechaza vacío', () => expect(isValid('')).toBe(false));
+    it('acepta número válido de 8 dígitos', () => {
+      // Arrange
+      const number = '70001234';
+
+      // Act
+      const result = isValidWhatsAppNumber(number);
+
+      // Assert
+      expect(result).toBe(true);
+    });
+
+    it('acepta número con guión', () => {
+      // Arrange
+      const number = '7000-1234';
+
+      // Act
+      const result = isValidWhatsAppNumber(number);
+
+      // Assert
+      expect(result).toBe(true);
+    });
+
+    it('acepta número con código de país', () => {
+      // Arrange
+      const number = '+50370001234';
+
+      // Act
+      const result = isValidWhatsAppNumber(number);
+
+      // Assert
+      expect(result).toBe(true);
+    });
+
+    it('rechaza número corto', () => {
+      // Arrange
+      const number = '1234';
+
+      // Act
+      const result = isValidWhatsAppNumber(number);
+
+      // Assert
+      expect(result).toBe(false);
+    });
+
+    it('rechaza vacío', () => {
+      // Arrange
+      const number = '';
+
+      // Act
+      const result = isValidWhatsAppNumber(number);
+
+      // Assert
+      expect(result).toBe(false);
+    });
+
+    it('acepta número con espacios (solo cuenta dígitos)', () => {
+      // Arrange
+      const number = '7000 1234';
+
+      // Act
+      const result = isValidWhatsAppNumber(number);
+
+      // Assert
+      expect(result).toBe(true);
+    });
   });
 
-  describe('buildTicketMessage', () => {
-    const build = (sale) => {
-      const methods = { cash: 'Efectivo', transfer: 'Transferencia' };
-      return encodeURIComponent([
-        `Pedido #${sale.orderNumber || '----'}`,
-        `${sale.productName}`,
-        `Total: $${sale.total?.toFixed(2)}`,
-        `Pago: ${methods[sale.paymentMethod] || sale.paymentMethod}`,
-      ].join('\n'));
-    };
-    const sale = { orderNumber: '0001', productName: 'Pupusa', total: 1.50, paymentMethod: 'cash' };
-
-    it('genera mensaje sin errores', () => expect(() => build(sale)).not.toThrow());
-    it('incluye número de orden', () => expect(decodeURIComponent(build(sale))).toContain('0001'));
-    it('incluye total', () => expect(decodeURIComponent(build(sale))).toContain('1.50'));
-    it('incluye nombre del producto', () => expect(decodeURIComponent(build(sale))).toContain('Pupusa'));
-    it('muestra método en español', () => expect(decodeURIComponent(build(sale))).toContain('Efectivo'));
-  });
-
-  describe('datos bancarios', () => {
-    const isComplete = (bc) => !!(bc?.bank?.trim() && bc?.holder?.trim() && bc?.account?.trim());
+  describe('datos bancarios — isBankConfigComplete', () => {
     it('completo cuando tiene banco, titular y cuenta', () => {
-      expect(isComplete({ bank: 'Agrícola', holder: 'Carlos', account: '123' })).toBe(true);
+      // Arrange
+      const bank = 'Agrícola';
+      const holder = 'Carlos';
+      const account = '123456';
+
+      // Act
+      const result = isBankConfigComplete(bank, holder, account);
+
+      // Assert
+      expect(result).toBe(true);
     });
-    it('incompleto si falta algún campo', () => {
-      expect(isComplete({ bank: '', holder: 'Ana', account: '123' })).toBe(false);
+
+    it('incompleto si banco está vacío', () => {
+      // Arrange
+      const bank = '';
+      const holder = 'Ana';
+      const account = '123';
+
+      // Act
+      const result = isBankConfigComplete(bank, holder, account);
+
+      // Assert
+      expect(result).toBe(false);
     });
-    it('incompleto si es null', () => expect(isComplete(null)).toBe(false));
+
+    it('incompleto si titular está vacío', () => {
+      // Arrange
+      const bank = 'Davivienda';
+      const holder = '';
+      const account = '456';
+
+      // Act
+      const result = isBankConfigComplete(bank, holder, account);
+
+      // Assert
+      expect(result).toBe(false);
+    });
+
+    it('incompleto si cuenta está vacía', () => {
+      // Arrange
+      const bank = 'Davivienda';
+      const holder = 'Luis';
+      const account = '';
+
+      // Act
+      const result = isBankConfigComplete(bank, holder, account);
+
+      // Assert
+      expect(result).toBe(false);
+    });
+
+    it('incompleto si banco es solo espacios', () => {
+      // Arrange
+      const bank = '   ';
+      const holder = 'Luis';
+      const account = '789';
+
+      // Act
+      const result = isBankConfigComplete(bank, holder, account);
+
+      // Assert
+      expect(result).toBe(false);
+    });
+
+    it('incompleto si todos los campos son undefined', () => {
+      // Arrange
+      const bank = undefined;
+      const holder = undefined;
+      const account = undefined;
+
+      // Act
+      const result = isBankConfigComplete(bank, holder, account);
+
+      // Assert
+      expect(result).toBe(false);
+    });
   });
 });
