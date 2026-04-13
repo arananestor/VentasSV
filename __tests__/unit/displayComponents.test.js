@@ -1,201 +1,462 @@
 /**
  * Display Components — pure logic tests (no component rendering)
  * Tests the business rules and prop logic for StatusBadge and InfoCard
+ * using real functions from uiLogic and colorUtils
  */
+
+import {
+  getStatusBadgeSizeConfig,
+  getDotColor,
+  getAvatarInitial,
+  getPuestoDisplay,
+} from '../../src/utils/uiLogic';
+import { getTextColor } from '../../src/utils/colorUtils';
+import { LIGHT_THEME, DARK_THEME } from '../../src/context/ThemeContext';
 
 describe('StatusBadge logic', () => {
 
-  describe('props', () => {
-    it('requiere label', () => {
-      const props = { label: 'COMPLETADA' };
-      expect(props.label).toBe('COMPLETADA');
+  describe('getStatusBadgeSizeConfig — small variant', () => {
+    it('retorna dot 6 para size small', () => {
+      // Arrange
+      const size = 'small';
+
+      // Act
+      const config = getStatusBadgeSizeConfig(size);
+
+      // Assert
+      expect(config.dot).toBe(6);
     });
 
-    it('color es opcional — default es success', () => {
-      const withColor = { label: 'TEST', color: '#FF0000' };
-      const withoutColor = { label: 'TEST' };
-      expect(withColor.color).toBe('#FF0000');
-      expect(withoutColor.color).toBeUndefined();
+    it('retorna fontSize 10 para size small', () => {
+      // Arrange
+      const size = 'small';
+
+      // Act
+      const config = getStatusBadgeSizeConfig(size);
+
+      // Assert
+      expect(config.fontSize).toBe(10);
     });
 
-    it('size default es small', () => {
-      const props = { label: 'TEST' };
-      const size = props.size || 'small';
-      expect(size).toBe('small');
+    it('retorna gap 6 para size small', () => {
+      // Arrange
+      const size = 'small';
+
+      // Act
+      const config = getStatusBadgeSizeConfig(size);
+
+      // Assert
+      expect(config.gap).toBe(6);
     });
 
-    it('size medium cambia estilos', () => {
-      const props = { label: 'Banco', size: 'medium' };
-      expect(props.size).toBe('medium');
+    it('retorna config small para cualquier valor no-medium', () => {
+      // Arrange
+      const size = 'undefined-size';
+
+      // Act
+      const config = getStatusBadgeSizeConfig(size);
+
+      // Assert
+      expect(config.dot).toBe(6);
+      expect(config.fontSize).toBe(10);
     });
   });
 
-  describe('size variants', () => {
-    it('small: dot 6x6, fontSize 10, gap 6', () => {
-      const small = { dot: 6, fontSize: 10, gap: 6 };
-      expect(small.dot).toBe(6);
-      expect(small.fontSize).toBe(10);
-      expect(small.gap).toBe(6);
+  describe('getStatusBadgeSizeConfig — medium variant', () => {
+    it('retorna dot 7 para size medium', () => {
+      // Arrange
+      const size = 'medium';
+
+      // Act
+      const config = getStatusBadgeSizeConfig(size);
+
+      // Assert
+      expect(config.dot).toBe(7);
     });
 
-    it('medium: dot 7x7, fontSize 11, gap 8', () => {
-      const medium = { dot: 7, fontSize: 11, gap: 8 };
-      expect(medium.dot).toBe(7);
-      expect(medium.fontSize).toBe(11);
-      expect(medium.gap).toBe(8);
+    it('retorna fontSize 11 para size medium', () => {
+      // Arrange
+      const size = 'medium';
+
+      // Act
+      const config = getStatusBadgeSizeConfig(size);
+
+      // Assert
+      expect(config.fontSize).toBe(11);
+    });
+
+    it('retorna gap 8 para size medium', () => {
+      // Arrange
+      const size = 'medium';
+
+      // Act
+      const config = getStatusBadgeSizeConfig(size);
+
+      // Assert
+      expect(config.gap).toBe(8);
+    });
+
+    it('retorna padding 12 para size medium', () => {
+      // Arrange
+      const size = 'medium';
+
+      // Act
+      const config = getStatusBadgeSizeConfig(size);
+
+      // Assert
+      expect(config.padding).toBe(12);
+    });
+  });
+
+  describe('getDotColor — fallback logic', () => {
+    it('usa color propio cuando se proporciona', () => {
+      // Arrange
+      const color = '#FF3B30';
+      const fallback = DARK_THEME.success;
+
+      // Act
+      const result = getDotColor(color, fallback);
+
+      // Assert
+      expect(result).toBe('#FF3B30');
+    });
+
+    it('usa fallback cuando color es undefined', () => {
+      // Arrange
+      const color = undefined;
+      const fallback = DARK_THEME.success;
+
+      // Act
+      const result = getDotColor(color, fallback);
+
+      // Assert
+      expect(result).toBe(DARK_THEME.success);
+    });
+
+    it('usa fallback cuando color es null', () => {
+      // Arrange
+      const color = null;
+      const fallback = LIGHT_THEME.success;
+
+      // Act
+      const result = getDotColor(color, fallback);
+
+      // Assert
+      expect(result).toBe(LIGHT_THEME.success);
+    });
+
+    it('usa fallback del tema dark para dot por defecto', () => {
+      // Arrange
+      const color = undefined;
+      const fallback = DARK_THEME.dot;
+
+      // Act
+      const result = getDotColor(color, fallback);
+
+      // Assert
+      expect(result).toBe('#4ECDC4');
     });
   });
 
   describe('label formatting', () => {
-    it('label se muestra en mayúsculas', () => {
+    it('label COMPLETADA está en mayúsculas', () => {
+      // Arrange
       const label = 'COMPLETADA';
-      expect(label).toBe(label.toUpperCase());
+
+      // Act
+      const isUpperCase = label === label.toUpperCase();
+
+      // Assert
+      expect(isUpperCase).toBe(true);
     });
 
-    it('label tiene letterSpacing 2', () => {
-      const letterSpacing = 2;
-      expect(letterSpacing).toBe(2);
+    it('label EN PROCESO está en mayúsculas', () => {
+      // Arrange
+      const label = 'EN PROCESO';
+
+      // Act
+      const isUpperCase = label === label.toUpperCase();
+
+      // Assert
+      expect(isUpperCase).toBe(true);
     });
   });
 
   describe('theme tokens', () => {
-    it('usa theme.card como background', () => {
-      const theme = { card: '#FFFFFF' };
-      expect(theme.card).toBeDefined();
+    it('LIGHT_THEME tiene card definido', () => {
+      // Arrange / Act
+      const card = LIGHT_THEME.card;
+
+      // Assert
+      expect(card).toBeDefined();
+      expect(typeof card).toBe('string');
     });
 
-    it('usa theme.cardBorder como border', () => {
-      const theme = { cardBorder: '#E5E5EA' };
-      expect(theme.cardBorder).toBeDefined();
+    it('DARK_THEME tiene cardBorder definido', () => {
+      // Arrange / Act
+      const cardBorder = DARK_THEME.cardBorder;
+
+      // Assert
+      expect(cardBorder).toBeDefined();
     });
 
-    it('dot usa color prop o theme.success como fallback', () => {
-      const theme = { success: '#34C759' };
-      const color = undefined;
-      const dotColor = color || theme.success;
-      expect(dotColor).toBe('#34C759');
+    it('LIGHT_THEME success es verde', () => {
+      // Arrange / Act
+      const success = LIGHT_THEME.success;
+
+      // Assert
+      expect(success).toBe('#34C759');
     });
 
-    it('dot usa color prop cuando se proporciona', () => {
-      const color = '#FF3B30';
-      const theme = { success: '#34C759' };
-      const dotColor = color || theme.success;
-      expect(dotColor).toBe('#FF3B30');
+    it('DARK_THEME success es teal', () => {
+      // Arrange / Act
+      const success = DARK_THEME.success;
+
+      // Assert
+      expect(success).toBe('#4ECDC4');
     });
   });
 
-  describe('use cases', () => {
-    it('SaleDetailScreen — COMPLETADA con success', () => {
-      const props = { label: 'COMPLETADA', color: '#34C759' };
-      expect(props.label).toBe('COMPLETADA');
-      expect(props.color).toBe('#34C759');
+  describe('casos de uso — SaleDetailScreen', () => {
+    it('COMPLETADA con success del tema light', () => {
+      // Arrange
+      const label = 'COMPLETADA';
+      const color = LIGHT_THEME.success;
+
+      // Act
+      const dotColor = getDotColor(color, DARK_THEME.success);
+
+      // Assert
+      expect(label).toBe('COMPLETADA');
+      expect(dotColor).toBe(LIGHT_THEME.success);
+    });
+
+    it('badge size small es default cuando no se especifica', () => {
+      // Arrange
+      const sizeDefault = undefined;
+
+      // Act
+      const config = getStatusBadgeSizeConfig(sizeDefault);
+
+      // Assert
+      expect(config.dot).toBe(6);
     });
   });
 });
 
 describe('InfoCard logic', () => {
 
-  describe('props', () => {
-    it('requiere label y value', () => {
-      const props = { label: 'FECHA', value: 'Mié, 9 Abr' };
-      expect(props.label).toBe('FECHA');
-      expect(props.value).toBe('Mié, 9 Abr');
+  describe('getAvatarInitial', () => {
+    it('retorna la inicial en mayúscula para nombre normal', () => {
+      // Arrange
+      const name = 'Ana García';
+
+      // Act
+      const initial = getAvatarInitial(name);
+
+      // Assert
+      expect(initial).toBe('A');
     });
 
-    it('icon es opcional', () => {
-      const withIcon = { label: 'TEST', value: 'val', icon: 'calendar' };
-      const withoutIcon = { label: 'TEST', value: 'val' };
-      expect(withIcon.icon).toBeDefined();
-      expect(withoutIcon.icon).toBeUndefined();
+    it('retorna la inicial en mayúscula para nombre con minúscula', () => {
+      // Arrange
+      const name = 'carlos';
+
+      // Act
+      const initial = getAvatarInitial(name);
+
+      // Assert
+      expect(initial).toBe('C');
+    });
+
+    it('retorna ? para nombre vacío', () => {
+      // Arrange
+      const name = '';
+
+      // Act
+      const initial = getAvatarInitial(name);
+
+      // Assert
+      expect(initial).toBe('?');
+    });
+
+    it('retorna ? para nombre undefined', () => {
+      // Arrange
+      const name = undefined;
+
+      // Act
+      const initial = getAvatarInitial(name);
+
+      // Assert
+      expect(initial).toBe('?');
+    });
+
+    it('retorna ? para nombre null', () => {
+      // Arrange
+      const name = null;
+
+      // Act
+      const initial = getAvatarInitial(name);
+
+      // Assert
+      expect(initial).toBe('?');
     });
   });
 
-  describe('label formatting', () => {
-    it('label en mayúsculas con letterSpacing', () => {
+  describe('getPuestoDisplay', () => {
+    it('retorna el puesto en mayúsculas', () => {
+      // Arrange
+      const puesto = 'Cajero';
+
+      // Act
+      const display = getPuestoDisplay(puesto);
+
+      // Assert
+      expect(display).toBe('CAJERO');
+    });
+
+    it('retorna fallback cuando puesto es falsy', () => {
+      // Arrange
+      const puesto = undefined;
+      const fallback = 'EMPLEADO';
+
+      // Act
+      const display = getPuestoDisplay(puesto, fallback);
+
+      // Assert
+      expect(display).toBe('EMPLEADO');
+    });
+
+    it('retorna EMPLEADO como fallback por defecto', () => {
+      // Arrange
+      const puesto = null;
+
+      // Act
+      const display = getPuestoDisplay(puesto);
+
+      // Assert
+      expect(display).toBe('EMPLEADO');
+    });
+
+    it('retorna DUEÑO para Dueño', () => {
+      // Arrange
+      const puesto = 'Dueño';
+
+      // Act
+      const display = getPuestoDisplay(puesto);
+
+      // Assert
+      expect(display).toBe('DUEÑO');
+    });
+  });
+
+  describe('theme tokens para InfoCard', () => {
+    it('LIGHT_THEME textMuted definido para label', () => {
+      // Arrange / Act
+      const textMuted = LIGHT_THEME.textMuted;
+
+      // Assert
+      expect(textMuted).toBeDefined();
+      expect(textMuted).toBe('#AEAEB2');
+    });
+
+    it('DARK_THEME text es blanco para value', () => {
+      // Arrange / Act
+      const text = DARK_THEME.text;
+
+      // Assert
+      expect(text).toBe('#FFFFFF');
+    });
+
+    it('LIGHT_THEME card es blanco para background', () => {
+      // Arrange / Act
+      const card = LIGHT_THEME.card;
+
+      // Assert
+      expect(card).toBe('#FFFFFF');
+    });
+  });
+
+  describe('getTextColor — contraste', () => {
+    it('texto negro sobre fondo blanco', () => {
+      // Arrange
+      const bg = '#FFFFFF';
+
+      // Act
+      const textColor = getTextColor(bg);
+
+      // Assert
+      expect(textColor).toBe('#000');
+    });
+
+    it('texto blanco sobre fondo negro', () => {
+      // Arrange
+      const bg = '#000000';
+
+      // Act
+      const textColor = getTextColor(bg);
+
+      // Assert
+      expect(textColor).toBe('#FFF');
+    });
+
+    it('texto blanco cuando bg es undefined', () => {
+      // Arrange
+      const bg = undefined;
+
+      // Act
+      const textColor = getTextColor(bg);
+
+      // Assert
+      expect(textColor).toBe('#FFF');
+    });
+
+    it('texto negro sobre color claro', () => {
+      // Arrange
+      const bg = '#FFFF00'; // amarillo brillante
+
+      // Act
+      const textColor = getTextColor(bg);
+
+      // Assert
+      expect(textColor).toBe('#000');
+    });
+
+    it('texto blanco sobre color oscuro', () => {
+      // Arrange
+      const bg = '#1A1A2E'; // azul oscuro
+
+      // Act
+      const textColor = getTextColor(bg);
+
+      // Assert
+      expect(textColor).toBe('#FFF');
+    });
+  });
+
+  describe('casos de uso — SaleDetailScreen InfoCards', () => {
+    it('FECHA card: label y value correctos', () => {
+      // Arrange
       const label = 'FECHA';
-      expect(label).toBe(label.toUpperCase());
+      const value = 'Mié, 9 Abr';
+
+      // Act
+      const displayLabel = getPuestoDisplay(label, label);
+
+      // Assert
+      expect(value).toBe('Mié, 9 Abr');
+      expect(displayLabel).toBe('FECHA');
     });
 
-    it('label fontSize 10, fontWeight 800', () => {
-      const style = { fontSize: 10, fontWeight: '800' };
-      expect(style.fontSize).toBe(10);
-      expect(style.fontWeight).toBe('800');
-    });
-  });
-
-  describe('value formatting', () => {
-    it('value fontSize 14, fontWeight 700', () => {
-      const style = { fontSize: 14, fontWeight: '700' };
-      expect(style.fontSize).toBe(14);
-      expect(style.fontWeight).toBe('700');
-    });
-
-    it('value tiene marginTop 6 del label', () => {
-      const marginTop = 6;
-      expect(marginTop).toBe(6);
-    });
-  });
-
-  describe('card layout', () => {
-    it('ancho 48% para grid de 2 columnas', () => {
-      const width = '48%';
-      expect(width).toBe('48%');
-    });
-
-    it('borderRadius 14, padding 16', () => {
-      const style = { borderRadius: 14, padding: 16 };
-      expect(style.borderRadius).toBe(14);
-      expect(style.padding).toBe(16);
-    });
-  });
-
-  describe('theme tokens', () => {
-    it('usa theme.card como background', () => {
-      const theme = { card: '#FFFFFF' };
-      expect(theme.card).toBeDefined();
-    });
-
-    it('usa theme.textMuted para label', () => {
-      const theme = { textMuted: '#AEAEB2' };
-      expect(theme.textMuted).toBeDefined();
-    });
-
-    it('usa theme.text para value', () => {
-      const theme = { text: '#000000' };
-      expect(theme.text).toBeDefined();
-    });
-  });
-
-  describe('use cases from SaleDetailScreen', () => {
-    it('FECHA card', () => {
-      const props = { label: 'FECHA', value: 'Mié, 9 Abr' };
-      expect(props.label).toBe('FECHA');
-    });
-
-    it('HORA card', () => {
-      const props = { label: 'HORA', value: '2:30 PM' };
-      expect(props.value).toBe('2:30 PM');
-    });
-
-    it('MÉTODO card', () => {
-      const props = { label: 'MÉTODO', value: 'Efectivo' };
-      expect(props.value).toBe('Efectivo');
-    });
-
-    it('CAJERO card con fallback', () => {
+    it('CAJERO card usa fallback cuando no hay worker', () => {
+      // Arrange
       const workerName = undefined;
-      const value = workerName || '—';
-      expect(value).toBe('—');
-    });
 
-    it('4 cards en grid de 2 columnas', () => {
-      const items = [
-        { label: 'FECHA', value: 'Mié, 9 Abr' },
-        { label: 'HORA', value: '2:30 PM' },
-        { label: 'MÉTODO', value: 'Efectivo' },
-        { label: 'CAJERO', value: 'Ana' },
-      ];
-      expect(items).toHaveLength(4);
+      // Act
+      const display = getAvatarInitial(workerName);
+
+      // Assert
+      expect(display).toBe('?');
     });
   });
 });

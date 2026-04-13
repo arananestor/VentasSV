@@ -1,78 +1,206 @@
-import { generatePin } from '../../src/context/AuthContext';
+import { generatePin, PUESTOS } from '../../src/context/AuthContext';
+import { buildOwnerData, isValidPin } from '../../src/utils/workerLogic';
+import { isValidProductName } from '../../src/utils/validationLogic';
 
 describe('SetupScreen — lógica', () => {
-  describe('validaciones del paso 1', () => {
-    const isValidName = (name) => name.trim().length > 0;
-    it('nombre vacío no es válido', () => expect(isValidName('')).toBe(false));
-    it('nombre con espacios no es válido', () => expect(isValidName('   ')).toBe(false));
-    it('nombre válido pasa', () => expect(isValidName('Carlos López')).toBe(true));
+
+  describe('isValidProductName — validación del nombre del dueño', () => {
+    it('nombre vacío no es válido', () => {
+      // Arrange
+      const name = '';
+
+      // Act
+      const result = isValidProductName(name);
+
+      // Assert
+      expect(result).toBe(false);
+    });
+
+    it('nombre con solo espacios no es válido', () => {
+      // Arrange
+      const name = '   ';
+
+      // Act
+      const result = isValidProductName(name);
+
+      // Assert
+      expect(result).toBe(false);
+    });
+
+    it('nombre válido pasa la validación', () => {
+      // Arrange
+      const name = 'Carlos López';
+
+      // Act
+      const result = isValidProductName(name);
+
+      // Assert
+      expect(result).toBe(true);
+    });
   });
 
-  describe('generación de PIN en setup', () => {
+  describe('generatePin — generación en setup', () => {
     it('PIN generado es exactamente 4 dígitos', () => {
-      expect(generatePin()).toHaveLength(4);
+      // Arrange / Act
+      const pin = generatePin();
+
+      // Assert
+      expect(pin).toHaveLength(4);
     });
 
-    it('PIN es numérico', () => {
-      expect(/^\d{4}$/.test(generatePin())).toBe(true);
+    it('PIN generado es numérico', () => {
+      // Arrange / Act
+      const pin = generatePin();
+
+      // Assert
+      expect(/^\d{4}$/.test(pin)).toBe(true);
     });
 
-    it('regenerar PIN da uno diferente eventualmente', () => {
-      const pins = new Set(Array.from({ length: 10 }, generatePin));
+    it('isValidPin acepta el PIN generado', () => {
+      // Arrange / Act
+      const pin = generatePin();
+      const result = isValidPin(pin);
+
+      // Assert
+      expect(result).toBe(true);
+    });
+
+    it('regenerar PIN da valores diferentes eventualmente', () => {
+      // Arrange
+      const pins = new Set();
+
+      // Act
+      for (let i = 0; i < 10; i++) pins.add(generatePin());
+
+      // Assert
       expect(pins.size).toBeGreaterThan(1);
     });
   });
 
   describe('deviceType', () => {
-    it('solo acepta fixed o personal', () => {
-      const valid = ['fixed', 'personal'];
-      expect(valid.includes('fixed')).toBe(true);
-      expect(valid.includes('personal')).toBe(true);
-      expect(valid.includes('tablet')).toBe(false);
+    it('tipo fixed existe en los válidos', () => {
+      // Arrange
+      const validTypes = ['fixed', 'personal'];
+
+      // Act
+      const includes = validTypes.includes('fixed');
+
+      // Assert
+      expect(includes).toBe(true);
     });
 
-    it('fixed es para múltiples usuarios', () => {
-      const deviceBehavior = { fixed: 'multi-user', personal: 'single-user' };
-      expect(deviceBehavior['fixed']).toBe('multi-user');
+    it('tipo personal existe en los válidos', () => {
+      // Arrange
+      const validTypes = ['fixed', 'personal'];
+
+      // Act
+      const includes = validTypes.includes('personal');
+
+      // Assert
+      expect(includes).toBe(true);
     });
 
-    it('personal es para un solo usuario', () => {
-      const deviceBehavior = { fixed: 'multi-user', personal: 'single-user' };
-      expect(deviceBehavior['personal']).toBe('single-user');
+    it('tipo tablet no es válido', () => {
+      // Arrange
+      const validTypes = ['fixed', 'personal'];
+
+      // Act
+      const includes = validTypes.includes('tablet');
+
+      // Assert
+      expect(includes).toBe(false);
     });
   });
 
-  describe('setupOwner — estructura del owner', () => {
-    const buildOwner = (pin, name, device) => ({
-      id: 'owner', name: name.trim(), pin,
-      role: 'owner', puesto: 'Dueño', dui: '',
-      photo: null, color: '#FFFFFF',
-      createdAt: new Date().toISOString(),
+  describe('buildOwnerData — estructura del owner en setup', () => {
+    it('owner tiene id fijo "owner"', () => {
+      // Arrange
+      const pin = '1234';
+      const name = 'Carlos';
+
+      // Act
+      const owner = buildOwnerData(pin, name);
+
+      // Assert
+      expect(owner.id).toBe('owner');
     });
 
-    it('owner tiene id fijo owner', () => {
-      expect(buildOwner('1234', 'Carlos', 'fixed').id).toBe('owner');
+    it('owner tiene role "owner"', () => {
+      // Arrange
+      const pin = '1234';
+      const name = 'Carlos';
+
+      // Act
+      const owner = buildOwnerData(pin, name);
+
+      // Assert
+      expect(owner.role).toBe('owner');
     });
 
-    it('owner tiene role owner', () => {
-      expect(buildOwner('1234', 'Carlos', 'fixed').role).toBe('owner');
+    it('owner tiene puesto "Dueño"', () => {
+      // Arrange
+      const pin = '1234';
+      const name = 'Carlos';
+
+      // Act
+      const owner = buildOwnerData(pin, name);
+
+      // Assert
+      expect(owner.puesto).toBe('Dueño');
     });
 
-    it('owner tiene puesto Dueño', () => {
-      expect(buildOwner('1234', 'Carlos', 'fixed').puesto).toBe('Dueño');
+    it('owner preserva el nombre recortado', () => {
+      // Arrange
+      const pin = '1234';
+      const name = '  Carlos López  ';
+
+      // Act
+      const owner = buildOwnerData(pin, name);
+
+      // Assert
+      expect(owner.name).toBe('Carlos López');
     });
 
-    it('owner preserva el nombre', () => {
-      expect(buildOwner('1234', 'Carlos López', 'fixed').name).toBe('Carlos López');
+    it('owner preserva el PIN', () => {
+      // Arrange
+      const pin = '9876';
+      const name = 'María';
+
+      // Act
+      const owner = buildOwnerData(pin, name);
+
+      // Assert
+      expect(owner.pin).toBe('9876');
     });
 
-    it('owner trim el nombre', () => {
-      expect(buildOwner('1234', '  Carlos  ', 'fixed').name).toBe('Carlos');
+    it('owner tiene color blanco #FFFFFF', () => {
+      // Arrange
+      const pin = '1234';
+      const name = 'Carlos';
+
+      // Act
+      const owner = buildOwnerData(pin, name);
+
+      // Assert
+      expect(owner.color).toBe('#FFFFFF');
+    });
+  });
+
+  describe('PUESTOS — opciones disponibles en setup', () => {
+    it('hay 5 puestos disponibles', () => {
+      // Arrange / Act
+      const count = PUESTOS.length;
+
+      // Assert
+      expect(count).toBe(5);
     });
 
-    it('owner tiene createdAt válido', () => {
-      const owner = buildOwner('1234', 'Carlos', 'fixed');
-      expect(new Date(owner.createdAt).toString()).not.toBe('Invalid Date');
+    it('todos los puestos son strings no vacíos', () => {
+      // Arrange / Act
+      const allValid = PUESTOS.every(p => isValidProductName(p));
+
+      // Assert
+      expect(allValid).toBe(true);
     });
   });
 });

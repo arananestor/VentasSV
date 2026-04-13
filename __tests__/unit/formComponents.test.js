@@ -1,191 +1,463 @@
 /**
  * Form Components — pure logic tests (no component rendering)
  * Tests the business rules and prop logic for ThemedTextInput, CenterModal, BottomSheetModal
+ * using real validation functions from validationLogic and ThemeContext
  */
+
+import {
+  isValidProductName,
+  isValidPrice,
+  isValidWhatsAppNumber,
+  isBankConfigComplete,
+} from '../../src/utils/validationLogic';
+import { LIGHT_THEME, DARK_THEME } from '../../src/context/ThemeContext';
 
 describe('ThemedTextInput logic', () => {
 
-  describe('props validation', () => {
-    it('acepta todas las props requeridas', () => {
-      const props = { value: 'test', onChangeText: jest.fn(), placeholder: 'Enter' };
-      expect(props.value).toBe('test');
-      expect(typeof props.onChangeText).toBe('function');
-      expect(props.placeholder).toBe('Enter');
+  describe('isValidProductName — nombre input', () => {
+    it('acepta nombre válido', () => {
+      // Arrange
+      const name = 'Pupusa de Chicharrón';
+
+      // Act
+      const result = isValidProductName(name);
+
+      // Assert
+      expect(result).toBe(true);
     });
 
-    it('label es opcional', () => {
-      const withLabel = { label: 'NOMBRE', value: '' };
-      const withoutLabel = { value: '' };
-      expect(withLabel.label).toBeDefined();
-      expect(withoutLabel.label).toBeUndefined();
+    it('rechaza nombre vacío', () => {
+      // Arrange
+      const name = '';
+
+      // Act
+      const result = isValidProductName(name);
+
+      // Assert
+      expect(result).toBe(false);
     });
 
-    it('prefix es opcional', () => {
-      const withPrefix = { prefix: '+503', value: '7000' };
-      const withoutPrefix = { value: '7000' };
-      expect(withPrefix.prefix).toBe('+503');
-      expect(withoutPrefix.prefix).toBeUndefined();
+    it('rechaza solo espacios', () => {
+      // Arrange
+      const name = '   ';
+
+      // Act
+      const result = isValidProductName(name);
+
+      // Assert
+      expect(result).toBe(false);
     });
 
-    it('error es opcional y cambia border', () => {
-      const withError = { error: 'Campo requerido' };
-      const borderColor = withError.error ? '#FF3B30' : '#D1D1D6';
-      expect(borderColor).toBe('#FF3B30');
-    });
+    it('rechaza tipo no-string', () => {
+      // Arrange
+      const name = 123;
 
-    it('sin error usa borderColor normal', () => {
-      const noError = {};
-      const borderColor = noError.error ? '#FF3B30' : '#D1D1D6';
-      expect(borderColor).toBe('#D1D1D6');
+      // Act
+      const result = isValidProductName(name);
+
+      // Assert
+      expect(result).toBe(false);
     });
   });
 
-  describe('keyboardType mapping', () => {
-    it('numeric para teléfono', () => {
-      const props = { keyboardType: 'phone-pad' };
-      expect(props.keyboardType).toBe('phone-pad');
+  describe('isValidPrice — precio input', () => {
+    it('acepta precio positivo', () => {
+      // Arrange
+      const price = 1.50;
+
+      // Act
+      const result = isValidPrice(price);
+
+      // Assert
+      expect(result).toBe(true);
     });
 
-    it('default cuando no se especifica', () => {
-      const props = {};
-      expect(props.keyboardType || 'default').toBe('default');
+    it('rechaza precio cero', () => {
+      // Arrange
+      const price = 0;
+
+      // Act
+      const result = isValidPrice(price);
+
+      // Assert
+      expect(result).toBe(false);
+    });
+
+    it('rechaza precio negativo', () => {
+      // Arrange
+      const price = -0.50;
+
+      // Act
+      const result = isValidPrice(price);
+
+      // Assert
+      expect(result).toBe(false);
+    });
+
+    it('rechaza string numérico', () => {
+      // Arrange
+      const price = '2.50';
+
+      // Act
+      const result = isValidPrice(price);
+
+      // Assert
+      expect(result).toBe(false);
     });
   });
 
-  describe('maxLength constraint', () => {
-    it('respeta maxLength', () => {
-      const max = 12;
-      const input = '70001234567890';
-      const limited = input.slice(0, max);
-      expect(limited).toHaveLength(12);
+  describe('isValidWhatsAppNumber — teléfono input', () => {
+    it('acepta número de 8 dígitos', () => {
+      // Arrange
+      const number = '70001234';
+
+      // Act
+      const result = isValidWhatsAppNumber(number);
+
+      // Assert
+      expect(result).toBe(true);
     });
 
-    it('no limita sin maxLength', () => {
-      const input = '7000123456';
-      expect(input).toHaveLength(10);
+    it('acepta número con guión', () => {
+      // Arrange
+      const number = '7000-1234';
+
+      // Act
+      const result = isValidWhatsAppNumber(number);
+
+      // Assert
+      expect(result).toBe(true);
+    });
+
+    it('rechaza número de 4 dígitos', () => {
+      // Arrange
+      const number = '1234';
+
+      // Act
+      const result = isValidWhatsAppNumber(number);
+
+      // Assert
+      expect(result).toBe(false);
+    });
+
+    it('rechaza vacío', () => {
+      // Arrange
+      const number = '';
+
+      // Act
+      const result = isValidWhatsAppNumber(number);
+
+      // Assert
+      expect(result).toBe(false);
+    });
+  });
+
+  describe('theme tokens para inputs', () => {
+    it('LIGHT_THEME input es blanco para background', () => {
+      // Arrange / Act
+      const inputBg = LIGHT_THEME.input;
+
+      // Assert
+      expect(inputBg).toBe('#FFFFFF');
+    });
+
+    it('DARK_THEME input es oscuro', () => {
+      // Arrange / Act
+      const inputBg = DARK_THEME.input;
+
+      // Assert
+      expect(inputBg).toBe('#111111');
+    });
+
+    it('LIGHT_THEME danger es rojo para borde de error', () => {
+      // Arrange / Act
+      const danger = LIGHT_THEME.danger;
+
+      // Assert
+      expect(danger).toBe('#FF3B30');
+    });
+
+    it('LIGHT_THEME inputBorder para borde normal', () => {
+      // Arrange / Act
+      const border = LIGHT_THEME.inputBorder;
+
+      // Assert
+      expect(border).toBe('#D1D1D6');
+    });
+
+    it('DARK_THEME inputBorder para borde dark', () => {
+      // Arrange / Act
+      const border = DARK_THEME.inputBorder;
+
+      // Assert
+      expect(border).toBe('#222222');
     });
   });
 });
 
 describe('CenterModal logic', () => {
 
-  describe('visibility', () => {
-    it('visible true muestra el modal', () => {
-      const props = { visible: true, onClose: jest.fn(), title: 'Test' };
-      expect(props.visible).toBe(true);
+  describe('isBankConfigComplete — modal datos bancarios', () => {
+    it('completo con banco, titular y cuenta', () => {
+      // Arrange
+      const bank = 'Agrícola';
+      const holder = 'Carlos López';
+      const account = '0101-123456-1';
+
+      // Act
+      const result = isBankConfigComplete(bank, holder, account);
+
+      // Assert
+      expect(result).toBe(true);
     });
 
-    it('visible false oculta el modal', () => {
-      const props = { visible: false, onClose: jest.fn() };
-      expect(props.visible).toBe(false);
+    it('incompleto sin banco', () => {
+      // Arrange
+      const bank = '';
+      const holder = 'Carlos';
+      const account = '12345';
+
+      // Act
+      const result = isBankConfigComplete(bank, holder, account);
+
+      // Assert
+      expect(result).toBe(false);
+    });
+
+    it('incompleto con titular vacío', () => {
+      // Arrange
+      const bank = 'Davivienda';
+      const holder = '   ';
+      const account = '12345';
+
+      // Act
+      const result = isBankConfigComplete(bank, holder, account);
+
+      // Assert
+      expect(result).toBe(false);
+    });
+
+    it('incompleto con cuenta vacía', () => {
+      // Arrange
+      const bank = 'Davivienda';
+      const holder = 'Ana';
+      const account = '';
+
+      // Act
+      const result = isBankConfigComplete(bank, holder, account);
+
+      // Assert
+      expect(result).toBe(false);
+    });
+
+    it('incompleto si todos son undefined', () => {
+      // Arrange
+      const bank = undefined;
+      const holder = undefined;
+      const account = undefined;
+
+      // Act
+      const result = isBankConfigComplete(bank, holder, account);
+
+      // Assert
+      expect(result).toBe(false);
     });
   });
 
   describe('onClose callback', () => {
     it('onClose se ejecuta al tocar overlay', () => {
+      // Arrange
       const onClose = jest.fn();
+
+      // Act
       onClose();
+
+      // Assert
       expect(onClose).toHaveBeenCalledTimes(1);
     });
 
-    it('onClose no se ejecuta al tocar contenido (TouchableWithoutFeedback)', () => {
+    it('onClose no se ejecuta sin interacción', () => {
+      // Arrange
       const onClose = jest.fn();
-      // Content area does NOT trigger onClose
+
+      // Act — no action
+
+      // Assert
       expect(onClose).not.toHaveBeenCalled();
     });
   });
 
-  describe('title', () => {
-    it('title es opcional', () => {
-      const withTitle = { title: 'AUTORIZACIÓN' };
-      const withoutTitle = {};
-      expect(withTitle.title).toBe('AUTORIZACIÓN');
-      expect(withoutTitle.title).toBeUndefined();
+  describe('titulo del modal', () => {
+    it('título AUTORIZACIÓN es texto en mayúsculas', () => {
+      // Arrange
+      const title = 'AUTORIZACIÓN';
+
+      // Act
+      const isUpper = title === title.toUpperCase();
+
+      // Assert
+      expect(isUpper).toBe(true);
     });
 
-    it('title se renderiza en mayúsculas con letterSpacing', () => {
+    it('título ELIMINAR EMPLEADO está en mayúsculas', () => {
+      // Arrange
       const title = 'ELIMINAR EMPLEADO';
-      expect(title).toBe(title.toUpperCase());
+
+      // Act
+      const isUpper = title === title.toUpperCase();
+
+      // Assert
+      expect(isUpper).toBe(true);
+    });
+
+    it('título CAMBIAR TURNO es válido como string', () => {
+      // Arrange
+      const title = 'CAMBIAR TURNO';
+
+      // Act
+      const result = isValidProductName(title);
+
+      // Assert
+      expect(result).toBe(true);
     });
   });
 
   describe('animationType', () => {
-    it('siempre usa fade animation', () => {
+    it('usa fade animation', () => {
+      // Arrange
       const animationType = 'fade';
-      expect(animationType).toBe('fade');
+
+      // Act
+      const isFade = animationType === 'fade';
+
+      // Assert
+      expect(isFade).toBe(true);
     });
   });
 
-  describe('use cases', () => {
-    it('admin PIN modal en HomeScreen', () => {
-      const props = { visible: true, onClose: jest.fn() };
-      expect(props.visible).toBe(true);
-      expect(typeof props.onClose).toBe('function');
+  describe('theme overlay', () => {
+    it('DARK_THEME overlay tiene alta opacidad', () => {
+      // Arrange / Act
+      const overlay = DARK_THEME.overlay;
+
+      // Assert
+      expect(overlay).toBe('rgba(0,0,0,0.85)');
     });
 
-    it('confirm modal en ProfileScreen con título', () => {
-      const props = { visible: true, onClose: jest.fn(), title: 'CAMBIAR TURNO' };
-      expect(props.title).toBe('CAMBIAR TURNO');
-    });
+    it('LIGHT_THEME overlay tiene menor opacidad', () => {
+      // Arrange / Act
+      const overlay = LIGHT_THEME.overlay;
 
-    it('tab form modal en ManageTabsScreen', () => {
-      const props = { visible: true, onClose: jest.fn(), title: 'NUEVA PESTAÑA' };
-      expect(props.title).toBe('NUEVA PESTAÑA');
+      // Assert
+      expect(overlay).toBe('rgba(0,0,0,0.4)');
     });
   });
 });
 
 describe('BottomSheetModal logic', () => {
 
-  describe('visibility', () => {
-    it('visible true muestra el sheet', () => {
-      const props = { visible: true, onClose: jest.fn(), title: 'ÍCONO' };
-      expect(props.visible).toBe(true);
+  describe('título del bottom sheet', () => {
+    it('título ÍCONO DEL PRODUCTO es texto válido', () => {
+      // Arrange
+      const title = 'ÍCONO DEL PRODUCTO';
+
+      // Act
+      const result = isValidProductName(title);
+
+      // Assert
+      expect(result).toBe(true);
     });
 
-    it('visible false oculta el sheet', () => {
-      const props = { visible: false };
-      expect(props.visible).toBe(false);
-    });
-  });
+    it('título ÍCONO DEL INGREDIENTE es texto válido', () => {
+      // Arrange
+      const title = 'ÍCONO DEL INGREDIENTE';
 
-  describe('onClose callback', () => {
-    it('onClose se ejecuta al tocar X', () => {
-      const onClose = jest.fn();
-      onClose();
-      expect(onClose).toHaveBeenCalledTimes(1);
-    });
-  });
+      // Act
+      const result = isValidProductName(title);
 
-  describe('title', () => {
-    it('title se muestra en header', () => {
-      const props = { title: 'ÍCONO DEL PRODUCTO' };
-      expect(props.title).toBe('ÍCONO DEL PRODUCTO');
-    });
-
-    it('title del ingrediente', () => {
-      const props = { title: 'ÍCONO DEL INGREDIENTE' };
-      expect(props.title).toBe('ÍCONO DEL INGREDIENTE');
+      // Assert
+      expect(result).toBe(true);
     });
   });
 
   describe('animationType', () => {
-    it('siempre usa slide animation', () => {
+    it('usa slide animation (diferente al CenterModal)', () => {
+      // Arrange
       const animationType = 'slide';
-      expect(animationType).toBe('slide');
+
+      // Act
+      const isSlide = animationType === 'slide';
+
+      // Assert
+      expect(isSlide).toBe(true);
     });
   });
 
-  describe('sheet layout', () => {
+  describe('sheet layout config', () => {
     it('maxHeight es 78%', () => {
+      // Arrange
       const maxHeight = '78%';
-      expect(maxHeight).toBe('78%');
+
+      // Act
+      const pct = parseFloat(maxHeight);
+
+      // Assert
+      expect(pct).toBe(78);
     });
 
-    it('borderRadius solo en top', () => {
-      const styles = { borderTopLeftRadius: 24, borderTopRightRadius: 24 };
-      expect(styles.borderTopLeftRadius).toBe(24);
-      expect(styles.borderTopRightRadius).toBe(24);
+    it('borderTopLeftRadius es 24', () => {
+      // Arrange
+      const borderTopLeftRadius = 24;
+
+      // Act / Assert
+      expect(borderTopLeftRadius).toBe(24);
+    });
+
+    it('borderTopRightRadius es 24', () => {
+      // Arrange
+      const borderTopRightRadius = 24;
+
+      // Act / Assert
+      expect(borderTopRightRadius).toBe(24);
+    });
+  });
+
+  describe('onClose callback', () => {
+    it('se ejecuta una vez al tocar X', () => {
+      // Arrange
+      const onClose = jest.fn();
+
+      // Act
+      onClose();
+
+      // Assert
+      expect(onClose).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('theme tokens para BottomSheet', () => {
+    it('DARK_THEME card es el background', () => {
+      // Arrange / Act
+      const bg = DARK_THEME.card;
+
+      // Assert
+      expect(bg).toBe('#111111');
+    });
+
+    it('LIGHT_THEME card es blanco', () => {
+      // Arrange / Act
+      const bg = LIGHT_THEME.card;
+
+      // Assert
+      expect(bg).toBe('#FFFFFF');
+    });
+
+    it('DARK_THEME text para el título del header', () => {
+      // Arrange / Act
+      const text = DARK_THEME.text;
+
+      // Assert
+      expect(text).toBe('#FFFFFF');
     });
   });
 });

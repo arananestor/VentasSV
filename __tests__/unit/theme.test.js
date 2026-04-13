@@ -1,61 +1,209 @@
-describe('ThemeContext', () => {
-  const DARK = {
-    mode: 'dark', bg: '#000000', card: '#111111', cardBorder: '#222222',
-    text: '#FFFFFF', textSecondary: '#888888', textMuted: '#555555',
-    accent: '#FFFFFF', accentText: '#000000', input: '#111111',
-    inputBorder: '#222222', overlay: 'rgba(0,0,0,0.85)', danger: '#FF3B30',
-    success: '#4ECDC4', keypad: '#111111', keypadText: '#FFFFFF',
-    statusBar: 'light-content', headerBg: '#000000', dot: '#4ECDC4',
-  };
+import { LIGHT_THEME, DARK_THEME } from '../../src/context/ThemeContext';
+import { getTextColor } from '../../src/utils/colorUtils';
 
-  const LIGHT = {
-    mode: 'light', bg: '#F2F2F7', card: '#FFFFFF', cardBorder: '#E5E5EA',
-    text: '#000000', textSecondary: '#8E8E93', textMuted: '#AEAEB2',
-    accent: '#000000', accentText: '#FFFFFF', input: '#FFFFFF',
-    inputBorder: '#D1D1D6', overlay: 'rgba(0,0,0,0.4)', danger: '#FF3B30',
-    success: '#34C759', keypad: '#E5E5EA', keypadText: '#000000',
-    statusBar: 'dark-content', headerBg: '#FFFFFF', dot: '#34C759',
-  };
+describe('DARK_THEME', () => {
+  it('tiene todos los tokens requeridos', () => {
+    // Arrange
+    const required = ['bg', 'card', 'cardBorder', 'text', 'accent', 'accentText', 'danger', 'success'];
 
-  describe('tema dark', () => {
-    it('tiene todos los tokens requeridos', () => {
-      const required = ['bg','card','cardBorder','text','accent','accentText','danger','success'];
-      required.forEach(token => expect(DARK[token]).toBeDefined());
-    });
+    // Act
+    const missing = required.filter(token => !DARK_THEME[token]);
 
-    it('bg es negro puro', () => expect(DARK.bg).toBe('#000000'));
-    it('texto es blanco', () => expect(DARK.text).toBe('#FFFFFF'));
-    it('accent es blanco', () => expect(DARK.accent).toBe('#FFFFFF'));
-    it('accentText es negro', () => expect(DARK.accentText).toBe('#000000'));
-    it('statusBar es light-content', () => expect(DARK.statusBar).toBe('light-content'));
+    // Assert
+    expect(missing).toHaveLength(0);
   });
 
-  describe('tema light', () => {
-    it('tiene todos los tokens requeridos', () => {
-      const required = ['bg','card','cardBorder','text','accent','accentText','danger','success'];
-      required.forEach(token => expect(LIGHT[token]).toBeDefined());
-    });
+  it('bg es negro puro', () => {
+    // Arrange / Act
+    const bg = DARK_THEME.bg;
 
-    it('bg es gris claro', () => expect(LIGHT.bg).toBe('#F2F2F7'));
-    it('texto es negro', () => expect(LIGHT.text).toBe('#000000'));
-    it('accent es negro', () => expect(LIGHT.accent).toBe('#000000'));
-    it('accentText es blanco', () => expect(LIGHT.accentText).toBe('#FFFFFF'));
-    it('statusBar es dark-content', () => expect(LIGHT.statusBar).toBe('dark-content'));
+    // Assert
+    expect(bg).toBe('#000000');
   });
 
-  describe('toggle', () => {
-    it('dark cambia a light', () => {
-      const next = DARK.mode === 'dark' ? LIGHT : DARK;
-      expect(next.mode).toBe('light');
-    });
+  it('texto es blanco', () => {
+    // Arrange / Act
+    const text = DARK_THEME.text;
 
-    it('light cambia a dark', () => {
-      const next = LIGHT.mode === 'light' ? DARK : LIGHT;
-      expect(next.mode).toBe('dark');
-    });
+    // Assert
+    expect(text).toBe('#FFFFFF');
+  });
 
-    it('danger es el mismo en ambos temas', () => {
-      expect(DARK.danger).toBe(LIGHT.danger);
-    });
+  it('accent es blanco', () => {
+    // Arrange / Act
+    const accent = DARK_THEME.accent;
+
+    // Assert
+    expect(accent).toBe('#FFFFFF');
+  });
+
+  it('accentText es negro', () => {
+    // Arrange / Act
+    const accentText = DARK_THEME.accentText;
+
+    // Assert
+    expect(accentText).toBe('#000000');
+  });
+
+  it('statusBar es light-content', () => {
+    // Arrange / Act
+    const statusBar = DARK_THEME.statusBar;
+
+    // Assert
+    expect(statusBar).toBe('light-content');
+  });
+
+  it('mode es dark', () => {
+    // Arrange / Act
+    const mode = DARK_THEME.mode;
+
+    // Assert
+    expect(mode).toBe('dark');
+  });
+
+  it('headerBg es negro', () => {
+    // Arrange / Act
+    const headerBg = DARK_THEME.headerBg;
+
+    // Assert
+    expect(headerBg).toBe('#000000');
+  });
+});
+
+describe('LIGHT_THEME', () => {
+  it('tiene todos los tokens requeridos', () => {
+    // Arrange
+    const required = ['bg', 'card', 'cardBorder', 'text', 'accent', 'accentText', 'danger', 'success'];
+
+    // Act
+    const missing = required.filter(token => !LIGHT_THEME[token]);
+
+    // Assert
+    expect(missing).toHaveLength(0);
+  });
+
+  it('bg es gris claro', () => {
+    // Arrange / Act
+    const bg = LIGHT_THEME.bg;
+
+    // Assert
+    expect(bg).toBe('#F2F2F7');
+  });
+
+  it('texto es negro', () => {
+    // Arrange / Act
+    const text = LIGHT_THEME.text;
+
+    // Assert
+    expect(text).toBe('#000000');
+  });
+
+  it('accent es negro', () => {
+    // Arrange / Act
+    const accent = LIGHT_THEME.accent;
+
+    // Assert
+    expect(accent).toBe('#000000');
+  });
+
+  it('accentText es blanco', () => {
+    // Arrange / Act
+    const accentText = LIGHT_THEME.accentText;
+
+    // Assert
+    expect(accentText).toBe('#FFFFFF');
+  });
+
+  it('statusBar es dark-content', () => {
+    // Arrange / Act
+    const statusBar = LIGHT_THEME.statusBar;
+
+    // Assert
+    expect(statusBar).toBe('dark-content');
+  });
+
+  it('mode es light', () => {
+    // Arrange / Act
+    const mode = LIGHT_THEME.mode;
+
+    // Assert
+    expect(mode).toBe('light');
+  });
+});
+
+describe('toggle entre temas', () => {
+  it('dark cambia a light al hacer toggle', () => {
+    // Arrange
+    const currentTheme = DARK_THEME;
+
+    // Act
+    const next = currentTheme.mode === 'dark' ? LIGHT_THEME : DARK_THEME;
+
+    // Assert
+    expect(next.mode).toBe('light');
+  });
+
+  it('light cambia a dark al hacer toggle', () => {
+    // Arrange
+    const currentTheme = LIGHT_THEME;
+
+    // Act
+    const next = currentTheme.mode === 'light' ? DARK_THEME : LIGHT_THEME;
+
+    // Assert
+    expect(next.mode).toBe('dark');
+  });
+
+  it('danger es el mismo valor en ambos temas', () => {
+    // Arrange / Act
+    const darkDanger = DARK_THEME.danger;
+    const lightDanger = LIGHT_THEME.danger;
+
+    // Assert
+    expect(darkDanger).toBe(lightDanger);
+  });
+
+  it('los temas tienen valores mode diferentes', () => {
+    // Arrange / Act
+    const darkMode = DARK_THEME.mode;
+    const lightMode = LIGHT_THEME.mode;
+
+    // Assert
+    expect(darkMode).not.toBe(lightMode);
+  });
+});
+
+describe('getTextColor — contraste basado en tema', () => {
+  it('texto oscuro sobre bg del LIGHT_THEME (gris claro)', () => {
+    // Arrange
+    const bg = LIGHT_THEME.bg; // '#F2F2F7'
+
+    // Act
+    const textColor = getTextColor(bg);
+
+    // Assert
+    expect(textColor).toBe('#000');
+  });
+
+  it('texto claro sobre card del DARK_THEME', () => {
+    // Arrange
+    const bg = DARK_THEME.card; // '#111111'
+
+    // Act
+    const textColor = getTextColor(bg);
+
+    // Assert
+    expect(textColor).toBe('#FFF');
+  });
+
+  it('texto claro sobre bg negro del DARK_THEME', () => {
+    // Arrange
+    const bg = DARK_THEME.bg; // '#000000'
+
+    // Act
+    const textColor = getTextColor(bg);
+
+    // Assert
+    expect(textColor).toBe('#FFF');
   });
 });
