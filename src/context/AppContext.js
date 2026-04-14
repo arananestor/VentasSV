@@ -10,6 +10,8 @@ import { newId } from '../utils/ids';
 import { migrateCollectionToV4 } from '../utils/schemaMigrationV4';
 import * as repository from '../data/repository';
 import { migrateBusinessConfigToQentasFields } from '../utils/businessConfigMigration';
+import { migrateToV5 } from '../utils/schemaMigrationV5';
+import { createMode } from '../models/mode';
 
 const WA_COLOR = '#25D366';
 const AppContext = createContext();
@@ -18,6 +20,8 @@ export function AppProvider({ children }) {
   const [products, setProducts] = useState([]);
   const [sales, setSales] = useState([]);
   const [cart, setCart] = useState([]);
+  const [modes, setModes] = useState([]);
+  const [currentModeId, setCurrentModeIdState] = useState(null);
 
   // Snackbar global
   const [snackData, setSnackData] = useState(null);
@@ -72,47 +76,47 @@ export function AppProvider({ children }) {
         await AsyncStorage.setItem('ventasv_schema_version', '4');
       }
 
+      // v4→v5 migration (Modes)
+      const schemaV5 = await AsyncStorage.getItem('ventasv_schema_version');
+      if (!schemaV5 || Number(schemaV5) < 5) {
+        const existingModes = await repository.getAll('modes');
+        const existingCurrentModeId = await repository.getCurrentModeId();
+        const loadedTabs = await repository.getAll('tabs');
+        const v5Result = migrateToV5({ products: loadedProducts, tabs: loadedTabs, existingModes, deviceId });
+        if (existingModes.length === 0) {
+          await repository.save('modes', v5Result.modes);
+          if (!existingCurrentModeId && v5Result.currentModeId) {
+            await repository.setCurrentModeId(v5Result.currentModeId);
+          }
+        }
+        await AsyncStorage.setItem('ventasv_schema_version', '5');
+      }
+
+      const loadedModes = await repository.getAll('modes');
+      const loadedCurrentModeId = await repository.getCurrentModeId();
+
       setProducts(loadedProducts);
       setSales(loadedSales);
+      setModes(loadedModes);
+      setCurrentModeIdState(loadedCurrentModeId);
 
-      // TODO(cleanup-next-pr): remove these verification logs after Modos PR
+      // TODO(cleanup-next-pr): remove these verification logs after Modos cajero UI PR
       (async () => {
         try {
-          const { getDeviceId } = require('../services/deviceId');
-          const devId = await getDeviceId();
           const sv = await AsyncStorage.getItem('ventasv_schema_version');
-
-          const rawP = await AsyncStorage.getItem('ventasv_products');
-          const prods = rawP ? JSON.parse(rawP) : [];
-          const rawS = await AsyncStorage.getItem('ventasv_sales');
-          const sls = rawS ? JSON.parse(rawS) : [];
-
-          const uuidRx = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-          const pUuid = prods.filter(p => uuidRx.test(p.id)).length;
-          const pEnv = prods.filter(p => p.syncState && p.deviceId).length;
-          const sEnv = sls.filter(s => s.syncState && s.deviceId).length;
-
-          console.log('[F1 VERIFY] deviceId:', devId);
-          console.log('[F1 VERIFY] schemaVersion:', sv);
-          console.log('[F1 VERIFY] products total:', prods.length, '| with UUID:', pUuid, '| with envelope:', pEnv);
-          console.log('[F1 VERIFY] sales total:', sls.length, '| with envelope:', sEnv);
-          if (prods.length) console.log('[F1 VERIFY] sample product id:', prods[0].id);
-
-          const qentasClient = (await import('../services/qentasClient')).default;
-          console.log('[F2 VERIFY] qentas isConnected:', qentasClient.isConnected());
-          console.log('[F2 VERIFY] qentas getAccount:', qentasClient.getAccount());
-          const cr = await qentasClient.connect({});
-          console.log('[F2 VERIFY] qentas connect({}) =>', cr);
-
-          const rawCfg = await AsyncStorage.getItem('business_bank_config');
-          if (rawCfg) {
-            const cfg = JSON.parse(rawCfg);
-            console.log('[F2 VERIFY] businessConfig qentasConnected:', cfg.qentasConnected, '| qentasAccountId:', cfg.qentasAccountId);
-          } else {
-            console.log('[F2 VERIFY] businessConfig not yet persisted');
-          }
+          const cmId = await repository.getCurrentModeId();
+          const ms = await repository.getAll('modes');
+          const principal = ms.find(m => m.isDefault);
+          const activeMode = ms.find(m => m.id === cmId);
+          const activeCount = activeMode ? Object.values(activeMode.productOverrides || {}).filter(o => o.active).length : 0;
+          console.log('[MODOS-F1 VERIFY] schemaVersion:', sv);
+          console.log('[MODOS-F1 VERIFY] modes count:', ms.length);
+          console.log('[MODOS-F1 VERIFY] currentModeId:', cmId);
+          console.log('[MODOS-F1 VERIFY] principal mode found:', !!principal);
+          console.log('[MODOS-F1 VERIFY] products in currentMode active:', activeCount);
+          console.log('[MODOS-F1 VERIFY] tabOrder length:', activeMode?.tabOrder?.length || 0);
         } catch (e) {
-          console.log('[VERIFY ERROR]', e);
+          console.log('[MODOS-F1 VERIFY ERROR]', e);
         }
       })();
 
@@ -205,6 +209,57 @@ export function AppProvider({ children }) {
 
   const getAllSales = () => sales;
 
+  // ── MODOS ───────────────────────────────────────────────
+  const currentMode = modes.find(m => m.id === currentModeId) || null;
+
+  const setCurrentMode = async (modeId) => {
+    await repository.setCurrentModeId(modeId);
+    setCurrentModeIdState(modeId);
+  };
+
+  const createModeFromForm = async ({ name, description = '' }) => {
+    const mode = createMode({ name, description, isDefault: false });
+    const enveloped = await repository.upsert('modes', mode);
+    setModes(prev => [...prev, enveloped]);
+    return enveloped;
+  };
+
+  const updateMode = async (modeId, patch) => {
+    const updated = modes.map(m =>
+      m.id === modeId ? { ...m, ...patch, updatedAt: new Date().toISOString() } : m
+    );
+    setModes(updated);
+    await repository.save('modes', updated);
+  };
+
+  const deleteMode = async (modeId) => {
+    const mode = modes.find(m => m.id === modeId);
+    if (mode?.isDefault) throw new Error('No se puede eliminar el Modo Principal');
+    if (currentModeId === modeId) throw new Error('No se puede eliminar el Modo activo');
+    const filtered = modes.filter(m => m.id !== modeId);
+    setModes(filtered);
+    await repository.save('modes', filtered);
+  };
+
+  const cloneMode = async (modeId, newName) => {
+    const source = modes.find(m => m.id === modeId);
+    if (!source) throw new Error('Modo no encontrado');
+    const overrides = {};
+    for (const [k, v] of Object.entries(source.productOverrides || {})) {
+      overrides[k] = { ...v };
+    }
+    const cloned = createMode({
+      name: newName,
+      description: source.description,
+      productOverrides: overrides,
+      tabOrder: [...source.tabOrder],
+      isDefault: false,
+    });
+    const enveloped = await repository.upsert('modes', cloned);
+    setModes(prev => [...prev, enveloped]);
+    return enveloped;
+  };
+
   // ── SNACKBAR GLOBAL ──────────────────────────────────────
   const showSnack = (data) => {
     if (dismissTimer.current) clearTimeout(dismissTimer.current);
@@ -246,6 +301,8 @@ export function AppProvider({ children }) {
       addProduct, updateProduct, deleteProduct,
       addSale, getTodaySales, getAllSales, updateSaleStatus, updateSaleItemUnit,
       cart, addToCart, removeFromCart, clearCart, cartTotal, cartCount,
+      modes, currentModeId, currentMode,
+      setCurrentMode, createModeFromForm, updateMode, deleteMode, cloneMode,
       showSnack,
     }}>
       {children}
