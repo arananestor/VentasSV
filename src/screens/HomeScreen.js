@@ -12,6 +12,7 @@ import { useTheme } from '../context/ThemeContext';
 import { useTab } from '../context/TabContext';
 import ProductSticker from '../components/ProductSticker';
 import PinKeypadModal from '../components/PinKeypadModal';
+import { resolveVisibleProducts, resolveProductPrice, resolveTabOrder } from '../utils/modeResolution';
 
 const { width } = Dimensions.get('window');
 const CARD_GAP = 12;
@@ -22,6 +23,7 @@ export default function HomeScreen({ navigation }) {
   const {
     products, deleteProduct,
     cart, addToCart, removeFromCart, clearCart, cartTotal, cartCount,
+    currentMode,
   } = useApp();
   const { currentWorker, verifyOwnerPin } = useAuth();
   const { theme } = useTheme();
@@ -41,12 +43,13 @@ export default function HomeScreen({ navigation }) {
   const [sizeQuantities, setSizeQuantities] = useState({});
 
   const activeTab = getActiveTab();
-  const filteredTabs = getFilteredTabs();
-  const existingIds = products.map(p => p.id);
+  const filteredTabs = resolveTabOrder(getFilteredTabs(), currentMode);
+  const activeProducts = resolveVisibleProducts(products, currentMode);
+  const existingIds = activeProducts.map(p => p.id);
 
   const tabProducts = activeTab.id === 'default' && activeTab.productIds.length === 0
-    ? products
-    : products.filter(p => activeTab.productIds.includes(p.id));
+    ? activeProducts
+    : activeProducts.filter(p => activeTab.productIds.includes(p.id));
 
   const requestPinAction = (action) => {
     setPendingAction(() => action);
@@ -85,6 +88,7 @@ export default function HomeScreen({ navigation }) {
     selectedProduct.sizes.forEach((size, i) => {
       const qty = sizeQuantities[i] || 0;
       if (qty > 0) {
+        const resolvedPrice = resolveProductPrice(selectedProduct, i, currentMode);
         addToCart({
           product: selectedProduct,
           size,
@@ -92,7 +96,7 @@ export default function HomeScreen({ navigation }) {
           units: [],
           extras: [],
           note: '',
-          total: size.price * qty,
+          total: resolvedPrice * qty,
         });
       }
     });
@@ -107,7 +111,7 @@ export default function HomeScreen({ navigation }) {
   };
 
   const simpleTotal = selectedProduct
-    ? selectedProduct.sizes.reduce((sum, s, i) => sum + s.price * (sizeQuantities[i] || 0), 0)
+    ? selectedProduct.sizes.reduce((sum, s, i) => sum + resolveProductPrice(selectedProduct, i, currentMode) * (sizeQuantities[i] || 0), 0)
     : 0;
   const simpleHasItems = Object.values(sizeQuantities).some(q => q > 0);
 
@@ -171,6 +175,15 @@ export default function HomeScreen({ navigation }) {
 
       {/* Filter tabs hidden for beta — reactivate post-beta */}
       {/* <View style={styles.filterRow}>...</View> */}
+
+      {currentMode && (
+        <View style={[styles.modeIndicator, { borderColor: theme.cardBorder }]}>
+          <Feather name="layers" size={12} color={theme.textMuted} />
+          <Text style={[styles.modeIndicatorText, { color: theme.textMuted }]}>
+            Modo: {currentMode.name}
+          </Text>
+        </View>
+      )}
 
       <View style={styles.tabBarWrapper}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabBar}>
@@ -236,7 +249,7 @@ export default function HomeScreen({ navigation }) {
                     {product.name}
                   </Text>
                   <Text style={[styles.productPrice, { color: theme.text }]}>
-                    ${product.sizes[0]?.price.toFixed(2)}
+                    ${resolveProductPrice(product, 0, currentMode).toFixed(2)}
                   </Text>
                 </View>
               </View>
@@ -391,7 +404,7 @@ export default function HomeScreen({ navigation }) {
                       }]}>
                         <View style={styles.sizeRowInfo}>
                           <Text style={[styles.sizeRowName, { color: theme.text }]}>{s.name || 'Normal'}</Text>
-                          <Text style={[styles.sizeRowPrice, { color: theme.textMuted }]}>${s.price.toFixed(2)}</Text>
+                          <Text style={[styles.sizeRowPrice, { color: theme.textMuted }]}>${resolveProductPrice(selectedProduct, i, currentMode).toFixed(2)}</Text>
                         </View>
                         <View style={styles.sizeRowCounter}>
                           <TouchableOpacity
@@ -461,6 +474,12 @@ const styles = StyleSheet.create({
     borderWidth: 1, paddingHorizontal: 14,
   },
   editBtnText: { fontSize: 13, fontWeight: '700' },
+  modeIndicator: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    alignSelf: 'flex-start', marginLeft: PADDING, marginBottom: 6,
+    borderWidth: 1, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4,
+  },
+  modeIndicatorText: { fontSize: 11, fontWeight: '600' },
   tabBarWrapper: { height: 48, marginBottom: 6 },
   tabBar: { paddingHorizontal: PADDING, alignItems: 'center', gap: 8 },
   tabPill: {
