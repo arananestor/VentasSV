@@ -9,6 +9,7 @@ import { migrateAllSalesV2toV3 } from '../utils/salesMigration';
 import { newId } from '../utils/ids';
 import { migrateCollectionToV4 } from '../utils/schemaMigrationV4';
 import * as repository from '../data/repository';
+import { migrateBusinessConfigToQentasFields } from '../utils/businessConfigMigration';
 
 const WA_COLOR = '#25D366';
 const AppContext = createContext();
@@ -60,6 +61,13 @@ export function AppProvider({ children }) {
         if (savedTabs) {
           const migratedTabs = migrateCollectionToV4(JSON.parse(savedTabs), deviceId);
           await repository.save('tabs', migratedTabs);
+        }
+        // BusinessConfig qentas fields migration
+        const rawBc = await AsyncStorage.getItem('business_bank_config');
+        if (rawBc) {
+          const bc = JSON.parse(rawBc);
+          const migratedBc = migrateBusinessConfigToQentasFields(bc);
+          await AsyncStorage.setItem('business_bank_config', JSON.stringify(migratedBc));
         }
         await AsyncStorage.setItem('ventasv_schema_version', '4');
       }

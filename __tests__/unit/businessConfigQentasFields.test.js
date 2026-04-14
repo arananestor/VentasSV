@@ -59,4 +59,18 @@ describe('migrateBusinessConfigToQentasFields', () => {
     expect(result).not.toBe(config);
     expect(config.qentasConnected).toBeUndefined();
   });
+
+  it('persisted config without qentas fields gets migrated on load', () => {
+    // Arrange — simulates config saved before qentas fields existed
+    const persistedConfig = { bank: 'Agrícola', holder: 'Carlos', account: '123' };
+    // Act — migration runs at boot
+    const migrated = migrateBusinessConfigToQentasFields(persistedConfig);
+    // Assert — fields are now present with defaults
+    expect(migrated.qentasConnected).toBe(false);
+    expect(migrated.qentasAccountId).toBeNull();
+    expect(migrated.bank).toBe('Agrícola');
+    // Assert — original differs (would trigger persist)
+    expect(persistedConfig.qentasConnected).toBeUndefined();
+    expect(migrated.qentasConnected !== persistedConfig.qentasConnected).toBe(true);
+  });
 });

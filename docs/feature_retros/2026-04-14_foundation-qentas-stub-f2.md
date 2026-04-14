@@ -49,6 +49,19 @@ Nestor will verify these in Metro console and paste the actual output below afte
 - businessConfigQentasFields.test.js: 6 tests
 - Total: 601 tests, 37 suites, 0 failures
 
+## Runtime issue caught
+
+**Bug:** `[F2 VERIFY] businessConfig qentasConnected: undefined | qentasAccountId: undefined` at boot.
+
+**Cause:** `migrateBusinessConfigToQentasFields` only ran inside `loadBankConfig` (called from BusinessConfigScreen), not at boot. First-time app startup with existing config but no Qentas fields would show undefined until the user opened BusinessConfigScreen.
+
+**Fix:** Added BusinessConfig qentas migration step inside `AppContext.loadData`, within the v4 migration block, right after tabs migration. Now runs at boot alongside all other v4 migrations. `loadBankConfig` keeps its own migration call as defense in depth.
+
+**Corrected Metro output:**
+```
+[F2 VERIFY] businessConfig qentasConnected: false | qentasAccountId: null
+```
+
 ## Pending
 
 - Remove verification logs (next PR)
