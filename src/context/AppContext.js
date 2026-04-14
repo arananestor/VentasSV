@@ -6,6 +6,9 @@ import { Feather } from '@expo/vector-icons';
 import { printTicket } from '../utils/ticketPrinter';
 import { buildTicketMessage } from '../utils/businessConfig';
 import { migrateAllSalesV2toV3 } from '../utils/salesMigration';
+import { newId } from '../utils/ids';
+import { migrateCollectionToV4 } from '../utils/schemaMigrationV4';
+import * as repository from '../data/repository';
 
 const WA_COLOR = '#25D366';
 const AppContext = createContext();
@@ -25,32 +28,58 @@ export function AppProvider({ children }) {
 
   const loadData = async () => {
     try {
+      const deviceId = await repository.init();
+
       const savedProducts = await AsyncStorage.getItem('ventasv_products');
       const savedSales = await AsyncStorage.getItem('ventasv_sales');
-      if (savedProducts) setProducts(JSON.parse(savedProducts));
-      if (savedSales) {
-        let loadedSales = JSON.parse(savedSales);
-        const version = await AsyncStorage.getItem('ventasv_sales_schema_version');
-        if (!version || Number(version) < 3) {
-          loadedSales = migrateAllSalesV2toV3(loadedSales);
-          await AsyncStorage.setItem('ventasv_sales', JSON.stringify(loadedSales));
-          await AsyncStorage.setItem('ventasv_sales_schema_version', '3');
-        }
-        setSales(loadedSales);
+      let loadedProducts = savedProducts ? JSON.parse(savedProducts) : [];
+      let loadedSales = savedSales ? JSON.parse(savedSales) : [];
+
+      // v2→v3 migration (sales items[])
+      const salesVersion = await AsyncStorage.getItem('ventasv_sales_schema_version');
+      if (!salesVersion || Number(salesVersion) < 3) {
+        loadedSales = migrateAllSalesV2toV3(loadedSales);
+        await AsyncStorage.setItem('ventasv_sales_schema_version', '3');
       }
+
+      // v3→v4 migration (entity envelope) — unified schema version
+      const schemaVersion = await AsyncStorage.getItem('ventasv_schema_version');
+      if (!schemaVersion || Number(schemaVersion) < 4) {
+        loadedSales = migrateCollectionToV4(loadedSales, deviceId);
+        loadedProducts = migrateCollectionToV4(loadedProducts, deviceId);
+        await repository.save('sales', loadedSales);
+        await repository.save('products', loadedProducts);
+
+        // Migrate workers and tabs via their storage keys
+        const savedWorkers = await AsyncStorage.getItem('ventasv_workers');
+        if (savedWorkers) {
+          const migratedWorkers = migrateCollectionToV4(JSON.parse(savedWorkers), deviceId);
+          await repository.save('workers', migratedWorkers);
+        }
+        const savedTabs = await AsyncStorage.getItem('ventasv_tabs');
+        if (savedTabs) {
+          const migratedTabs = migrateCollectionToV4(JSON.parse(savedTabs), deviceId);
+          await repository.save('tabs', migratedTabs);
+        }
+        await AsyncStorage.setItem('ventasv_schema_version', '4');
+      }
+
+      setProducts(loadedProducts);
+      setSales(loadedSales);
     } catch (e) { console.log('Error loading data', e); }
   };
 
   const saveProducts = async (newProducts) => {
     setProducts(newProducts);
-    await AsyncStorage.setItem('ventasv_products', JSON.stringify(newProducts));
+    await repository.save('products', newProducts);
   };
 
   const addProduct = async (product) => {
-    const id = Date.now().toString();
+    const id = newId();
     const newProduct = { ...product, id };
-    await saveProducts([...products, newProduct]);
-    return newProduct;
+    const enveloped = await repository.upsert('products', newProduct);
+    setProducts(prev => [...prev, enveloped]);
+    return enveloped;
   };
 
   const updateProduct = async (id, updates) => {
@@ -82,19 +111,18 @@ export function AppProvider({ children }) {
     const orderNumber = String(todaySales.length + 1).padStart(4, '0');
     const newSale = {
       ...sale,
-      id: Date.now().toString(),
+      id: newId(),
       orderNumber,
       orderStatus: 'new',
       timestamp: new Date().toISOString(),
     };
-    const newSales = [...sales, newSale];
-    setSales(newSales);
-    await AsyncStorage.setItem('ventasv_sales', JSON.stringify(newSales));
-    return newSale;
+    const enveloped = await repository.upsert('sales', newSale);
+    setSales(prev => [...prev, enveloped]);
+    return enveloped;
   };
 
   const updateSaleStatus = async (saleId, status) => {
-    const newSales = sales.map(s =>
+    const updated = sales.map(s =>
       s.id === saleId ? {
         ...s,
         orderStatus: status,
@@ -102,8 +130,8 @@ export function AppProvider({ children }) {
         completedAt: status === 'done' ? new Date().toISOString() : s.completedAt,
       } : s
     );
-    setSales(newSales);
-    await AsyncStorage.setItem('ventasv_sales', JSON.stringify(newSales));
+    setSales(updated);
+    await repository.save('sales', updated);
   };
 
   const updateSaleItemUnit = async (saleId, itemIndex, unitIndex, cookLevel) => {
@@ -117,7 +145,7 @@ export function AppProvider({ children }) {
       return { ...s, items: newItems };
     });
     setSales(newSales);
-    await AsyncStorage.setItem('ventasv_sales', JSON.stringify(newSales));
+    await repository.save('sales', newSales);
   };
 
   const getTodaySales = () => {

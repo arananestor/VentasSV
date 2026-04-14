@@ -1,5 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { newId } from '../utils/ids';
+import * as repository from '../data/repository';
 
 const TabContext = createContext();
 
@@ -42,7 +44,7 @@ export function TabProvider({ children }) {
 
   const saveTabs = async (newTabs) => {
     setTabs(newTabs);
-    await AsyncStorage.setItem('ventasv_tabs', JSON.stringify(newTabs));
+    await repository.save('tabs', newTabs);
   };
 
   const selectTab = async (tabId) => {
@@ -53,7 +55,7 @@ export function TabProvider({ children }) {
   const addTab = async (name, type, color) => {
     const icons = { fixed: '📍', event: '🎪' };
     const newTab = {
-      id: Date.now().toString(),
+      id: newId(),
       name,
       type,
       color: color || '#FFFFFF',
