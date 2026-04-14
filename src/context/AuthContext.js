@@ -1,5 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { newId } from '../utils/ids';
+import * as repository from '../data/repository';
 
 const AuthContext = createContext();
 
@@ -58,7 +60,7 @@ export function AuthProvider({ children }) {
     setWorkers(newWorkers);
     setDeviceType(device);
     setIsSetup(true);
-    await AsyncStorage.setItem('ventasv_workers', JSON.stringify(newWorkers));
+    await repository.save('workers', newWorkers);
     await AsyncStorage.setItem('ventasv_device_type', device);
   };
 
@@ -89,7 +91,7 @@ export function AuthProvider({ children }) {
     const colors = ['#FF6B6B','#4ECDC4','#45B7D1','#96CEB4','#FFEAA7','#DDA0DD','#98D8C8','#F7DC6F'];
     const color  = colors[workers.length % colors.length];
     const worker = {
-      id: Date.now().toString(),
+      id: newId(),
       name: name.trim(),
       pin,
       role,
@@ -101,7 +103,7 @@ export function AuthProvider({ children }) {
     };
     const newWorkers = [...workers, worker];
     setWorkers(newWorkers);
-    await AsyncStorage.setItem('ventasv_workers', JSON.stringify(newWorkers));
+    await repository.save('workers', newWorkers);
     return { success: true, worker };
   };
 
@@ -109,7 +111,7 @@ export function AuthProvider({ children }) {
     if (id === 'owner') return { error: 'No podés eliminar al dueño' };
     const newWorkers = workers.filter(w => w.id !== id);
     setWorkers(newWorkers);
-    await AsyncStorage.setItem('ventasv_workers', JSON.stringify(newWorkers));
+    await repository.save('workers', newWorkers);
     if (currentWorker?.id === id) setCurrentWorker(null);
     return { success: true };
   };
@@ -121,14 +123,14 @@ export function AuthProvider({ children }) {
     if (exists) return { error: 'Ese PIN ya existe' };
     const newWorkers = workers.map(w => w.id === id ? { ...w, pin: newPin } : w);
     setWorkers(newWorkers);
-    await AsyncStorage.setItem('ventasv_workers', JSON.stringify(newWorkers));
+    await repository.save('workers', newWorkers);
     return { success: true };
   };
 
   const updateWorkerPhoto = async (id, photo) => {
     const newWorkers = workers.map(w => w.id === id ? { ...w, photo } : w);
     setWorkers(newWorkers);
-    await AsyncStorage.setItem('ventasv_workers', JSON.stringify(newWorkers));
+    await repository.save('workers', newWorkers);
     if (currentWorker?.id === id) setCurrentWorker(prev => ({ ...prev, photo }));
     return { success: true };
   };

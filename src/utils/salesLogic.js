@@ -17,9 +17,11 @@ const canCompletePayment = (paymentMethod, effectiveAmount, totalAmount) =>
   (paymentMethod === 'cash' && effectiveAmount >= totalAmount) ||
   paymentMethod === 'transfer';
 
+const { newId } = require('./ids');
+
 const buildSaleData = (sale, orderNumber) => ({
   ...sale,
-  id: Date.now().toString(),
+  id: newId(),
   orderNumber,
   orderStatus: 'new',
   timestamp: new Date().toISOString(),
