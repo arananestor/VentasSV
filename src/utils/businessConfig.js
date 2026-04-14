@@ -20,49 +20,62 @@ export const loadWhatsAppNumber = async () => {
   return await AsyncStorage.getItem(WA_KEY);
 };
 
+export const buildItemLines = (item) => {
+  const lines = [
+    `*${item.productName || ''}*`,
+    `${item.size || ''} × ${item.quantity || 1} — $${(item.subtotal || 0).toFixed(2)}`,
+  ];
+  const extras = item.extras || [];
+  if (extras.length > 0) {
+    lines.push(`✨ Extras: ${extras.map(e => typeof e === 'string' ? e : e.name || '').join(', ')}`);
+  }
+  if (item.note) {
+    lines.push(`📝 ${item.note}`);
+  }
+  return lines;
+};
+
 export const buildTicketMessage = (sale) => {
   const methods = { cash: 'Efectivo', card: 'Tarjeta', transfer: 'Transferencia' };
-  // TODO(fase-b): remove shim, consume sale.items directly
-  const pName = sale.items?.[0]?.productName ?? sale.productName;
-  const pSize = sale.items?.[0]?.size ?? sale.size;
-  const pQty = sale.items?.[0]?.quantity ?? sale.quantity;
-  const pExtras = sale.items?.[0]?.extras ?? sale.toppings;
+  const items = sale.items || [];
+  const itemLines = items.flatMap((item, i) => {
+    const lines = buildItemLines(item);
+    if (i < items.length - 1) lines.push('');
+    return lines;
+  });
   const lines = [
     `🎫 *Tu pedido #${sale.orderNumber || sale.id?.slice(-4) || '----'}*`,
     ``,
-    `*${pName}*`,
-    `${pSize} × ${pQty}`,
-    pExtras?.length
-      ? `✨ Extras: ${pExtras.join(', ')}`
-      : null,
+    ...itemLines,
     ``,
     `💰 Total: $${sale.total?.toFixed(2)}`,
     `💳 Pago: ${methods[sale.paymentMethod] || sale.paymentMethod}`,
     ``,
     `✅ ¡Gracias! Tu pedido está en preparación.`,
-  ].filter(Boolean);
+  ].filter(l => l != null);
   return encodeURIComponent(lines.join('\n'));
 };
 
 export const buildTransferMessage = (order, bankConfig) => {
-  // TODO(fase-b): remove shim, consume sale.items directly
-  const pName = order.items?.[0]?.productName ?? order.productName ?? order.product?.name;
-  const pSize = order.items?.[0]?.size ?? order.size?.name ?? order.size;
-  const pQty = order.items?.[0]?.quantity ?? order.quantity;
+  const items = order.items || [];
+  const itemLines = items.flatMap((item, i) => {
+    const lines = buildItemLines(item);
+    if (i < items.length - 1) lines.push('');
+    return lines;
+  });
   const lines = [
     `🎫 *Pedido #${order.orderNumber || order.id?.slice(-4) || '----'}*`,
     ``,
-    `*${pName}*`,
-    `${pSize} × ${pQty}`,
+    ...itemLines,
     ``,
     `💰 Total: $${order.total?.toFixed(2)}`,
     ``,
     `🏦 Datos para transferir:`,
-    `Banco: ${bankConfig.bank}`,
-    `Titular: ${bankConfig.holder}`,
-    `Cuenta: ${bankConfig.account}`,
+    bankConfig?.bank ? `Banco: ${bankConfig.bank}` : null,
+    bankConfig?.holder ? `Titular: ${bankConfig.holder}` : null,
+    bankConfig?.account ? `Cuenta: ${bankConfig.account}` : null,
     ``,
     `Enviá tu comprobante al responder este mensaje.`,
-  ].filter(Boolean);
+  ].filter(l => l != null);
   return encodeURIComponent(lines.join('\n'));
 };
