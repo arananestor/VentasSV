@@ -1,7 +1,30 @@
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 
-const generateTicketHTML = (sale, orderDetails) => {
+export const generateItemHTML = (item) => {
+  const extras = (item.extras || []);
+  const extrasHTML = extras.length > 0
+    ? `<div class="toppings-title">EXTRAS:</div>` +
+      extras.map(e => `<div style="font-size: 28px; padding: 4px 0 4px 20px; color: #333;">+ ${typeof e === 'string' ? e : e.name || ''}</div>`).join('')
+    : '';
+
+  const noteHTML = item.note
+    ? `<div style="font-size: 24px; color: #666; padding: 6px 0;">📝 ${item.note}</div>`
+    : '';
+
+  return `
+    <div class="product-section">
+      <div class="product-name">${item.productName || ''}</div>
+      ${item.size ? `<div class="product-size">${item.size}</div>` : ''}
+    </div>
+    <div class="quantity-badge">CANTIDAD: ${item.quantity || 1}</div>
+    ${extrasHTML}
+    ${noteHTML}
+    <div style="font-size: 24px; text-align: right; font-weight: bold; padding: 4px 0;">$${(item.subtotal || 0).toFixed(2)}</div>
+  `;
+};
+
+const generateTicketHTML = (sale) => {
   const date = new Date(sale.timestamp);
   const hours = date.getHours();
   const minutes = date.getMinutes().toString().padStart(2, '0');
@@ -12,15 +35,16 @@ const generateTicketHTML = (sale, orderDetails) => {
   const months = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
   const dateStr = `${date.getDate()} ${months[date.getMonth()]} ${date.getFullYear()}`;
 
-  // TODO(fase-b): remove shim, consume sale.items directly
-  const toppingsData = sale.items?.[0]?.extras ?? sale.toppings;
-  const toppingsHTML = toppingsData && toppingsData.length > 0
-    ? toppingsData.map(t => `
-        <div style="font-size: 28px; padding: 4px 0 4px 20px; color: #333;">
-          + ${t}
-        </div>
-      `).join('')
-    : '';
+  const items = sale.items || [];
+  const itemsHTML = items.map((item, i) => {
+    const separator = i < items.length - 1 ? '<div class="divider"></div>' : '';
+    return generateItemHTML(item) + separator;
+  }).join('');
+
+  const cashSection = sale.paymentMethod === 'cash' && sale.cashGiven != null ? `
+    <div class="info-row"><span>Recibido</span><span>$${sale.cashGiven.toFixed(2)}</span></div>
+    <div class="info-row"><span>Vuelto</span><span>$${(sale.change || 0).toFixed(2)}</span></div>
+  ` : '';
 
   return `
     <!DOCTYPE html>
@@ -153,22 +177,11 @@ const generateTicketHTML = (sale, orderDetails) => {
 
       <div class="divider-thick"></div>
 
-      <div class="order-number">#${sale.id.slice(-4)}</div>
+      <div class="order-number">#${sale.orderNumber || sale.id?.slice(-4) || '----'}</div>
 
       <div class="divider"></div>
 
-      <div class="product-section">
-        <div class="product-name">${sale.items?.[0]?.productName ?? sale.productName}</div>
-        <div class="product-size">${sale.items?.[0]?.size ?? sale.size}</div>
-      </div>
-
-      <div class="quantity-badge">CANTIDAD: ${sale.items?.[0]?.quantity ?? sale.quantity}</div>
-
-      ${toppingsData && toppingsData.length > 0 ? `
-        <div class="toppings-title">EXTRAS:</div>
-        ${toppingsHTML}
-        <div style="height: 6px;"></div>
-      ` : ''}
+      ${itemsHTML}
 
       <div class="divider-thick"></div>
 
@@ -183,9 +196,11 @@ const generateTicketHTML = (sale, orderDetails) => {
 
       <div class="center">
         <div class="payment-method">
-          ${sale.paymentMethod === 'cash' ? '💵 EFECTIVO' : '💳 TARJETA'}
+          ${sale.paymentMethod === 'cash' ? '💵 EFECTIVO' : '💳 TRANSFERENCIA'}
         </div>
       </div>
+
+      ${cashSection}
 
       <div class="divider"></div>
 
@@ -216,10 +231,7 @@ const generateTicketHTML = (sale, orderDetails) => {
 export const printTicket = async (sale) => {
   try {
     const html = generateTicketHTML(sale);
-    await Print.printAsync({
-      html,
-      width: 280,
-    });
+    await Print.printAsync({ html, width: 280 });
     return { success: true };
   } catch (e) {
     console.log('Print error:', e);
@@ -230,14 +242,10 @@ export const printTicket = async (sale) => {
 export const shareTicket = async (sale) => {
   try {
     const html = generateTicketHTML(sale);
-    const { uri } = await Print.printToFileAsync({
-      html,
-      width: 280,
-      height: 600,
-    });
+    const { uri } = await Print.printToFileAsync({ html, width: 280, height: 600 });
     await Sharing.shareAsync(uri, {
       mimeType: 'application/pdf',
-      dialogTitle: `Ticket #${sale.id.slice(-4)}`,
+      dialogTitle: `Ticket #${sale.orderNumber || sale.id?.slice(-4)}`,
     });
     return { success: true };
   } catch (e) {
