@@ -7,6 +7,8 @@ const STORAGE_KEYS = {
   products: 'ventasv_products',
   workers: 'ventasv_workers',
   tabs: 'ventasv_tabs',
+  modes: 'ventasv_modes',
+  currentModeId: 'ventasv_current_mode_id',
   businessConfig: 'business_bank_config',
   schemaVersion: 'ventasv_schema_version',
 };
@@ -50,4 +52,12 @@ const remove = async (collectionName, entityId) => {
   await save(collectionName, filtered);
 };
 
-export { STORAGE_KEYS, init, getAll, save, upsert, remove };
+const getCurrentModeId = async () => {
+  return await AsyncStorage.getItem(STORAGE_KEYS.currentModeId);
+};
+
+const setCurrentModeId = async (modeId) => {
+  await AsyncStorage.setItem(STORAGE_KEYS.currentModeId, modeId);
+};
+
+export { STORAGE_KEYS, init, getAll, save, upsert, remove, getCurrentModeId, setCurrentModeId };
