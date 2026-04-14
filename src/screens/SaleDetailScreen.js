@@ -104,33 +104,34 @@ export default function SaleDetailScreen({ route, navigation }) {
           ))}
         </View>
 
+        {/* TODO(fase-b): remove shim, consume sale.items directly */}
         <Text style={[styles.sectionLabel, { color: theme.textMuted }]}>PRODUCTO</Text>
         <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
-          <Text style={[styles.productName, { color: theme.text }]}>{sale.productName}</Text>
+          <Text style={[styles.productName, { color: theme.text }]}>{sale.items?.[0]?.productName ?? sale.productName}</Text>
           <Divider />
 
           <View style={styles.detailRow}>
             <Text style={[styles.detailLabel, { color: theme.textMuted }]}>Tamaño</Text>
-            <Text style={[styles.detailValue, { color: theme.text }]}>{sale.size}</Text>
+            <Text style={[styles.detailValue, { color: theme.text }]}>{sale.items?.[0]?.size ?? sale.size}</Text>
           </View>
           <View style={styles.detailRow}>
             <Text style={[styles.detailLabel, { color: theme.textMuted }]}>Cantidad</Text>
-            <Text style={[styles.detailValue, { color: theme.text }]}>{sale.quantity}x</Text>
+            <Text style={[styles.detailValue, { color: theme.text }]}>{(sale.items?.[0]?.quantity ?? sale.quantity)}x</Text>
           </View>
 
           {/* Nota general del pedido */}
-          {sale.note ? (
+          {(sale.items?.[0]?.note ?? sale.note) ? (
             <View style={[styles.noteBox, { backgroundColor: '#FFF9C4', borderColor: '#F9A825', marginTop: 12 }]}>
-              <Text style={styles.noteBoxText}>📝 {sale.note}</Text>
+              <Text style={styles.noteBoxText}>📝 {sale.items?.[0]?.note ?? sale.note}</Text>
             </View>
           ) : null}
 
           {/* Unidades con detalle completo */}
-          {sale.units?.length > 0 && (
+          {(sale.items?.[0]?.units ?? sale.units)?.length > 0 && (
             <>
               <Divider spacing={12} />
               <Text style={[styles.unitsLabel, { color: theme.textMuted }]}>UNIDADES</Text>
-              {sale.units.map((unit, i) => {
+              {(sale.items?.[0]?.units ?? sale.units).map((unit, i) => {
                 const unitIngredients = unit.ingredients || unit.flavors || [];
                 const unitExtras = unit.extras || unit.toppings || [];
                 return (

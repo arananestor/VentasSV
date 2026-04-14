@@ -168,9 +168,10 @@ export default function SalesScreen({ navigation }) {
                   )}
                 </View>
                 <View>
-                  <Text style={[styles.saleName, { color: theme.text }]}>{sale.productName}</Text>
+                  {/* TODO(fase-b): remove shim, consume sale.items directly */}
+                  <Text style={[styles.saleName, { color: theme.text }]}>{sale.items?.[0]?.productName ?? sale.productName}</Text>
                   <Text style={[styles.saleDetail, { color: theme.textMuted }]}>
-                    {sale.size} · {sale.quantity}x · {methodLabel(sale.paymentMethod)}
+                    {sale.items?.[0]?.size ?? sale.size} · {(sale.items?.[0]?.quantity ?? sale.quantity)}x · {methodLabel(sale.paymentMethod)}
                   </Text>
                 </View>
               </View>

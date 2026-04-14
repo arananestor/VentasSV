@@ -91,8 +91,10 @@ function CookModal({ sale, visible, onClose, onDone, theme }) {
 
   if (!sale) return null;
 
-  const pages = sale.units?.length > 0
-    ? sale.units
+  // TODO(fase-b): remove shim, consume sale.items directly
+  const saleUnits = sale.items?.[0]?.units ?? sale.units;
+  const pages = saleUnits?.length > 0
+    ? saleUnits
     : [{ ingredients: [], extras: [], note: '' }];
   const totalPages = pages.length;
   const isLastPage = currentPage === totalPages - 1;
@@ -196,17 +198,18 @@ function CookModal({ sale, visible, onClose, onDone, theme }) {
             <View style={[cookStyles.infoBar, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
               <View style={cookStyles.infoItem}>
                 <Text style={[cookStyles.infoLabel, { color: theme.textMuted }]}>PRODUCTO</Text>
-                <Text style={[cookStyles.infoValue, { color: theme.text }]} numberOfLines={1}>{sale.productName}</Text>
+                {/* TODO(fase-b): remove shim, consume sale.items directly */}
+                <Text style={[cookStyles.infoValue, { color: theme.text }]} numberOfLines={1}>{sale.items?.[0]?.productName ?? sale.productName}</Text>
               </View>
               <View style={[cookStyles.infoDivider, { backgroundColor: theme.cardBorder }]} />
               <View style={cookStyles.infoItem}>
                 <Text style={[cookStyles.infoLabel, { color: theme.textMuted }]}>TAMAÑO</Text>
-                <Text style={[cookStyles.infoValue, { color: theme.text }]}>{sale.size}</Text>
+                <Text style={[cookStyles.infoValue, { color: theme.text }]}>{sale.items?.[0]?.size ?? sale.size}</Text>
               </View>
               <View style={[cookStyles.infoDivider, { backgroundColor: theme.cardBorder }]} />
               <View style={cookStyles.infoItem}>
                 <Text style={[cookStyles.infoLabel, { color: theme.textMuted }]}>CANT.</Text>
-                <Text style={[cookStyles.infoValueAccent, { color: STATUS.processing.color }]}>{sale.quantity}x</Text>
+                <Text style={[cookStyles.infoValueAccent, { color: STATUS.processing.color }]}>{(sale.items?.[0]?.quantity ?? sale.quantity)}x</Text>
               </View>
             </View>
           </View>
@@ -360,11 +363,12 @@ function OrderDetailModal({ sale, visible, onClose, onMove, theme }) {
             </View>
 
             <View style={[detailStyles.section, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
-              <Text style={[detailStyles.productName, { color: theme.text }]}>{sale.productName}</Text>
+              {/* TODO(fase-b): remove shim, consume sale.items directly */}
+              <Text style={[detailStyles.productName, { color: theme.text }]}>{sale.items?.[0]?.productName ?? sale.productName}</Text>
               <View style={[detailStyles.divider, { backgroundColor: theme.cardBorder }]} />
               {[
-                { l: 'Tamaño', v: sale.size },
-                { l: 'Cantidad', v: `${sale.quantity}x` },
+                { l: 'Tamaño', v: sale.items?.[0]?.size ?? sale.size },
+                { l: 'Cantidad', v: `${sale.items?.[0]?.quantity ?? sale.quantity}x` },
                 { l: 'Cajero', v: sale.workerName || '—' },
                 { l: 'Total', v: `$${sale.total?.toFixed(2) || '0.00'}` },
               ].map((r, i) => (
@@ -375,10 +379,10 @@ function OrderDetailModal({ sale, visible, onClose, onMove, theme }) {
               ))}
             </View>
 
-            {sale.units?.length > 0 && (
+            {(sale.items?.[0]?.units ?? sale.units)?.length > 0 && (
               <View style={{ marginBottom: 16 }}>
                 <Text style={[detailStyles.blockTitle, { color: theme.textMuted }]}>UNIDADES</Text>
-                {sale.units.map((unit, i) => (
+                {(sale.items?.[0]?.units ?? sale.units).map((unit, i) => (
                   <View key={i} style={[detailStyles.unitCard, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
                     <View style={[detailStyles.unitHeader, { borderBottomColor: theme.cardBorder }]}>
                       <View style={[detailStyles.unitBadge, { backgroundColor: status.color }]}>
@@ -421,9 +425,9 @@ function OrderDetailModal({ sale, visible, onClose, onMove, theme }) {
               </View>
             )}
 
-            {sale.note ? (
+            {(sale.items?.[0]?.note ?? sale.note) ? (
               <View style={[detailStyles.section, { backgroundColor: '#FFF9C4', borderColor: '#F9A825', marginBottom: 16 }]}>
-                <Text style={{ fontSize: 13, fontWeight: '600', color: '#5D4037' }}>📝 {sale.note}</Text>
+                <Text style={{ fontSize: 13, fontWeight: '600', color: '#5D4037' }}>📝 {sale.items?.[0]?.note ?? sale.note}</Text>
               </View>
             ) : null}
 
@@ -552,11 +556,12 @@ function OrderCard({ sale, theme, onTap, onSwipe, onToast }) {
                 <Text style={[styles.cardNum, { color: status.color }]}>
                   #{sale.orderNumber || sale.id?.slice(-4)}
                 </Text>
+                {/* TODO(fase-b): remove shim, consume sale.items directly */}
                 <Text style={[styles.cardProduct, { color: theme.text }]} numberOfLines={1}>
-                  {sale.productName}
+                  {sale.items?.[0]?.productName ?? sale.productName}
                 </Text>
                 <Text style={[styles.cardMeta, { color: theme.textMuted }]}>
-                  {sale.size} · {sale.quantity}x · {sale.workerName}
+                  {sale.items?.[0]?.size ?? sale.size} · {(sale.items?.[0]?.quantity ?? sale.quantity)}x · {sale.workerName}
                 </Text>
               </View>
               <View style={{ alignItems: 'flex-end', gap: 4 }}>
@@ -571,18 +576,18 @@ function OrderCard({ sale, theme, onTap, onSwipe, onToast }) {
                 </View>
               </View>
             </View>
-            {sale.extras?.length > 0 && (
+            {(sale.items?.[0]?.extras ?? sale.extras)?.length > 0 && (
               <Text style={[styles.cardExtras, { color: theme.textMuted }]} numberOfLines={1}>
-                + {sale.extras.join(', ')}
+                + {(sale.items?.[0]?.extras ?? sale.extras).join(', ')}
               </Text>
             )}
-            {sale.units?.length > 0 && (
+            {(sale.items?.[0]?.units ?? sale.units)?.length > 0 && (
               <View style={styles.cardFlavors}>
-                {sale.units.flatMap(u => u.ingredients || []).slice(0, 6).map((f, i) => (
+                {(sale.items?.[0]?.units ?? sale.units).flatMap(u => u.ingredients || []).slice(0, 6).map((f, i) => (
                   <View key={i} style={[styles.cardFlavorDot, { backgroundColor: f.color || '#888' }]} />
                 ))}
-                {sale.units.length > 1 && (
-                  <Text style={[styles.cardFlavorMore, { color: theme.textMuted }]}>{sale.units.length} uds</Text>
+                {(sale.items?.[0]?.units ?? sale.units).length > 1 && (
+                  <Text style={[styles.cardFlavorMore, { color: theme.textMuted }]}>{(sale.items?.[0]?.units ?? sale.units).length} uds</Text>
                 )}
               </View>
             )}
@@ -612,8 +617,8 @@ function CompactCard({ sale, theme, onReturn }) {
             <Text style={[styles.compactNum, { color: STATUS.done.color }]}>
               #{sale.orderNumber || sale.id?.slice(-4)}
             </Text>
-            <Text style={[styles.compactName, { color: theme.text }]} numberOfLines={1}>{sale.productName}</Text>
-            <Text style={[styles.compactMeta, { color: theme.textMuted }]}>{sale.quantity}x</Text>
+            <Text style={[styles.compactName, { color: theme.text }]} numberOfLines={1}>{sale.items?.[0]?.productName ?? sale.productName}</Text>
+            <Text style={[styles.compactMeta, { color: theme.textMuted }]}>{(sale.items?.[0]?.quantity ?? sale.quantity)}x</Text>
             {getDuration() && <Text style={[styles.compactTimer, { color: STATUS.done.color }]}>{getDuration()}</Text>}
             <Feather name={expanded ? 'chevron-up' : 'chevron-down'} size={14} color={theme.textMuted} />
           </View>

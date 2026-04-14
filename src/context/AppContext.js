@@ -5,6 +5,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Feather } from '@expo/vector-icons';
 import { printTicket } from '../utils/ticketPrinter';
 import { buildTicketMessage } from '../utils/businessConfig';
+import { migrateAllSalesV2toV3 } from '../utils/salesMigration';
 
 const WA_COLOR = '#25D366';
 const AppContext = createContext();
@@ -27,7 +28,16 @@ export function AppProvider({ children }) {
       const savedProducts = await AsyncStorage.getItem('ventasv_products');
       const savedSales = await AsyncStorage.getItem('ventasv_sales');
       if (savedProducts) setProducts(JSON.parse(savedProducts));
-      if (savedSales) setSales(JSON.parse(savedSales));
+      if (savedSales) {
+        let loadedSales = JSON.parse(savedSales);
+        const version = await AsyncStorage.getItem('ventasv_sales_schema_version');
+        if (!version || Number(version) < 3) {
+          loadedSales = migrateAllSalesV2toV3(loadedSales);
+          await AsyncStorage.setItem('ventasv_sales', JSON.stringify(loadedSales));
+          await AsyncStorage.setItem('ventasv_sales_schema_version', '3');
+        }
+        setSales(loadedSales);
+      }
     } catch (e) { console.log('Error loading data', e); }
   };
 
@@ -64,6 +74,9 @@ export function AppProvider({ children }) {
 
   // ── VENTAS ───────────────────────────────────────────────
   const addSale = async (sale) => {
+    if (!sale.items || sale.items.length === 0) {
+      throw new Error('Sale requires non-empty items[]');
+    }
     const today = new Date().toDateString();
     const todaySales = sales.filter(s => new Date(s.timestamp).toDateString() === today);
     const orderNumber = String(todaySales.length + 1).padStart(4, '0');
@@ -129,10 +142,9 @@ export function AppProvider({ children }) {
 
   const handleSnackWhatsApp = () => {
     if (!snackData?.sales?.length || !snackData?.waNumber) return;
-    snackData.sales.forEach(sale => {
-      const msg = buildTicketMessage(sale);
-      Linking.openURL(`https://wa.me/503${snackData.waNumber}?text=${msg}`);
-    });
+    const sale = snackData.sales[0];
+    const msg = buildTicketMessage(sale);
+    Linking.openURL(`https://wa.me/503${snackData.waNumber}?text=${msg}`);
     hideSnack();
   };
 
