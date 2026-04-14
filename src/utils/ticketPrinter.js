@@ -12,8 +12,10 @@ const generateTicketHTML = (sale, orderDetails) => {
   const months = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
   const dateStr = `${date.getDate()} ${months[date.getMonth()]} ${date.getFullYear()}`;
 
-  const toppingsHTML = sale.toppings && sale.toppings.length > 0
-    ? sale.toppings.map(t => `
+  // TODO(fase-b): remove shim, consume sale.items directly
+  const toppingsData = sale.items?.[0]?.extras ?? sale.toppings;
+  const toppingsHTML = toppingsData && toppingsData.length > 0
+    ? toppingsData.map(t => `
         <div style="font-size: 28px; padding: 4px 0 4px 20px; color: #333;">
           + ${t}
         </div>
@@ -156,13 +158,13 @@ const generateTicketHTML = (sale, orderDetails) => {
       <div class="divider"></div>
 
       <div class="product-section">
-        <div class="product-name">${sale.productName}</div>
-        <div class="product-size">${sale.size}</div>
+        <div class="product-name">${sale.items?.[0]?.productName ?? sale.productName}</div>
+        <div class="product-size">${sale.items?.[0]?.size ?? sale.size}</div>
       </div>
 
-      <div class="quantity-badge">CANTIDAD: ${sale.quantity}</div>
+      <div class="quantity-badge">CANTIDAD: ${sale.items?.[0]?.quantity ?? sale.quantity}</div>
 
-      ${sale.toppings && sale.toppings.length > 0 ? `
+      ${toppingsData && toppingsData.length > 0 ? `
         <div class="toppings-title">EXTRAS:</div>
         ${toppingsHTML}
         <div style="height: 6px;"></div>

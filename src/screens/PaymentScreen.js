@@ -15,6 +15,7 @@ import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { loadBankConfig, loadWhatsAppNumber, loadKitchenNumber, buildKitchenMessage } from '../utils/businessConfig';
 import { shouldRequestPermission, canGetLocation, buildGeoPayload } from '../utils/geoLogic';
+import { buildMultiItemSaleData } from '../utils/itemsLogic';
 
 export default function PaymentScreen({ route, navigation }) {
   const { fromCart } = route.params || {};
@@ -72,59 +73,39 @@ export default function PaymentScreen({ route, navigation }) {
   const handleComplete = async () => {
     setCompleting(true);
     const geo = await getLocation();
-    const savedSales = [];
 
-    if (isCartMode) {
-      for (const item of cart) {
-        const saleData = {
-          productId: item.product.id,
-          productName: item.product.name,
-          size: item.size?.name || '',
-          units: item.units || [],
-          extras: item.extras || [],
-          note: item.note || '',
-          quantity: item.quantity,
-          total: item.total,
-          paymentMethod,
-          cashGiven: paymentMethod === 'cash' ? effectiveAmount : null,
-          change: paymentMethod === 'cash' ? change : null,
-          voucherImage: paymentMethod === 'transfer' ? voucherImage : null,
-          workerId: currentWorker?.id || null,
-          workerName: currentWorker?.name || 'Sin asignar',
-          geo,
-        };
-        const sale = await addSale(saleData);
-        savedSales.push(sale);
-        if (kitchenNumber) {
-          const msg = buildKitchenMessage(sale);
-          Linking.openURL(`https://wa.me/503${kitchenNumber}?text=${msg}`);
-        }
-      }
-      clearCart();
-    } else {
-      const saleData = {
-        productId: legacyOrder.product.id,
-        productName: legacyOrder.product.name,
-        size: legacyOrder.size?.name || '',
-        units: legacyOrder.units || [],
-        extras: legacyOrder.toppings || [],
-        note: '',
-        quantity: legacyOrder.quantity,
-        total: legacyOrder.total,
-        paymentMethod,
-        cashGiven: paymentMethod === 'cash' ? effectiveAmount : null,
-        change: paymentMethod === 'cash' ? change : null,
-        voucherImage: paymentMethod === 'transfer' ? voucherImage : null,
-        workerId: currentWorker?.id || null,
-        workerName: currentWorker?.name || 'Sin asignar',
-        geo,
-      };
-      const sale = await addSale(saleData);
-      savedSales.push(sale);
+    // Consolidate both cart and legacy single-product into one path
+    const cartItems = isCartMode ? cart : [{
+      product: legacyOrder.product,
+      size: legacyOrder.size,
+      quantity: legacyOrder.quantity,
+      units: legacyOrder.units || [],
+      extras: legacyOrder.toppings || [],
+      note: '',
+      total: legacyOrder.total,
+    }];
+
+    const saleData = buildMultiItemSaleData({
+      cart: cartItems,
+      paymentMethod,
+      cashGiven: paymentMethod === 'cash' ? effectiveAmount : null,
+      change: paymentMethod === 'cash' ? change : null,
+      voucherImage: paymentMethod === 'transfer' ? voucherImage : null,
+      worker: currentWorker,
+      geo,
+    });
+
+    const sale = await addSale(saleData);
+
+    if (kitchenNumber) {
+      const msg = buildKitchenMessage(sale);
+      Linking.openURL(`https://wa.me/503${kitchenNumber}?text=${msg}`);
     }
 
+    if (isCartMode) clearCart();
+
     setCompleting(false);
-    showSnack({ sales: savedSales, total: totalAmount, waNumber });
+    showSnack({ sales: [sale], total: sale.total, waNumber });
     navigation.popToTop();
   };
 

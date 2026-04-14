@@ -22,13 +22,18 @@ export const loadWhatsAppNumber = async () => {
 
 export const buildTicketMessage = (sale) => {
   const methods = { cash: 'Efectivo', card: 'Tarjeta', transfer: 'Transferencia' };
+  // TODO(fase-b): remove shim, consume sale.items directly
+  const pName = sale.items?.[0]?.productName ?? sale.productName;
+  const pSize = sale.items?.[0]?.size ?? sale.size;
+  const pQty = sale.items?.[0]?.quantity ?? sale.quantity;
+  const pExtras = sale.items?.[0]?.extras ?? sale.toppings;
   const lines = [
     `🎫 *Tu pedido #${sale.orderNumber || sale.id?.slice(-4) || '----'}*`,
     ``,
-    `*${sale.productName}*`,
-    `${sale.size} × ${sale.quantity}`,
-    sale.toppings?.length
-      ? `✨ Extras: ${sale.toppings.join(', ')}`
+    `*${pName}*`,
+    `${pSize} × ${pQty}`,
+    pExtras?.length
+      ? `✨ Extras: ${pExtras.join(', ')}`
       : null,
     ``,
     `💰 Total: $${sale.total?.toFixed(2)}`,
@@ -40,11 +45,15 @@ export const buildTicketMessage = (sale) => {
 };
 
 export const buildTransferMessage = (order, bankConfig) => {
+  // TODO(fase-b): remove shim, consume sale.items directly
+  const pName = order.items?.[0]?.productName ?? order.productName ?? order.product?.name;
+  const pSize = order.items?.[0]?.size ?? order.size?.name ?? order.size;
+  const pQty = order.items?.[0]?.quantity ?? order.quantity;
   const lines = [
     `🎫 *Pedido #${order.orderNumber || order.id?.slice(-4) || '----'}*`,
     ``,
-    `*${order.productName || order.product?.name}*`,
-    `${order.size?.name || order.size} × ${order.quantity}`,
+    `*${pName}*`,
+    `${pSize} × ${pQty}`,
     ``,
     `💰 Total: $${order.total?.toFixed(2)}`,
     ``,
