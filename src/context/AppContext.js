@@ -9,6 +9,7 @@ import { migrateAllSalesV2toV3 } from '../utils/salesMigration';
 import { newId } from '../utils/ids';
 import { migrateCollectionToV4 } from '../utils/schemaMigrationV4';
 import * as repository from '../data/repository';
+import { migrateBusinessConfigToQentasFields } from '../utils/businessConfigMigration';
 
 const WA_COLOR = '#25D366';
 const AppContext = createContext();
@@ -61,11 +62,60 @@ export function AppProvider({ children }) {
           const migratedTabs = migrateCollectionToV4(JSON.parse(savedTabs), deviceId);
           await repository.save('tabs', migratedTabs);
         }
+        // BusinessConfig qentas fields migration
+        const rawBc = await AsyncStorage.getItem('business_bank_config');
+        if (rawBc) {
+          const bc = JSON.parse(rawBc);
+          const migratedBc = migrateBusinessConfigToQentasFields(bc);
+          await AsyncStorage.setItem('business_bank_config', JSON.stringify(migratedBc));
+        }
         await AsyncStorage.setItem('ventasv_schema_version', '4');
       }
 
       setProducts(loadedProducts);
       setSales(loadedSales);
+
+      // TODO(cleanup-next-pr): remove these verification logs after Modos PR
+      (async () => {
+        try {
+          const { getDeviceId } = require('../services/deviceId');
+          const devId = await getDeviceId();
+          const sv = await AsyncStorage.getItem('ventasv_schema_version');
+
+          const rawP = await AsyncStorage.getItem('ventasv_products');
+          const prods = rawP ? JSON.parse(rawP) : [];
+          const rawS = await AsyncStorage.getItem('ventasv_sales');
+          const sls = rawS ? JSON.parse(rawS) : [];
+
+          const uuidRx = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+          const pUuid = prods.filter(p => uuidRx.test(p.id)).length;
+          const pEnv = prods.filter(p => p.syncState && p.deviceId).length;
+          const sEnv = sls.filter(s => s.syncState && s.deviceId).length;
+
+          console.log('[F1 VERIFY] deviceId:', devId);
+          console.log('[F1 VERIFY] schemaVersion:', sv);
+          console.log('[F1 VERIFY] products total:', prods.length, '| with UUID:', pUuid, '| with envelope:', pEnv);
+          console.log('[F1 VERIFY] sales total:', sls.length, '| with envelope:', sEnv);
+          if (prods.length) console.log('[F1 VERIFY] sample product id:', prods[0].id);
+
+          const qentasClient = (await import('../services/qentasClient')).default;
+          console.log('[F2 VERIFY] qentas isConnected:', qentasClient.isConnected());
+          console.log('[F2 VERIFY] qentas getAccount:', qentasClient.getAccount());
+          const cr = await qentasClient.connect({});
+          console.log('[F2 VERIFY] qentas connect({}) =>', cr);
+
+          const rawCfg = await AsyncStorage.getItem('business_bank_config');
+          if (rawCfg) {
+            const cfg = JSON.parse(rawCfg);
+            console.log('[F2 VERIFY] businessConfig qentasConnected:', cfg.qentasConnected, '| qentasAccountId:', cfg.qentasAccountId);
+          } else {
+            console.log('[F2 VERIFY] businessConfig not yet persisted');
+          }
+        } catch (e) {
+          console.log('[VERIFY ERROR]', e);
+        }
+      })();
+
     } catch (e) { console.log('Error loading data', e); }
   };
 

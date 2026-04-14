@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { migrateBusinessConfigToQentasFields } from './businessConfigMigration';
 
 const BANK_KEY = 'business_bank_config';
 const WA_KEY = 'business_whatsapp';
@@ -9,7 +10,13 @@ export const saveBankConfig = async (config) => {
 
 export const loadBankConfig = async () => {
   const raw = await AsyncStorage.getItem(BANK_KEY);
-  return raw ? JSON.parse(raw) : null;
+  if (!raw) return null;
+  const config = JSON.parse(raw);
+  const migrated = migrateBusinessConfigToQentasFields(config);
+  if (migrated.qentasConnected !== config.qentasConnected || migrated.qentasAccountId !== config.qentasAccountId) {
+    await AsyncStorage.setItem(BANK_KEY, JSON.stringify(migrated));
+  }
+  return migrated;
 };
 
 export const saveWhatsAppNumber = async (number) => {
