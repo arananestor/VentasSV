@@ -99,27 +99,6 @@ export function AppProvider({ children }) {
       setSales(loadedSales);
       setModes(loadedModes);
       setCurrentModeIdState(loadedCurrentModeId);
-
-      // TODO(cleanup-next-pr): remove these verification logs after Modos cajero UI PR
-      (async () => {
-        try {
-          const sv = await AsyncStorage.getItem('ventasv_schema_version');
-          const cmId = await repository.getCurrentModeId();
-          const ms = await repository.getAll('modes');
-          const principal = ms.find(m => m.isDefault);
-          const activeMode = ms.find(m => m.id === cmId);
-          const activeCount = activeMode ? Object.values(activeMode.productOverrides || {}).filter(o => o.active).length : 0;
-          console.log('[MODOS-F1 VERIFY] schemaVersion:', sv);
-          console.log('[MODOS-F1 VERIFY] modes count:', ms.length);
-          console.log('[MODOS-F1 VERIFY] currentModeId:', cmId);
-          console.log('[MODOS-F1 VERIFY] principal mode found:', !!principal);
-          console.log('[MODOS-F1 VERIFY] products in currentMode active:', activeCount);
-          console.log('[MODOS-F1 VERIFY] tabOrder length:', activeMode?.tabOrder?.length || 0);
-        } catch (e) {
-          console.log('[MODOS-F1 VERIFY ERROR]', e);
-        }
-      })();
-
     } catch (e) { console.log('Error loading data', e); }
   };
 
