@@ -214,7 +214,7 @@ export default function ProfileScreen({ navigation }) {
 
             <View style={styles.group}>
               <TouchableOpacity
-                style={[styles.row, styles.rowFirst, styles.rowLast, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}
+                style={[styles.row, styles.rowFirst, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}
                 onPress={() => navigation.navigate('BusinessConfig')}
               >
                 <View style={[styles.rowIcon, { backgroundColor: isDark ? '#1C1C1E' : '#F0F0F0' }]}>
@@ -226,6 +226,21 @@ export default function ProfileScreen({ navigation }) {
                 </View>
                 <Feather name="chevron-right" size={18} color={theme.textMuted} />
               </TouchableOpacity>
+              {currentWorker?.role === 'owner' && (
+                <TouchableOpacity
+                  style={[styles.row, styles.rowLast, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}
+                  onPress={() => navigation.navigate('ManageModes')}
+                >
+                  <View style={[styles.rowIcon, { backgroundColor: isDark ? '#1C1C1E' : '#F0F0F0' }]}>
+                    <Feather name="layers" size={15} color={theme.text} />
+                  </View>
+                  <View style={styles.rowTexts}>
+                    <Text style={[styles.rowTitle, { color: theme.text }]}>Gestión de Modos</Text>
+                    <Text style={[styles.rowSub, { color: theme.textMuted }]}>Crear, editar y programar Modos</Text>
+                  </View>
+                  <Feather name="chevron-right" size={18} color={theme.textMuted} />
+                </TouchableOpacity>
+              )}
             </View>
 
             <Text style={[styles.sectionLabel, { color: theme.textMuted }]}>EQUIPO</Text>

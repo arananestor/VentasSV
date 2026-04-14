@@ -23,6 +23,8 @@ import SaleDetailScreen from './src/screens/SaleDetailScreen';
 import ProfileScreen from './src/screens/ProfileScreen';
 import ManageTabsScreen from './src/screens/ManageTabsScreen';
 import BusinessConfigScreen from './src/screens/BusinessConfigScreen';
+import ManageModesScreen from './src/screens/ManageModesScreen';
+import ModeEditorScreen from './src/screens/ModeEditorScreen';
 import OrdersScreen from './src/screens/OrdersScreen';
 
 const Stack = createNativeStackNavigator();
@@ -57,6 +59,8 @@ function ProfileStack() {
     <Stack.Navigator screenOptions={{ headerShown: false, animation: 'slide_from_right' }}>
       <Stack.Screen name="ProfileMain" component={ProfileScreen} />
       <Stack.Screen name="BusinessConfig" component={BusinessConfigScreen} />
+      <Stack.Screen name="ManageModes" component={ManageModesScreen} />
+      <Stack.Screen name="ModeEditor" component={ModeEditorScreen} />
     </Stack.Navigator>
   );
 }
