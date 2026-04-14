@@ -10,22 +10,22 @@ describe('getSaleSummary', () => {
     expect(result).toBe('Pupusa de queso con loroco especial');
   });
 
-  it('2 items returns X + 1 más', () => {
+  it('2 items returns X +1', () => {
     // Arrange
-    const sale = { items: [{ productName: 'Pupusa' }, { productName: 'Soda' }] };
+    const sale = { items: [{ productName: 'Coca cola' }, { productName: 'Soda' }] };
     // Act
     const result = getSaleSummary(sale);
     // Assert
-    expect(result).toBe('Pupusa + 1 más');
+    expect(result).toBe('Coca cola +1');
   });
 
-  it('5 items returns X + 4 más', () => {
+  it('5 items returns X +4', () => {
     // Arrange
-    const sale = { items: [{ productName: 'A' }, { productName: 'B' }, { productName: 'C' }, { productName: 'D' }, { productName: 'E' }] };
+    const sale = { items: [{ productName: 'Coca cola' }, { productName: 'B' }, { productName: 'C' }, { productName: 'D' }, { productName: 'E' }] };
     // Act
     const result = getSaleSummary(sale);
     // Assert
-    expect(result).toBe('A + 4 más');
+    expect(result).toBe('Coca cola +4');
   });
 
   it('empty items returns empty string', () => {
