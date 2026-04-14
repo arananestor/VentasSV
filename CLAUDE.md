@@ -23,7 +23,7 @@ make dev-clear         # Start with cache cleared
 make tunnel            # Expo with tunnel (restrictive networks)
 
 # Testing
-npm test               # Run all tests (490 tests, 24 suites — must be 0 failures)
+npm test               # Run all tests (520 tests, 27 suites — must be 0 failures)
 npm run test:unit      # Unit tests only (__tests__/unit/)
 npm run test:integration  # Integration tests only (__tests__/integration/)
 npm run test:coverage  # Coverage report (70% threshold)
@@ -66,11 +66,11 @@ make update m='msg'    # OTA update to production
 ## Testing
 
 - Runner: jest-expo. Config in package.json `jest` field
-- Unit tests (`__tests__/unit/`): auth, businessConfig, cart, displayComponents, formComponents, homeScreen, migration, pinEntry, pinKeypadModal, productPermissions, products, roleConfig, geoLogic, itemsLogic, salesMigration, sales, selectWorker, setup, snackbar, tabs, theme, workers
+- Unit tests (`__tests__/unit/`): auth, businessConfig, cart, displayComponents, formComponents, homeScreen, migration, pinEntry, pinKeypadModal, productPermissions, products, roleConfig, geoLogic, itemsLogic, salesMigration, saleDetailItems, salesListSummary, cookModalItems, sales, selectWorker, setup, snackbar, tabs, theme, workers
 - Integration tests (`__tests__/integration/`): payment, orders
 - Mocks in `__mocks__/` for AsyncStorage, vector-icons, safe-area-context
 - Coverage threshold: 70% on branches, functions, lines, statements
-- **Rule: 490 tests (minimum), 0 failures before any merge. No exceptions.**
+- **Rule: 520 tests (minimum), 0 failures before any merge. No exceptions.**
 - **AAA Pattern (mandatory):** Every test must follow Arrange-Act-Assert. The Act step must call a real function imported from `src/`. Never reimplement logic in tests. Comments `// Arrange`, `// Act`, `// Assert` are required in every test block.
 
 ## Repository
@@ -187,6 +187,6 @@ Before adding any feature, ask: **Does this help a business owner in El Salvador
 10. Cash register close — for fixed devices on shift change
 11. ~~Role interfaces — tab filtering by role/puesto~~ ✅ Done (PR #24)
 12. ~~Sale model refactor Fase A — items[], migration v2→v3~~ ✅ Done
-13. Sale model refactor Fase B — consumers read items[], remove shims
+13. ~~Sale model refactor Fase B — consumers read items[]~~ ✅ Done
 14. Sale model refactor Fase C — ticket, WhatsApp, snackbar use items[]
 15. Role-specific screens — motorista (entregas), camarero (mesas)

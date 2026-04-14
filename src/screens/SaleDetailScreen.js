@@ -104,105 +104,112 @@ export default function SaleDetailScreen({ route, navigation }) {
           ))}
         </View>
 
-        {/* TODO(fase-b): remove shim, consume sale.items directly */}
-        <Text style={[styles.sectionLabel, { color: theme.textMuted }]}>PRODUCTO</Text>
-        <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
-          <Text style={[styles.productName, { color: theme.text }]}>{sale.items?.[0]?.productName ?? sale.productName}</Text>
-          <Divider />
+        <Text style={[styles.sectionLabel, { color: theme.textMuted }]}>
+          {(sale.items || []).length === 1 ? 'PRODUCTO' : `PRODUCTOS (${(sale.items || []).length})`}
+        </Text>
+        {(sale.items || []).map((item, itemIdx) => (
+          <View key={itemIdx} style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder, marginBottom: 8 }]}>
+            <Text style={[styles.productName, { color: theme.text }]}>{item.productName}</Text>
+            <Divider />
 
-          <View style={styles.detailRow}>
-            <Text style={[styles.detailLabel, { color: theme.textMuted }]}>Tamaño</Text>
-            <Text style={[styles.detailValue, { color: theme.text }]}>{sale.items?.[0]?.size ?? sale.size}</Text>
-          </View>
-          <View style={styles.detailRow}>
-            <Text style={[styles.detailLabel, { color: theme.textMuted }]}>Cantidad</Text>
-            <Text style={[styles.detailValue, { color: theme.text }]}>{(sale.items?.[0]?.quantity ?? sale.quantity)}x</Text>
-          </View>
-
-          {/* Nota general del pedido */}
-          {(sale.items?.[0]?.note ?? sale.note) ? (
-            <View style={[styles.noteBox, { backgroundColor: '#FFF9C4', borderColor: '#F9A825', marginTop: 12 }]}>
-              <Text style={styles.noteBoxText}>📝 {sale.items?.[0]?.note ?? sale.note}</Text>
+            <View style={styles.detailRow}>
+              <Text style={[styles.detailLabel, { color: theme.textMuted }]}>Tamaño</Text>
+              <Text style={[styles.detailValue, { color: theme.text }]}>{item.size || '—'}</Text>
             </View>
-          ) : null}
+            <View style={styles.detailRow}>
+              <Text style={[styles.detailLabel, { color: theme.textMuted }]}>Cantidad</Text>
+              <Text style={[styles.detailValue, { color: theme.text }]}>{item.quantity}x</Text>
+            </View>
+            {(sale.items || []).length > 1 && (
+              <View style={styles.detailRow}>
+                <Text style={[styles.detailLabel, { color: theme.textMuted }]}>Subtotal</Text>
+                <Text style={[styles.detailValue, { color: theme.text }]}>${(item.subtotal || 0).toFixed(2)}</Text>
+              </View>
+            )}
 
-          {/* Unidades con detalle completo */}
-          {(sale.items?.[0]?.units ?? sale.units)?.length > 0 && (
-            <>
-              <Divider spacing={12} />
-              <Text style={[styles.unitsLabel, { color: theme.textMuted }]}>UNIDADES</Text>
-              {(sale.items?.[0]?.units ?? sale.units).map((unit, i) => {
-                const unitIngredients = unit.ingredients || unit.flavors || [];
-                const unitExtras = unit.extras || unit.toppings || [];
-                return (
-                  <View key={i} style={[styles.unitCard, { backgroundColor: theme.bg, borderColor: theme.cardBorder }]}>
-                    {/* Header de unidad */}
-                    <View style={styles.unitCardHeader}>
-                      <View style={[styles.unitBadge, { backgroundColor: theme.accent }]}>
-                        <Text style={styles.unitBadgeText}>{i + 1}</Text>
+            {item.note ? (
+              <View style={[styles.noteBox, { backgroundColor: '#FFF9C4', borderColor: '#F9A825', marginTop: 12 }]}>
+                <Text style={styles.noteBoxText}>📝 {item.note}</Text>
+              </View>
+            ) : null}
+
+            {item.units?.length > 0 && (
+              <>
+                <Divider spacing={12} />
+                <Text style={[styles.unitsLabel, { color: theme.textMuted }]}>UNIDADES</Text>
+                {item.units.map((unit, i) => {
+                  const unitIngredients = unit.ingredients || unit.flavors || [];
+                  const unitExtras = unit.extras || unit.toppings || [];
+                  return (
+                    <View key={i} style={[styles.unitCard, { backgroundColor: theme.bg, borderColor: theme.cardBorder }]}>
+                      <View style={styles.unitCardHeader}>
+                        <View style={[styles.unitBadge, { backgroundColor: theme.accent }]}>
+                          <Text style={styles.unitBadgeText}>{i + 1}</Text>
+                        </View>
+                        <Text style={[styles.unitTitle, { color: theme.text }]}>Unidad {i + 1}</Text>
+                        {unit.sizeName ? (
+                          <View style={[styles.unitSizeTag, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+                            <Text style={[styles.unitSizeText, { color: theme.textMuted }]}>{unit.sizeName}</Text>
+                          </View>
+                        ) : null}
+                        {unit.cookLevel ? (
+                          <View style={[styles.unitSizeTag, { backgroundColor: theme.success + '22', borderColor: theme.success }]}>
+                            <Text style={[styles.unitSizeText, { color: theme.success }]}>{unit.cookLevel}</Text>
+                          </View>
+                        ) : null}
                       </View>
-                      <Text style={[styles.unitTitle, { color: theme.text }]}>Unidad {i + 1}</Text>
-                      {unit.sizeName ? (
-                        <View style={[styles.unitSizeTag, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
-                          <Text style={[styles.unitSizeText, { color: theme.textMuted }]}>{unit.sizeName}</Text>
+
+                      {unitIngredients.length > 0 && (
+                        <View style={styles.unitSection}>
+                          <Text style={[styles.unitSectionLabel, { color: theme.textMuted }]}>INGREDIENTES</Text>
+                          <View style={styles.chipRow}>
+                            {unitIngredients.map((f, fi) => (
+                              <View key={fi} style={[styles.ingredientChip, { backgroundColor: f.color || '#888' }]}>
+                                {f.icon ? (
+                                  <MaterialCommunityIcons name={f.icon} size={11} color="#fff" />
+                                ) : null}
+                                <Text style={styles.ingredientChipText}>{f.name || f}</Text>
+                              </View>
+                            ))}
+                          </View>
+                        </View>
+                      )}
+
+                      {unitExtras.length > 0 && (
+                        <View style={styles.unitSection}>
+                          <Text style={[styles.unitSectionLabel, { color: theme.textMuted }]}>EXTRAS</Text>
+                          <View style={styles.chipRow}>
+                            {unitExtras.map((t, ti) => (
+                              <View key={ti} style={[styles.extraChip, {
+                                backgroundColor: (t.color || theme.accent) + '22',
+                                borderColor: t.color || theme.cardBorder,
+                              }]}>
+                                <Text style={[styles.extraChipText, { color: theme.text }]}>{t.name || t}</Text>
+                                {t.price > 0 ? (
+                                  <Text style={[styles.extraChipPrice, { color: theme.textMuted }]}>+${t.price.toFixed(2)}</Text>
+                                ) : null}
+                              </View>
+                            ))}
+                          </View>
+                        </View>
+                      )}
+
+                      {unit.note ? (
+                        <View style={[styles.unitNoteBox, { backgroundColor: '#FFF9C4', borderColor: '#F9A825' }]}>
+                          <Text style={styles.unitNoteText}>📝 {unit.note}</Text>
                         </View>
                       ) : null}
+
+                      {!unitIngredients.length && !unitExtras.length && !unit.note && (
+                        <Text style={[styles.unitEmpty, { color: theme.textMuted }]}>Sin personalización</Text>
+                      )}
                     </View>
-
-                    {/* Ingredientes con colores e íconos */}
-                    {unitIngredients.length > 0 && (
-                      <View style={styles.unitSection}>
-                        <Text style={[styles.unitSectionLabel, { color: theme.textMuted }]}>INGREDIENTES</Text>
-                        <View style={styles.chipRow}>
-                          {unitIngredients.map((f, fi) => (
-                            <View key={fi} style={[styles.ingredientChip, { backgroundColor: f.color || '#888' }]}>
-                              {f.icon ? (
-                                <MaterialCommunityIcons name={f.icon} size={11} color="#fff" />
-                              ) : null}
-                              <Text style={styles.ingredientChipText}>{f.name || f}</Text>
-                            </View>
-                          ))}
-                        </View>
-                      </View>
-                    )}
-
-                    {/* Extras con colores */}
-                    {unitExtras.length > 0 && (
-                      <View style={styles.unitSection}>
-                        <Text style={[styles.unitSectionLabel, { color: theme.textMuted }]}>EXTRAS</Text>
-                        <View style={styles.chipRow}>
-                          {unitExtras.map((t, ti) => (
-                            <View key={ti} style={[styles.extraChip, {
-                              backgroundColor: (t.color || theme.accent) + '22',
-                              borderColor: t.color || theme.cardBorder,
-                            }]}>
-                              <Text style={[styles.extraChipText, { color: theme.text }]}>{t.name || t}</Text>
-                              {t.price > 0 ? (
-                                <Text style={[styles.extraChipPrice, { color: theme.textMuted }]}>+${t.price.toFixed(2)}</Text>
-                              ) : null}
-                            </View>
-                          ))}
-                        </View>
-                      </View>
-                    )}
-
-                    {/* Nota de la unidad */}
-                    {unit.note ? (
-                      <View style={[styles.unitNoteBox, { backgroundColor: '#FFF9C4', borderColor: '#F9A825' }]}>
-                        <Text style={styles.unitNoteText}>📝 {unit.note}</Text>
-                      </View>
-                    ) : null}
-
-                    {/* Sin personalización */}
-                    {!unitIngredients.length && !unitExtras.length && !unit.note && (
-                      <Text style={[styles.unitEmpty, { color: theme.textMuted }]}>Sin personalización</Text>
-                    )}
-                  </View>
-                );
-              })}
-            </>
-          )}
-        </View>
+                  );
+                })}
+              </>
+            )}
+          </View>
+        ))}
 
         {sale.paymentMethod === 'cash' && sale.cashGiven && (
           <>

@@ -127,13 +127,13 @@ describe('getSaleSummary', () => {
     expect(summary).toBe('Pupusa');
   });
 
-  it('3 items returns "X + 2 más"', () => {
+  it('3 items returns "X +2"', () => {
     // Arrange
-    const sale = { items: [{ productName: 'Pollo' }, { productName: 'Soda' }, { productName: 'Tamal' }] };
+    const sale = { items: [{ productName: 'Coca cola' }, { productName: 'Soda' }, { productName: 'Tamal' }] };
     // Act
     const summary = getSaleSummary(sale);
     // Assert
-    expect(summary).toBe('Pollo + 2 más');
+    expect(summary).toBe('Coca cola +2');
   });
 });
 

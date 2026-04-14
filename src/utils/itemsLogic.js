@@ -32,7 +32,7 @@ const getSaleSummary = (sale) => {
   const items = sale.items || [];
   if (items.length === 0) return '';
   if (items.length === 1) return items[0].productName;
-  return `${items[0].productName} + ${items.length - 1} más`;
+  return `${items[0].productName} +${items.length - 1}`;
 };
 
 const validateSale = (sale) => {
