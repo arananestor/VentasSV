@@ -106,6 +106,20 @@ export function AppProvider({ children }) {
     await AsyncStorage.setItem('ventasv_sales', JSON.stringify(newSales));
   };
 
+  const updateSaleItemUnit = async (saleId, itemIndex, unitIndex, cookLevel) => {
+    const newSales = sales.map(s => {
+      if (s.id !== saleId) return s;
+      const newItems = s.items.map((item, idx) => {
+        if (idx !== itemIndex) return item;
+        const newUnits = item.units.map((u, uIdx) => uIdx !== unitIndex ? u : { ...u, cookLevel });
+        return { ...item, units: newUnits };
+      });
+      return { ...s, items: newItems };
+    });
+    setSales(newSales);
+    await AsyncStorage.setItem('ventasv_sales', JSON.stringify(newSales));
+  };
+
   const getTodaySales = () => {
     const today = new Date().toDateString();
     return sales.filter(s => new Date(s.timestamp).toDateString() === today);
@@ -152,7 +166,7 @@ export function AppProvider({ children }) {
     <AppContext.Provider value={{
       products, sales,
       addProduct, updateProduct, deleteProduct,
-      addSale, getTodaySales, getAllSales, updateSaleStatus,
+      addSale, getTodaySales, getAllSales, updateSaleStatus, updateSaleItemUnit,
       cart, addToCart, removeFromCart, clearCart, cartTotal, cartCount,
       showSnack,
     }}>
