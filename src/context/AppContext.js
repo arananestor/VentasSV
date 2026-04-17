@@ -12,6 +12,7 @@ import * as repository from '../data/repository';
 import { migrateBusinessConfigToQentasFields } from '../utils/businessConfigMigration';
 import { migrateToV5 } from '../utils/schemaMigrationV5';
 import { createMode } from '../models/mode';
+import { evaluateSchedule } from '../utils/modeScheduling';
 
 const WA_COLOR = '#25D366';
 const AppContext = createContext();
@@ -238,6 +239,19 @@ export function AppProvider({ children }) {
     setModes(prev => [...prev, enveloped]);
     return enveloped;
   };
+
+  // ── SCHEDULING TIMER ─────────────────────────────────────
+  useEffect(() => {
+    const check = () => {
+      const result = evaluateSchedule({ modes, currentModeId, now: new Date().toISOString() });
+      if (result.action === 'activate' || result.action === 'revert') {
+        setCurrentMode(result.targetModeId);
+      }
+    };
+    check();
+    const timer = setInterval(check, 60000);
+    return () => clearInterval(timer);
+  }, [modes, currentModeId]);
 
   // ── SNACKBAR GLOBAL ──────────────────────────────────────
   const showSnack = (data) => {
