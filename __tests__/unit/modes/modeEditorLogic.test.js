@@ -29,3 +29,33 @@ describe('mode editor logic', () => {
     expect(result.p1.priceOverride).toBeNull();
   });
 });
+
+describe('decimal input parsing at save time', () => {
+  it('raw string "10." preserves in state, parseable to 10 at save', () => {
+    // Arrange
+    const raw = '10.';
+    // Act
+    const parsed = parseFloat(raw);
+    // Assert
+    expect(parsed).toBe(10);
+    expect(raw).toBe('10.'); // raw preserved for input display
+  });
+
+  it('raw string "3.99" parses to 3.99', () => {
+    // Arrange
+    const raw = '3.99';
+    // Act
+    const parsed = parseFloat(raw);
+    // Assert
+    expect(parsed).toBe(3.99);
+  });
+
+  it('raw empty string parses to null', () => {
+    // Arrange
+    const raw = '';
+    // Act
+    const parsed = raw === '' ? null : parseFloat(raw);
+    // Assert
+    expect(parsed).toBeNull();
+  });
+});

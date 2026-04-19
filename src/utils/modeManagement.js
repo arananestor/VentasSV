@@ -8,7 +8,7 @@ const validateModeForm = ({ name, existingModes = [], editingId = null }) => {
   const dup = existingModes.find(m =>
     m.name.toLowerCase() === trimmed.toLowerCase() && m.id !== editingId
   );
-  if (dup) return { ok: false, error: 'Ya existe un Modo con ese nombre' };
+  if (dup) return { ok: false, error: 'Ya existe un catálogo con ese nombre' };
   return { ok: true, error: null };
 };
 

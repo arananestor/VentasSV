@@ -27,6 +27,12 @@ export default function ModeEditorScreen({ route, navigation }) {
   const [overrides, setOverrides] = useState(mode?.productOverrides || {});
   const [tabOrd, setTabOrd] = useState(mode?.tabOrder || []);
   const [nameError, setNameError] = useState('');
+  const initPriceInputs = {};
+  products.forEach(p => {
+    const ov = (mode?.productOverrides || {})[p.id];
+    initPriceInputs[p.id] = ov?.priceOverride != null ? String(ov.priceOverride) : '';
+  });
+  const [priceInputs, setPriceInputs] = useState(initPriceInputs);
   const [showSchedule, setShowSchedule] = useState(false);
   const [schedStartsAt, setSchedStartsAt] = useState('');
   const [schedEndsAt, setSchedEndsAt] = useState('');
@@ -36,7 +42,7 @@ export default function ModeEditorScreen({ route, navigation }) {
     return (
       <SafeAreaView style={[styles.container, { backgroundColor: theme.bg }]}>
         <ScreenHeader title="EDITOR" onBack={() => navigation.goBack()} />
-        <Text style={[styles.notFound, { color: theme.textMuted }]}>Modo no encontrado</Text>
+        <Text style={[styles.notFound, { color: theme.textMuted }]}>Catálogo no encontrado</Text>
       </SafeAreaView>
     );
   }
@@ -44,8 +50,16 @@ export default function ModeEditorScreen({ route, navigation }) {
   const handleSave = async () => {
     const { ok, error } = validateModeForm({ name, existingModes: modes, editingId: modeId });
     if (!ok) { setNameError(error); return; }
-    await updateMode(modeId, { name: name.trim(), description: desc.trim(), productOverrides: overrides, tabOrder: tabOrd });
-    showSnack({ total: 0, sales: [] });
+    // Parse raw price inputs into overrides
+    const finalOverrides = { ...overrides };
+    for (const [pid, raw] of Object.entries(priceInputs)) {
+      if (finalOverrides[pid]) {
+        const num = raw === '' ? null : parseFloat(raw);
+        finalOverrides[pid] = { ...finalOverrides[pid], priceOverride: (num != null && !isNaN(num)) ? num : null };
+      }
+    }
+    await updateMode(modeId, { name: name.trim(), description: desc.trim(), productOverrides: finalOverrides, tabOrder: tabOrd });
+    showSnack({ message: 'Cambios guardados' });
     navigation.goBack();
   };
 
@@ -55,8 +69,7 @@ export default function ModeEditorScreen({ route, navigation }) {
   };
 
   const setPriceOverride = (productId, value) => {
-    const num = value === '' ? null : parseFloat(value);
-    setOverrides(buildOverridesPatch({ currentOverrides: overrides, productId, patch: { priceOverride: isNaN(num) ? null : num } }));
+    setPriceInputs(prev => ({ ...prev, [productId]: value }));
   };
 
   const moveTab = (from, to) => {
@@ -87,7 +100,7 @@ export default function ModeEditorScreen({ route, navigation }) {
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
 
-          <ThemedTextInput label="NOMBRE" value={name} onChangeText={v => { setName(v); setNameError(''); }} placeholder="Nombre del Modo" error={nameError} />
+          <ThemedTextInput label="NOMBRE" value={name} onChangeText={v => { setName(v); setNameError(''); }} placeholder="Nombre del catálogo" error={nameError} />
           <ThemedTextInput label="DESCRIPCIÓN" value={desc} onChangeText={setDesc} placeholder="Opcional" />
 
           <Text style={[styles.section, { color: theme.textMuted }]}>PRODUCTOS</Text>
@@ -100,10 +113,10 @@ export default function ModeEditorScreen({ route, navigation }) {
                   <Text style={[styles.productName, { color: theme.text }]}>{p.name}</Text>
                   {singleSize && ov.active && (
                     <ThemedTextInput
-                      value={ov.priceOverride != null ? String(ov.priceOverride) : ''}
+                      value={priceInputs[p.id] || ''}
                       onChangeText={v => setPriceOverride(p.id, v)}
                       placeholder={`Base: $${p.sizes[0]?.price?.toFixed(2) || '0.00'}`}
-                      keyboardType="numeric"
+                      keyboardType="decimal-pad"
                     />
                   )}
                   {!singleSize && (
