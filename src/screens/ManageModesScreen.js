@@ -35,7 +35,7 @@ function ActionPill({ label, color, bgColor, onPress }) {
 
 export default function ManageModesScreen({ navigation }) {
   const { modes, currentModeId, setCurrentMode, createModeFromForm, deleteMode, cloneMode, showSnack } = useApp();
-  const { currentWorker } = useAuth();
+  const { currentWorker, workers } = useAuth();
   const { theme } = useTheme();
 
   const [showCreate, setShowCreate] = useState(false);
@@ -128,16 +128,28 @@ export default function ManageModesScreen({ navigation }) {
 
               {/* Worker bubbles */}
               <View style={styles.workerRow}>
-                {isActive && currentWorker ? (
-                  currentWorker.photo ? (
-                    <Image source={{ uri: currentWorker.photo }} style={styles.workerBubble} />
+                {(mode.assignedWorkerIds || []).map(wId => {
+                  const w = workers.find(wr => wr.id === wId);
+                  if (!w) return null;
+                  return w.photo ? (
+                    <Image key={w.id} source={{ uri: w.photo }} style={styles.workerBubble} />
                   ) : (
-                    <View style={[styles.workerBubble, { backgroundColor: currentWorker.color || theme.accent, alignItems: 'center', justifyContent: 'center' }]}>
+                    <View key={w.id} style={[styles.workerBubble, { backgroundColor: w.color || theme.accent, alignItems: 'center', justifyContent: 'center' }]}>
+                      <Text style={styles.workerInitial}>{w.name?.charAt(0)?.toUpperCase()}</Text>
+                    </View>
+                  );
+                })}
+                {isActive && currentWorker && !(mode.assignedWorkerIds || []).includes(currentWorker.id) && (
+                  currentWorker.photo ? (
+                    <Image source={{ uri: currentWorker.photo }} style={[styles.workerBubble, { borderWidth: 1.5, borderColor: theme.accent, borderStyle: 'dashed' }]} />
+                  ) : (
+                    <View style={[styles.workerBubble, { backgroundColor: currentWorker.color || theme.accent, alignItems: 'center', justifyContent: 'center', borderWidth: 1.5, borderColor: theme.accent, borderStyle: 'dashed' }]}>
                       <Text style={styles.workerInitial}>{currentWorker.name?.charAt(0)?.toUpperCase()}</Text>
                     </View>
                   )
-                ) : (
-                  <Text style={[styles.unassigned, { color: theme.textMuted }]}>Sin asignar</Text>
+                )}
+                {(mode.assignedWorkerIds || []).length === 0 && !isActive && (
+                  <Text style={[styles.unassigned, { color: theme.textMuted }]}>Toca Editar para asignar empleados</Text>
                 )}
               </View>
 

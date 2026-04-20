@@ -12,6 +12,7 @@ describe('createMode', () => {
     expect(mode.tabOrder).toEqual([]);
     expect(mode.isDefault).toBe(false);
     expect(mode.scheduledActivations).toEqual([]);
+    expect(mode.assignedWorkerIds).toEqual([]);
     expect(isValidUuid(mode.id)).toBe(true);
     expect(mode.createdAt).toBeDefined();
     expect(mode.updatedAt).toBeDefined();

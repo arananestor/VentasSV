@@ -7,6 +7,7 @@ const createMode = ({
   tabOrder = [],
   isDefault = false,
   scheduledActivations = [],
+  assignedWorkerIds = [],
 } = {}) => ({
   id: newId(),
   name,
@@ -15,6 +16,7 @@ const createMode = ({
   tabOrder,
   isDefault,
   scheduledActivations,
+  assignedWorkerIds,
   createdAt: new Date().toISOString(),
   updatedAt: new Date().toISOString(),
 });
