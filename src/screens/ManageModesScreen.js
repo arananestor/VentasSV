@@ -34,7 +34,7 @@ function ActionPill({ label, color, bgColor, onPress }) {
 }
 
 export default function ManageModesScreen({ navigation }) {
-  const { modes, currentModeId, setCurrentMode, createModeFromForm, deleteMode, cloneMode, showSnack } = useApp();
+  const { modes, currentModeId, setCurrentMode, createModeFromForm, deleteMode, cloneMode, showNotif } = useApp();
   const { currentWorker, workers } = useAuth();
   const { theme } = useTheme();
 
@@ -64,21 +64,21 @@ export default function ManageModesScreen({ navigation }) {
     if (!ok) { setCreateError(error); return; }
     const created = await createModeFromForm({ name: newName.trim(), description: newDesc.trim() });
     setShowCreate(false); setNewName(''); setNewDesc(''); setCreateError('');
-    showSnack({ message: `Catálogo '${created.name}' creado` });
+    showNotif(`Catálogo '${created.name}' creado`);
   };
 
   const handleActivate = async (modeId) => {
     const mode = modes.find(m => m.id === modeId);
     await setCurrentMode(modeId);
     setShowConfirm(null);
-    showSnack({ message: `Catálogo '${mode?.name}' activado` });
+    showNotif(`Catálogo '${mode?.name}' activado`);
   };
 
   const handleDelete = async (modeId) => {
     try {
       await deleteMode(modeId);
       setShowConfirm(null);
-      showSnack({ message: 'Catálogo eliminado' });
+      showNotif('Catálogo eliminado');
     } catch (e) {
       setShowConfirm(null);
     }
@@ -88,7 +88,7 @@ export default function ManageModesScreen({ navigation }) {
     const source = modes.find(m => m.id === modeId);
     if (!source) return;
     await cloneMode(modeId, `${source.name} (copia)`);
-    showSnack({ message: 'Catálogo clonado' });
+    showNotif('Catálogo clonado');
   };
 
   return (

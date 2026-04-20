@@ -19,7 +19,7 @@ import { validateModeForm, buildOverridesPatch, reorderTabOrder } from '../utils
 import { appendScheduledActivation, removeScheduledActivation, isScheduleValid } from '../utils/modeScheduling';
 import { formatDateTimeReadable } from '../utils/formatters';
 
-function SwipeRow({ isActive, onToggle, children, theme }) {
+function SwipeRow({ isActive, onToggle, onLongPress, children, theme }) {
   const pan = useRef(new Animated.Value(0)).current;
   const activeRef = useRef(isActive);
   const toggleRef = useRef(onToggle);
@@ -27,18 +27,17 @@ function SwipeRow({ isActive, onToggle, children, theme }) {
   useEffect(() => { toggleRef.current = onToggle; }, [onToggle]);
 
   const responder = useRef(PanResponder.create({
-    onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dx) > 10,
-    onPanResponderMove: (_, g) => pan.setValue(g.dx),
+    onMoveShouldSetPanResponder: (_, g) => g.dx > 10,
+    onPanResponderMove: (_, g) => { if (g.dx > 0) pan.setValue(g.dx); },
     onPanResponderRelease: (_, g) => {
-      if (g.dx > 60 && !activeRef.current) { toggleRef.current(); }
-      else if (g.dx < -60 && activeRef.current) { toggleRef.current(); }
+      if (g.dx > 60) { toggleRef.current(); }
       Animated.spring(pan, { toValue: 0, useNativeDriver: true }).start();
     },
   })).current;
 
   return (
     <View style={{ overflow: 'hidden', borderBottomWidth: 1, borderColor: theme.cardBorder }}>
-      <View style={[styles.swipeBg, { backgroundColor: isActive ? '#FF3B3022' : '#30D15822' }]}>
+      <View style={[styles.swipeBg, { backgroundColor: activeRef.current ? '#FF3B3022' : '#30D15822' }]}>
         <Text style={[styles.swipeBgText, { color: isActive ? '#FF3B30' : '#30D158' }]}>
           {isActive ? 'Desactivar' : 'Activar'}
         </Text>
@@ -52,7 +51,7 @@ function SwipeRow({ isActive, onToggle, children, theme }) {
 
 export default function ModeEditorScreen({ route, navigation }) {
   const { modeId } = route.params;
-  const { modes, products, updateMode, showSnack } = useApp();
+  const { modes, products, updateMode, updateProduct, showNotif } = useApp();
   const { workers } = useAuth();
   const { tabs } = useTab();
   const { theme } = useTheme();
@@ -80,6 +79,9 @@ export default function ModeEditorScreen({ route, navigation }) {
   const [startTime, setStartTime] = useState({ hours: 8, minutes: 0 });
   const [endTime, setEndTime] = useState({ hours: 18, minutes: 0 });
   const [schedError, setSchedError] = useState('');
+  const [editingProduct, setEditingProduct] = useState(null);
+  const [editProdName, setEditProdName] = useState('');
+  const [editProdSizes, setEditProdSizes] = useState([]);
 
   if (!mode) {
     return (
@@ -105,7 +107,7 @@ export default function ModeEditorScreen({ route, navigation }) {
       productOverrides: finalOverrides, tabOrder: tabOrd,
       assignedWorkerIds: assignedIds,
     });
-    showSnack({ message: 'Cambios guardados' });
+    showNotif('Cambios guardados');
     navigation.goBack();
   };
 
@@ -121,6 +123,21 @@ export default function ModeEditorScreen({ route, navigation }) {
   const toggleExpand = (pid) => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     setExpandedProduct(prev => prev === pid ? null : pid);
+  };
+
+  const openProductEditor = (p) => {
+    setEditingProduct(p);
+    setEditProdName(p.name);
+    setEditProdSizes(p.sizes.map(s => ({ ...s, priceStr: String(s.price) })));
+  };
+
+  const handleSaveProduct = async () => {
+    if (!editingProduct) return;
+    const sizes = editProdSizes.map(s => ({ ...s, price: parseFloat(s.priceStr) || 0 }));
+    sizes.forEach(s => delete s.priceStr);
+    await updateProduct(editingProduct.id, { name: editProdName.trim(), sizes });
+    setEditingProduct(null);
+    showNotif('Producto actualizado');
   };
 
   const moveTab = (from, to) => {
@@ -171,7 +188,7 @@ export default function ModeEditorScreen({ route, navigation }) {
               <SwipeRow key={p.id} isActive={ov.active} onToggle={() => toggleProduct(p.id)} theme={theme}>
                 <View style={[styles.statusDot, { backgroundColor: ov.active ? '#30D158' : '#D1D1D6' }]} />
                 <View style={{ flex: 1 }}>
-                  <TouchableOpacity onPress={() => toggleExpand(p.id)} style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <TouchableOpacity onPress={() => toggleExpand(p.id)} onLongPress={() => openProductEditor(p)} style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                     <Text style={[styles.productName, { color: theme.text }]}>{p.name}</Text>
                     <Feather name={isExp ? 'chevron-up' : 'chevron-down'} size={14} color={theme.textMuted} />
                   </TouchableOpacity>
@@ -204,6 +221,14 @@ export default function ModeEditorScreen({ route, navigation }) {
               </SwipeRow>
             );
           })}
+
+          <TouchableOpacity
+            style={[styles.addProductBtn, { borderColor: theme.cardBorder }]}
+            onPress={() => navigation.navigate('AddProduct')}
+          >
+            <Feather name="plus" size={16} color={theme.textMuted} />
+            <Text style={[styles.addProductText, { color: theme.textMuted }]}>Agregar producto</Text>
+          </TouchableOpacity>
 
           <Text style={[styles.section, { color: theme.textMuted }]}>EMPLEADOS</Text>
           {workers.map(w => {
@@ -288,6 +313,17 @@ export default function ModeEditorScreen({ route, navigation }) {
         {schedError ? <Text style={{ color: theme.danger, fontSize: 12, marginTop: 8 }}>{schedError}</Text> : null}
         <View style={{ marginTop: 16 }}><PrimaryButton label="PROGRAMAR" onPress={handleAddSchedule} /></View>
       </CenterModal>
+
+      <CenterModal visible={!!editingProduct} onClose={() => setEditingProduct(null)} title="EDITAR PRODUCTO">
+        <ThemedTextInput label="NOMBRE" value={editProdName} onChangeText={setEditProdName} placeholder="Nombre del producto" />
+        {editProdSizes.map((s, i) => (
+          <ThemedTextInput key={i} label={`PRECIO ${s.name || 'Normal'}`} value={s.priceStr}
+            onChangeText={v => setEditProdSizes(prev => prev.map((ps, pi) => pi === i ? { ...ps, priceStr: v } : ps))}
+            keyboardType="decimal-pad" placeholder="0.00" />
+        ))}
+        {editingProduct?.customImage && <Image source={{ uri: editingProduct.customImage }} style={{ width: 80, height: 80, borderRadius: 12, alignSelf: 'center', marginTop: 12 }} />}
+        <View style={{ marginTop: 16 }}><PrimaryButton label="GUARDAR" onPress={handleSaveProduct} /></View>
+      </CenterModal>
     </SafeAreaView>
   );
 }
@@ -318,4 +354,9 @@ const styles = StyleSheet.create({
   schedSummary: { fontSize: 12, fontWeight: '600', textAlign: 'center', marginTop: 12 },
   timeToggle: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 10, marginTop: 4 },
   timeToggleText: { fontSize: 13, fontWeight: '600' },
+  addProductBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+    borderRadius: 12, paddingVertical: 14, borderWidth: 1, borderStyle: 'dashed', marginTop: 8,
+  },
+  addProductText: { fontSize: 13, fontWeight: '700' },
 });
