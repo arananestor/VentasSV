@@ -267,7 +267,7 @@ export default function ProfileScreen({ navigation }) {
                         <Image source={{ uri: worker.photo }} style={styles.workerPhoto} />
                       ) : (
                         <View style={[styles.workerAvatar, { backgroundColor: worker.color || '#1C1C1E' }]}>
-                          <Text style={styles.workerInitial}>
+                          <Text style={[styles.workerInitial, { color: theme.accentText }]}>
                             {worker.name.charAt(0).toUpperCase()}
                           </Text>
                         </View>
@@ -626,7 +626,7 @@ const styles = StyleSheet.create({
   workerTop:     { flexDirection: 'row', alignItems: 'center', gap: 12 },
   workerPhoto:   { width: 42, height: 42, borderRadius: 21, resizeMode: 'cover' },
   workerAvatar:  { width: 42, height: 42, borderRadius: 21, alignItems: 'center', justifyContent: 'center' },
-  workerInitial: { fontSize: 16, fontWeight: '900', color: '#000' },
+  workerInitial: { fontSize: 16, fontWeight: '900', color: '#fff' },
   workerMeta:    { flex: 1 },
   workerName:    { fontSize: 15, fontWeight: '700' },
   workerPuestoRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 3 },
