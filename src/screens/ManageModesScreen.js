@@ -80,7 +80,8 @@ export default function ManageModesScreen({ navigation }) {
   const handleClone = async (modeId) => {
     const source = modes.find(m => m.id === modeId);
     if (!source) return;
-    await cloneMode(modeId, `${source.name} (copia)`);
+    const { generateCatalogName } = require('../utils/funNames');
+    await cloneMode(modeId, generateCatalogName());
     showNotif('Catálogo clonado');
   };
 
@@ -132,15 +133,6 @@ export default function ManageModesScreen({ navigation }) {
                     </View>
                   );
                 })}
-                {isActive && currentWorker && !(mode.assignedWorkerIds || []).includes(currentWorker.id) && (
-                  currentWorker.photo ? (
-                    <Image source={{ uri: currentWorker.photo }} style={[styles.workerBubble, { borderWidth: 1.5, borderColor: theme.accent, borderStyle: 'dashed' }]} />
-                  ) : (
-                    <View style={[styles.workerBubble, { backgroundColor: currentWorker.color || theme.accent, alignItems: 'center', justifyContent: 'center', borderWidth: 1.5, borderColor: theme.accent, borderStyle: 'dashed' }]}>
-                      <Text style={styles.workerInitial}>{currentWorker.name?.charAt(0)?.toUpperCase()}</Text>
-                    </View>
-                  )
-                )}
                 {(mode.assignedWorkerIds || []).length === 0 && (
                   <Text style={[styles.unassigned, { color: theme.textMuted }]}>Toca Editar para asignar empleados</Text>
                 )}

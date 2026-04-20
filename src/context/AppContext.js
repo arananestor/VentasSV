@@ -14,6 +14,7 @@ import { migrateToV5 } from '../utils/schemaMigrationV5';
 import { createMode } from '../models/mode';
 import { evaluateSchedule } from '../utils/modeScheduling';
 import { findModeForWorker } from '../utils/modeManagement';
+import { generateCatalogName } from '../utils/funNames';
 import { useAuth } from './AuthContext';
 
 const WA_COLOR = '#25D366';

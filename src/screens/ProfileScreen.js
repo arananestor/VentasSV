@@ -121,7 +121,7 @@ export default function ProfileScreen({ navigation }) {
             {currentWorker?.photo ? (
               <Image source={{ uri: currentWorker.photo }} style={styles.profilePhoto} />
             ) : (
-              <View style={[styles.profileAvatar, { backgroundColor: currentWorker?.color || '#1C1C1E' }]}>
+              <View style={[styles.profileAvatar, { backgroundColor: '#1C1C1E' }]}>
                 <Text style={[styles.profileAvatarText, { color: theme.accentText }]}>
                   {currentWorker?.name?.charAt(0)?.toUpperCase() || '?'}
                 </Text>
@@ -266,7 +266,7 @@ export default function ProfileScreen({ navigation }) {
                       {worker.photo ? (
                         <Image source={{ uri: worker.photo }} style={styles.workerPhoto} />
                       ) : (
-                        <View style={[styles.workerAvatar, { backgroundColor: worker.color || '#1C1C1E' }]}>
+                        <View style={[styles.workerAvatar, { backgroundColor: '#1C1C1E' }]}>
                           <Text style={styles.workerInitial}>
                             {worker.name.charAt(0).toUpperCase()}
                           </Text>
@@ -339,7 +339,7 @@ export default function ProfileScreen({ navigation }) {
           {currentWorker?.photo ? (
             <Image source={{ uri: currentWorker.photo }} style={styles.detailPhoto} />
           ) : (
-            <View style={[styles.detailAvatar, { backgroundColor: currentWorker?.color || '#1C1C1E' }]}>
+            <View style={[styles.detailAvatar, { backgroundColor: '#1C1C1E' }]}>
               <Text style={[styles.detailAvatarText, { color: theme.accentText }]}>
                 {currentWorker?.name?.charAt(0)?.toUpperCase()}
               </Text>
