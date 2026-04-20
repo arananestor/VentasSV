@@ -34,7 +34,7 @@ function ActionPill({ label, color, bgColor, onPress }) {
 }
 
 export default function ManageModesScreen({ navigation }) {
-  const { modes, currentModeId, setCurrentMode, createModeFromForm, deleteMode, cloneMode, showSnack } = useApp();
+  const { modes, currentModeId, setCurrentMode, createModeFromForm, deleteMode, cloneMode, showNotif } = useApp();
   const { currentWorker, workers } = useAuth();
   const { theme } = useTheme();
 
@@ -64,21 +64,21 @@ export default function ManageModesScreen({ navigation }) {
     if (!ok) { setCreateError(error); return; }
     const created = await createModeFromForm({ name: newName.trim(), description: newDesc.trim() });
     setShowCreate(false); setNewName(''); setNewDesc(''); setCreateError('');
-    showSnack({ message: `Catálogo '${created.name}' creado` });
+    showNotif(`Catálogo '${created.name}' creado`);
   };
 
   const handleActivate = async (modeId) => {
     const mode = modes.find(m => m.id === modeId);
     await setCurrentMode(modeId);
     setShowConfirm(null);
-    showSnack({ message: `Catálogo '${mode?.name}' activado` });
+    showNotif(`Catálogo '${mode?.name}' activado`);
   };
 
   const handleDelete = async (modeId) => {
     try {
       await deleteMode(modeId);
       setShowConfirm(null);
-      showSnack({ message: 'Catálogo eliminado' });
+      showNotif('Catálogo eliminado');
     } catch (e) {
       setShowConfirm(null);
     }
@@ -88,7 +88,7 @@ export default function ManageModesScreen({ navigation }) {
     const source = modes.find(m => m.id === modeId);
     if (!source) return;
     await cloneMode(modeId, `${source.name} (copia)`);
-    showSnack({ message: 'Catálogo clonado' });
+    showNotif('Catálogo clonado');
   };
 
   return (
@@ -148,9 +148,6 @@ export default function ManageModesScreen({ navigation }) {
                     </View>
                   )
                 )}
-                <View style={[styles.addBubble, { borderColor: theme.textMuted }]}>
-                  <Feather name="plus" size={12} color={theme.textMuted} />
-                </View>
                 {(mode.assignedWorkerIds || []).length === 0 && (
                   <Text style={[styles.unassigned, { color: theme.textMuted }]}>Toca Editar para asignar empleados</Text>
                 )}
@@ -249,7 +246,6 @@ const styles = StyleSheet.create({
   workerRow: { flexDirection: 'row', gap: 4, marginTop: 8 },
   workerBubble: { width: 28, height: 28, borderRadius: 14 },
   workerInitial: { color: '#fff', fontSize: 12, fontWeight: '900' },
-  addBubble: { width: 28, height: 28, borderRadius: 14, borderWidth: 1, borderStyle: 'dashed', alignItems: 'center', justifyContent: 'center' },
   unassigned: { fontSize: 11, fontWeight: '500', fontStyle: 'italic' },
   cardActions: { flexDirection: 'row', gap: 8, marginTop: 12, flexWrap: 'wrap' },
   actionBtn: { borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8, borderWidth: 1 },

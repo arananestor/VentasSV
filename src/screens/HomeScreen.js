@@ -266,15 +266,6 @@ export default function HomeScreen({ navigation }) {
           </View>
         ))}
 
-        <TouchableOpacity
-          style={[styles.addCard, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}
-          activeOpacity={0.8}
-          onPress={() => isAdminUser ? navigation.navigate('AddProduct') : requestPinAction(() => navigation.navigate('AddProduct'))}
-        >
-          <View style={[styles.addPlus, { backgroundColor: theme.mode === 'dark' ? '#222' : '#F0F0F0' }]}>
-            <Feather name="plus" size={28} color={theme.textMuted} />
-          </View>
-        </TouchableOpacity>
         <View style={{ height: cartCount > 0 ? 100 : 20 }} />
       </ScrollView>
 
@@ -521,11 +512,6 @@ const styles = StyleSheet.create({
     borderRadius: 18, alignItems: 'center', justifyContent: 'center', gap: 6, zIndex: 10,
   },
   deleteText: { color: '#FFF', fontSize: 12, fontWeight: '800', letterSpacing: 1 },
-  addCard: {
-    width: CARD_SIZE, height: CARD_SIZE * 1.05, borderRadius: 18,
-    borderWidth: 1, alignItems: 'center', justifyContent: 'center',
-  },
-  addPlus: { width: 52, height: 52, borderRadius: 26, alignItems: 'center', justifyContent: 'center' },
   iconBgCircle: {
     width: CARD_SIZE * 0.62, height: CARD_SIZE * 0.62,
     borderRadius: CARD_SIZE * 0.18, alignItems: 'center', justifyContent: 'center',

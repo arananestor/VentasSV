@@ -253,6 +253,32 @@ export function AppProvider({ children }) {
     return () => clearInterval(timer);
   }, [modes, currentModeId]);
 
+  // ── NOTIF BAR (top, for non-sale messages) ────────────────
+  const [notifData, setNotifData] = useState(null);
+  const notifAnim = useRef(new Animated.Value(-80)).current;
+  const notifOpacity = useRef(new Animated.Value(0)).current;
+  const notifTimer = useRef(null);
+
+  const showNotif = (message) => {
+    if (notifTimer.current) clearTimeout(notifTimer.current);
+    setNotifData(message);
+    notifAnim.setValue(-80);
+    notifOpacity.setValue(0);
+    Animated.parallel([
+      Animated.spring(notifAnim, { toValue: 0, useNativeDriver: true, tension: 80, friction: 12 }),
+      Animated.timing(notifOpacity, { toValue: 1, duration: 180, useNativeDriver: true }),
+    ]).start();
+    notifTimer.current = setTimeout(() => hideNotif(), 1500);
+  };
+
+  const hideNotif = () => {
+    if (notifTimer.current) clearTimeout(notifTimer.current);
+    Animated.parallel([
+      Animated.timing(notifAnim, { toValue: -80, duration: 200, useNativeDriver: true }),
+      Animated.timing(notifOpacity, { toValue: 0, duration: 200, useNativeDriver: true }),
+    ]).start(() => setNotifData(null));
+  };
+
   // ── SNACKBAR GLOBAL ──────────────────────────────────────
   const showSnack = (data) => {
     if (dismissTimer.current) clearTimeout(dismissTimer.current);
@@ -296,9 +322,19 @@ export function AppProvider({ children }) {
       cart, addToCart, removeFromCart, clearCart, cartTotal, cartCount,
       modes, currentModeId, currentMode,
       setCurrentMode, createModeFromForm, updateMode, deleteMode, cloneMode,
-      showSnack,
+      showSnack, showNotif,
     }}>
       {children}
+
+      {/* NOTIF BAR — top */}
+      {notifData && (
+        <Animated.View style={[snackStyles.notif, { transform: [{ translateY: notifAnim }], opacity: notifOpacity }]}>
+          <TouchableOpacity style={snackStyles.notifInner} onPress={hideNotif} activeOpacity={0.9}>
+            <Text style={snackStyles.notifText}>{notifData}</Text>
+            <Feather name="x" size={14} color="#888" />
+          </TouchableOpacity>
+        </Animated.View>
+      )}
 
       {/* SNACKBAR GLOBAL — flota sobre toda la app */}
       {snackData && (
@@ -351,6 +387,13 @@ const snackStyles = StyleSheet.create({
   actions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   btn: { width: 36, height: 36, borderRadius: 10, backgroundColor: '#0A84FF', alignItems: 'center', justifyContent: 'center' },
   close: { width: 30, height: 30, alignItems: 'center', justifyContent: 'center', marginLeft: 2 },
+  notif: {
+    position: 'absolute', top: 50, left: 16, right: 16, zIndex: 9999,
+    backgroundColor: '#1C1C1E', borderRadius: 12, borderWidth: 1, borderColor: '#2C2C2E',
+    paddingVertical: 10, paddingHorizontal: 16,
+  },
+  notifInner: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  notifText: { fontSize: 13, fontWeight: '600', color: '#FFFFFF', flex: 1 },
 });
 
 export const useApp = () => useContext(AppContext);

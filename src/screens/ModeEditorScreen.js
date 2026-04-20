@@ -19,7 +19,7 @@ import { validateModeForm, buildOverridesPatch, reorderTabOrder } from '../utils
 import { appendScheduledActivation, removeScheduledActivation, isScheduleValid } from '../utils/modeScheduling';
 import { formatDateTimeReadable } from '../utils/formatters';
 
-function SwipeRow({ isActive, onToggle, children, theme }) {
+function SwipeRow({ isActive, onToggle, onLongPress, children, theme }) {
   const pan = useRef(new Animated.Value(0)).current;
   const activeRef = useRef(isActive);
   const toggleRef = useRef(onToggle);
@@ -27,11 +27,10 @@ function SwipeRow({ isActive, onToggle, children, theme }) {
   useEffect(() => { toggleRef.current = onToggle; }, [onToggle]);
 
   const responder = useRef(PanResponder.create({
-    onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dx) > 10,
-    onPanResponderMove: (_, g) => pan.setValue(g.dx),
+    onMoveShouldSetPanResponder: (_, g) => g.dx > 10,
+    onPanResponderMove: (_, g) => { if (g.dx > 0) pan.setValue(g.dx); },
     onPanResponderRelease: (_, g) => {
-      if (g.dx > 60 && !activeRef.current) { toggleRef.current(); }
-      else if (g.dx < -60 && activeRef.current) { toggleRef.current(); }
+      if (g.dx > 60) { toggleRef.current(); }
       Animated.spring(pan, { toValue: 0, useNativeDriver: true }).start();
     },
   })).current;
@@ -52,7 +51,7 @@ function SwipeRow({ isActive, onToggle, children, theme }) {
 
 export default function ModeEditorScreen({ route, navigation }) {
   const { modeId } = route.params;
-  const { modes, products, updateMode, showSnack } = useApp();
+  const { modes, products, updateMode, updateProduct, showNotif } = useApp();
   const { workers } = useAuth();
   const { tabs } = useTab();
   const { theme } = useTheme();
@@ -80,6 +79,11 @@ export default function ModeEditorScreen({ route, navigation }) {
   const [startTime, setStartTime] = useState({ hours: 8, minutes: 0 });
   const [endTime, setEndTime] = useState({ hours: 18, minutes: 0 });
   const [schedError, setSchedError] = useState('');
+  const [editingProduct, setEditingProduct] = useState(null);
+  const [editProdName, setEditProdName] = useState('');
+  const [editProdSizes, setEditProdSizes] = useState([]);
+  const [editProdIngredients, setEditProdIngredients] = useState([]);
+  const [editProdExtras, setEditProdExtras] = useState([]);
 
   if (!mode) {
     return (
@@ -105,7 +109,7 @@ export default function ModeEditorScreen({ route, navigation }) {
       productOverrides: finalOverrides, tabOrder: tabOrd,
       assignedWorkerIds: assignedIds,
     });
-    showSnack({ message: 'Cambios guardados' });
+    showNotif('Cambios guardados');
     navigation.goBack();
   };
 
@@ -121,6 +125,30 @@ export default function ModeEditorScreen({ route, navigation }) {
   const toggleExpand = (pid) => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     setExpandedProduct(prev => prev === pid ? null : pid);
+  };
+
+  const openProductEditor = (p) => {
+    setEditingProduct(p);
+    setEditProdName(p.name);
+    setEditProdSizes(p.sizes.map(s => ({ ...s, priceStr: String(s.price) })));
+    setEditProdIngredients((p.ingredients || p.flavors || []).map(ing => ({ name: typeof ing === 'string' ? ing : ing.name || '', color: ing.color, icon: ing.icon })));
+    setEditProdExtras((p.extras || p.toppings || []).map(ex => ({ name: typeof ex === 'string' ? ex : ex.name || '', price: ex.price || 0, priceStr: String(ex.price || 0) })));
+  };
+
+  const handleSaveProduct = async () => {
+    if (!editingProduct) return;
+    const sizes = editProdSizes.map(s => {
+      const { priceStr, ...rest } = s;
+      return { ...rest, price: parseFloat(priceStr) || 0 };
+    });
+    const ingredients = editProdIngredients.filter(ing => ing.name.trim());
+    const extras = editProdExtras.filter(ex => ex.name.trim()).map(ex => {
+      const { priceStr, ...rest } = ex;
+      return { ...rest, price: parseFloat(priceStr) || 0 };
+    });
+    await updateProduct(editingProduct.id, { name: editProdName.trim(), sizes, ingredients, extras });
+    setEditingProduct(null);
+    showNotif('Producto actualizado');
   };
 
   const moveTab = (from, to) => {
@@ -171,7 +199,7 @@ export default function ModeEditorScreen({ route, navigation }) {
               <SwipeRow key={p.id} isActive={ov.active} onToggle={() => toggleProduct(p.id)} theme={theme}>
                 <View style={[styles.statusDot, { backgroundColor: ov.active ? '#30D158' : '#D1D1D6' }]} />
                 <View style={{ flex: 1 }}>
-                  <TouchableOpacity onPress={() => toggleExpand(p.id)} style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <TouchableOpacity onPress={() => toggleExpand(p.id)} onLongPress={() => openProductEditor(p)} style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                     <Text style={[styles.productName, { color: theme.text }]}>{p.name}</Text>
                     <Feather name={isExp ? 'chevron-up' : 'chevron-down'} size={14} color={theme.textMuted} />
                   </TouchableOpacity>
@@ -204,6 +232,14 @@ export default function ModeEditorScreen({ route, navigation }) {
               </SwipeRow>
             );
           })}
+
+          <TouchableOpacity
+            style={[styles.addProductBtn, { borderColor: theme.cardBorder }]}
+            onPress={() => navigation.navigate('AddProduct')}
+          >
+            <Feather name="plus" size={16} color={theme.textMuted} />
+            <Text style={[styles.addProductText, { color: theme.textMuted }]}>Agregar producto</Text>
+          </TouchableOpacity>
 
           <Text style={[styles.section, { color: theme.textMuted }]}>EMPLEADOS</Text>
           {workers.map(w => {
@@ -288,6 +324,53 @@ export default function ModeEditorScreen({ route, navigation }) {
         {schedError ? <Text style={{ color: theme.danger, fontSize: 12, marginTop: 8 }}>{schedError}</Text> : null}
         <View style={{ marginTop: 16 }}><PrimaryButton label="PROGRAMAR" onPress={handleAddSchedule} /></View>
       </CenterModal>
+
+      <CenterModal visible={!!editingProduct} onClose={() => setEditingProduct(null)} title="EDITAR PRODUCTO">
+        {editingProduct?.customImage && <Image source={{ uri: editingProduct.customImage }} style={{ width: 80, height: 80, borderRadius: 12, alignSelf: 'center', marginBottom: 12 }} />}
+        <ThemedTextInput label="NOMBRE" value={editProdName} onChangeText={setEditProdName} placeholder="Nombre del producto" />
+
+        <Text style={[styles.detailLabel, { color: theme.textMuted, marginTop: 16 }]}>PRECIOS POR TAMAÑO</Text>
+        {editProdSizes.map((s, i) => (
+          <ThemedTextInput key={i} label={s.name || 'Normal'} value={s.priceStr}
+            onChangeText={v => setEditProdSizes(prev => prev.map((ps, pi) => pi === i ? { ...ps, priceStr: v } : ps))}
+            keyboardType="decimal-pad" placeholder="0.00" />
+        ))}
+
+        <Text style={[styles.detailLabel, { color: theme.textMuted, marginTop: 16 }]}>INGREDIENTES</Text>
+        {editProdIngredients.map((ing, i) => (
+          <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+            <ThemedTextInput value={ing.name} onChangeText={v => setEditProdIngredients(prev => prev.map((p, pi) => pi === i ? { ...p, name: v } : p))} placeholder="Ingrediente" style={{ flex: 1 }} />
+            <TouchableOpacity onPress={() => setEditProdIngredients(prev => prev.filter((_, pi) => pi !== i))}>
+              <Feather name="trash-2" size={16} color={theme.danger} />
+            </TouchableOpacity>
+          </View>
+        ))}
+        <TouchableOpacity onPress={() => setEditProdIngredients(prev => [...prev, { name: '' }])} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 8 }}>
+          <Feather name="plus" size={14} color={theme.textMuted} />
+          <Text style={{ fontSize: 12, fontWeight: '600', color: theme.textMuted }}>Agregar ingrediente</Text>
+        </TouchableOpacity>
+
+        <Text style={[styles.detailLabel, { color: theme.textMuted, marginTop: 16 }]}>EXTRAS</Text>
+        {editProdExtras.map((ex, i) => (
+          <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+            <View style={{ flex: 1 }}>
+              <ThemedTextInput value={ex.name} onChangeText={v => setEditProdExtras(prev => prev.map((p, pi) => pi === i ? { ...p, name: v } : p))} placeholder="Extra" />
+            </View>
+            <View style={{ width: 70 }}>
+              <ThemedTextInput value={ex.priceStr} onChangeText={v => setEditProdExtras(prev => prev.map((p, pi) => pi === i ? { ...p, priceStr: v } : p))} placeholder="$" keyboardType="decimal-pad" />
+            </View>
+            <TouchableOpacity onPress={() => setEditProdExtras(prev => prev.filter((_, pi) => pi !== i))}>
+              <Feather name="trash-2" size={16} color={theme.danger} />
+            </TouchableOpacity>
+          </View>
+        ))}
+        <TouchableOpacity onPress={() => setEditProdExtras(prev => [...prev, { name: '', price: 0, priceStr: '0' }])} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 8 }}>
+          <Feather name="plus" size={14} color={theme.textMuted} />
+          <Text style={{ fontSize: 12, fontWeight: '600', color: theme.textMuted }}>Agregar extra</Text>
+        </TouchableOpacity>
+
+        <View style={{ marginTop: 16 }}><PrimaryButton label="GUARDAR" onPress={handleSaveProduct} /></View>
+      </CenterModal>
     </SafeAreaView>
   );
 }
@@ -318,4 +401,9 @@ const styles = StyleSheet.create({
   schedSummary: { fontSize: 12, fontWeight: '600', textAlign: 'center', marginTop: 12 },
   timeToggle: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 10, marginTop: 4 },
   timeToggleText: { fontSize: 13, fontWeight: '600' },
+  addProductBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+    borderRadius: 12, paddingVertical: 14, borderWidth: 1, borderStyle: 'dashed', marginTop: 8,
+  },
+  addProductText: { fontSize: 13, fontWeight: '700' },
 });
