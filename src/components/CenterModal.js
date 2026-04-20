@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, Modal, TouchableWithoutFeedback, ScrollView, StyleSheet, Dimensions } from 'react-native';
 import { useTheme } from '../context/ThemeContext';
 
-const MAX_H = Dimensions.get('window').height * 0.85;
+const MAX_H = Dimensions.get('window').height * 0.8;
 
 export default function CenterModal({ visible, onClose, title, children }) {
   const { theme } = useTheme();

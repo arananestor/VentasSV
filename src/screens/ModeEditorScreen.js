@@ -37,7 +37,7 @@ function SwipeRow({ isActive, onToggle, onLongPress, children, theme }) {
 
   return (
     <View style={{ overflow: 'hidden', borderBottomWidth: 1, borderColor: theme.cardBorder }}>
-      <View style={[styles.swipeBg, { backgroundColor: activeRef.current ? '#FF3B3022' : '#30D15822' }]}>
+      <View style={[styles.swipeBg, { backgroundColor: isActive ? '#FF3B3022' : '#30D15822' }]}>
         <Text style={[styles.swipeBgText, { color: isActive ? '#FF3B30' : '#30D158' }]}>
           {isActive ? 'Desactivar' : 'Activar'}
         </Text>
@@ -82,6 +82,8 @@ export default function ModeEditorScreen({ route, navigation }) {
   const [editingProduct, setEditingProduct] = useState(null);
   const [editProdName, setEditProdName] = useState('');
   const [editProdSizes, setEditProdSizes] = useState([]);
+  const [editProdIngredients, setEditProdIngredients] = useState([]);
+  const [editProdExtras, setEditProdExtras] = useState([]);
 
   if (!mode) {
     return (
@@ -129,13 +131,22 @@ export default function ModeEditorScreen({ route, navigation }) {
     setEditingProduct(p);
     setEditProdName(p.name);
     setEditProdSizes(p.sizes.map(s => ({ ...s, priceStr: String(s.price) })));
+    setEditProdIngredients((p.ingredients || p.flavors || []).map(ing => ({ name: typeof ing === 'string' ? ing : ing.name || '', color: ing.color, icon: ing.icon })));
+    setEditProdExtras((p.extras || p.toppings || []).map(ex => ({ name: typeof ex === 'string' ? ex : ex.name || '', price: ex.price || 0, priceStr: String(ex.price || 0) })));
   };
 
   const handleSaveProduct = async () => {
     if (!editingProduct) return;
-    const sizes = editProdSizes.map(s => ({ ...s, price: parseFloat(s.priceStr) || 0 }));
-    sizes.forEach(s => delete s.priceStr);
-    await updateProduct(editingProduct.id, { name: editProdName.trim(), sizes });
+    const sizes = editProdSizes.map(s => {
+      const { priceStr, ...rest } = s;
+      return { ...rest, price: parseFloat(priceStr) || 0 };
+    });
+    const ingredients = editProdIngredients.filter(ing => ing.name.trim());
+    const extras = editProdExtras.filter(ex => ex.name.trim()).map(ex => {
+      const { priceStr, ...rest } = ex;
+      return { ...rest, price: parseFloat(priceStr) || 0 };
+    });
+    await updateProduct(editingProduct.id, { name: editProdName.trim(), sizes, ingredients, extras });
     setEditingProduct(null);
     showNotif('Producto actualizado');
   };
@@ -315,13 +326,49 @@ export default function ModeEditorScreen({ route, navigation }) {
       </CenterModal>
 
       <CenterModal visible={!!editingProduct} onClose={() => setEditingProduct(null)} title="EDITAR PRODUCTO">
+        {editingProduct?.customImage && <Image source={{ uri: editingProduct.customImage }} style={{ width: 80, height: 80, borderRadius: 12, alignSelf: 'center', marginBottom: 12 }} />}
         <ThemedTextInput label="NOMBRE" value={editProdName} onChangeText={setEditProdName} placeholder="Nombre del producto" />
+
+        <Text style={[styles.detailLabel, { color: theme.textMuted, marginTop: 16 }]}>PRECIOS POR TAMAÑO</Text>
         {editProdSizes.map((s, i) => (
-          <ThemedTextInput key={i} label={`PRECIO ${s.name || 'Normal'}`} value={s.priceStr}
+          <ThemedTextInput key={i} label={s.name || 'Normal'} value={s.priceStr}
             onChangeText={v => setEditProdSizes(prev => prev.map((ps, pi) => pi === i ? { ...ps, priceStr: v } : ps))}
             keyboardType="decimal-pad" placeholder="0.00" />
         ))}
-        {editingProduct?.customImage && <Image source={{ uri: editingProduct.customImage }} style={{ width: 80, height: 80, borderRadius: 12, alignSelf: 'center', marginTop: 12 }} />}
+
+        <Text style={[styles.detailLabel, { color: theme.textMuted, marginTop: 16 }]}>INGREDIENTES</Text>
+        {editProdIngredients.map((ing, i) => (
+          <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+            <ThemedTextInput value={ing.name} onChangeText={v => setEditProdIngredients(prev => prev.map((p, pi) => pi === i ? { ...p, name: v } : p))} placeholder="Ingrediente" style={{ flex: 1 }} />
+            <TouchableOpacity onPress={() => setEditProdIngredients(prev => prev.filter((_, pi) => pi !== i))}>
+              <Feather name="trash-2" size={16} color={theme.danger} />
+            </TouchableOpacity>
+          </View>
+        ))}
+        <TouchableOpacity onPress={() => setEditProdIngredients(prev => [...prev, { name: '' }])} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 8 }}>
+          <Feather name="plus" size={14} color={theme.textMuted} />
+          <Text style={{ fontSize: 12, fontWeight: '600', color: theme.textMuted }}>Agregar ingrediente</Text>
+        </TouchableOpacity>
+
+        <Text style={[styles.detailLabel, { color: theme.textMuted, marginTop: 16 }]}>EXTRAS</Text>
+        {editProdExtras.map((ex, i) => (
+          <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+            <View style={{ flex: 1 }}>
+              <ThemedTextInput value={ex.name} onChangeText={v => setEditProdExtras(prev => prev.map((p, pi) => pi === i ? { ...p, name: v } : p))} placeholder="Extra" />
+            </View>
+            <View style={{ width: 70 }}>
+              <ThemedTextInput value={ex.priceStr} onChangeText={v => setEditProdExtras(prev => prev.map((p, pi) => pi === i ? { ...p, priceStr: v } : p))} placeholder="$" keyboardType="decimal-pad" />
+            </View>
+            <TouchableOpacity onPress={() => setEditProdExtras(prev => prev.filter((_, pi) => pi !== i))}>
+              <Feather name="trash-2" size={16} color={theme.danger} />
+            </TouchableOpacity>
+          </View>
+        ))}
+        <TouchableOpacity onPress={() => setEditProdExtras(prev => [...prev, { name: '', price: 0, priceStr: '0' }])} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 8 }}>
+          <Feather name="plus" size={14} color={theme.textMuted} />
+          <Text style={{ fontSize: 12, fontWeight: '600', color: theme.textMuted }}>Agregar extra</Text>
+        </TouchableOpacity>
+
         <View style={{ marginTop: 16 }}><PrimaryButton label="GUARDAR" onPress={handleSaveProduct} /></View>
       </CenterModal>
     </SafeAreaView>

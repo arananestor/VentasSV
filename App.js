@@ -61,6 +61,7 @@ function ProfileStack() {
       <Stack.Screen name="BusinessConfig" component={BusinessConfigScreen} />
       <Stack.Screen name="ManageModes" component={ManageModesScreen} />
       <Stack.Screen name="ModeEditor" component={ModeEditorScreen} />
+      <Stack.Screen name="AddProduct" component={AddProductScreen} />
     </Stack.Navigator>
   );
 }
