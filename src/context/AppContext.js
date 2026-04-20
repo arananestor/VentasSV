@@ -214,8 +214,8 @@ export function AppProvider({ children }) {
 
   const deleteMode = async (modeId) => {
     const mode = modes.find(m => m.id === modeId);
-    if (mode?.isDefault) throw new Error('No se puede eliminar el Modo Principal');
-    if (currentModeId === modeId) throw new Error('No se puede eliminar el Modo activo');
+    if (mode?.isDefault) throw new Error('No se puede eliminar el catálogo principal');
+    if (currentModeId === modeId) throw new Error('No se puede eliminar el catálogo activo');
     const filtered = modes.filter(m => m.id !== modeId);
     setModes(filtered);
     await repository.save('modes', filtered);
@@ -223,7 +223,7 @@ export function AppProvider({ children }) {
 
   const cloneMode = async (modeId, newName) => {
     const source = modes.find(m => m.id === modeId);
-    if (!source) throw new Error('Modo no encontrado');
+    if (!source) throw new Error('Catálogo no encontrado');
     const overrides = {};
     for (const [k, v] of Object.entries(source.productOverrides || {})) {
       overrides[k] = { ...v };
@@ -311,8 +311,8 @@ export function AppProvider({ children }) {
           <View style={snackStyles.left}>
             <View style={snackStyles.dot} />
             <View>
-              <Text style={snackStyles.title}>Venta registrada</Text>
-              <Text style={snackStyles.sub}>${snackData.total?.toFixed(2)}</Text>
+              <Text style={snackStyles.title}>{snackData.message || 'Venta registrada'}</Text>
+              {!snackData.message && <Text style={snackStyles.sub}>${snackData.total?.toFixed(2)}</Text>}
             </View>
           </View>
           <View style={snackStyles.actions}>

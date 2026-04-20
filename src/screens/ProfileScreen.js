@@ -235,8 +235,8 @@ export default function ProfileScreen({ navigation }) {
                     <Feather name="layers" size={15} color={theme.text} />
                   </View>
                   <View style={styles.rowTexts}>
-                    <Text style={[styles.rowTitle, { color: theme.text }]}>Gestión de Modos</Text>
-                    <Text style={[styles.rowSub, { color: theme.textMuted }]}>Crear, editar y programar Modos</Text>
+                    <Text style={[styles.rowTitle, { color: theme.text }]}>Catálogos</Text>
+                    <Text style={[styles.rowSub, { color: theme.textMuted }]}>Crear, editar y programar catálogos</Text>
                   </View>
                   <Feather name="chevron-right" size={18} color={theme.textMuted} />
                 </TouchableOpacity>

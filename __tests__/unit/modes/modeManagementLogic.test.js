@@ -5,9 +5,9 @@ import { isValidUuid } from '../../../src/utils/ids';
 
 const canDeleteMode = (modes, modeId, currentModeId) => {
   const mode = modes.find(m => m.id === modeId);
-  if (!mode) return { ok: false, reason: 'Modo no encontrado' };
-  if (mode.isDefault) return { ok: false, reason: 'No se puede eliminar el Modo Principal' };
-  if (currentModeId === modeId) return { ok: false, reason: 'No se puede eliminar el Modo activo' };
+  if (!mode) return { ok: false, reason: 'Catálogo no encontrado' };
+  if (mode.isDefault) return { ok: false, reason: 'No se puede eliminar el catálogo principal' };
+  if (currentModeId === modeId) return { ok: false, reason: 'No se puede eliminar el catálogo activo' };
   return { ok: true };
 };
 
@@ -47,7 +47,7 @@ describe('canDeleteMode', () => {
     const result = canDeleteMode(modes, 'm1', 'm2');
     // Assert
     expect(result.ok).toBe(false);
-    expect(result.reason).toContain('Principal');
+    expect(result.reason).toContain('catálogo principal');
   });
 
   it('rejects active mode', () => {

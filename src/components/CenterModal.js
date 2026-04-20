@@ -1,6 +1,8 @@
 import React from 'react';
-import { View, Text, Modal, TouchableWithoutFeedback, StyleSheet } from 'react-native';
+import { View, Text, Modal, TouchableWithoutFeedback, ScrollView, StyleSheet, Dimensions } from 'react-native';
 import { useTheme } from '../context/ThemeContext';
+
+const MAX_H = Dimensions.get('window').height * 0.85;
 
 export default function CenterModal({ visible, onClose, title, children }) {
   const { theme } = useTheme();
@@ -10,11 +12,13 @@ export default function CenterModal({ visible, onClose, title, children }) {
       <TouchableWithoutFeedback onPress={onClose}>
         <View style={[styles.overlay, { backgroundColor: theme.overlay }]}>
           <TouchableWithoutFeedback>
-            <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+            <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder, maxHeight: MAX_H }]}>
               {title ? (
                 <Text style={[styles.title, { color: theme.text }]}>{title}</Text>
               ) : null}
-              {children}
+              <ScrollView showsVerticalScrollIndicator={false} nestedScrollEnabled bounces={false} keyboardShouldPersistTaps="handled">
+                {children}
+              </ScrollView>
             </View>
           </TouchableWithoutFeedback>
         </View>

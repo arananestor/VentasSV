@@ -180,7 +180,7 @@ export default function HomeScreen({ navigation }) {
         <View style={[styles.modeIndicator, { borderColor: theme.cardBorder }]}>
           <Feather name="layers" size={12} color={theme.textMuted} />
           <Text style={[styles.modeIndicatorText, { color: theme.textMuted }]}>
-            Modo: {currentMode.name}
+            Catálogo: {currentMode.name}
           </Text>
         </View>
       )}

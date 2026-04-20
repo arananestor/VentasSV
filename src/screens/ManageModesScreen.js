@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, StyleSheet } from 'react-native';
+import React, { useState, useRef } from 'react';
+import { View, Text, TouchableOpacity, ScrollView, StyleSheet, Image, Animated } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import { useApp } from '../context/AppContext';
@@ -10,12 +10,32 @@ import CenterModal from '../components/CenterModal';
 import ThemedTextInput from '../components/ThemedTextInput';
 import PrimaryButton from '../components/PrimaryButton';
 import RequiresQentas from '../components/RequiresQentas';
-import UpsellCard from '../components/UpsellCard';
 import { canManageModesLocally, validateModeForm } from '../utils/modeManagement';
+
+function ActionPill({ label, color, bgColor, onPress }) {
+  const scale = useRef(new Animated.Value(1)).current;
+  const handlePress = () => {
+    Animated.sequence([
+      Animated.spring(scale, { toValue: 0.95, useNativeDriver: true, speed: 50 }),
+      Animated.spring(scale, { toValue: 1, useNativeDriver: true, speed: 50 }),
+    ]).start();
+    onPress();
+  };
+  return (
+    <Animated.View style={{ transform: [{ scale }] }}>
+      <TouchableOpacity
+        style={[styles.actionBtn, { backgroundColor: bgColor, borderColor: color }]}
+        onPress={handlePress} activeOpacity={0.8}
+      >
+        <Text style={[styles.actionText, { color }]}>{label}</Text>
+      </TouchableOpacity>
+    </Animated.View>
+  );
+}
 
 export default function ManageModesScreen({ navigation }) {
   const { modes, currentModeId, setCurrentMode, createModeFromForm, deleteMode, cloneMode, showSnack } = useApp();
-  const { currentWorker } = useAuth();
+  const { currentWorker, workers } = useAuth();
   const { theme } = useTheme();
 
   const [showCreate, setShowCreate] = useState(false);
@@ -27,10 +47,10 @@ export default function ManageModesScreen({ navigation }) {
   if (!canManageModesLocally(currentWorker)) {
     return (
       <SafeAreaView style={[styles.container, { backgroundColor: theme.bg }]}>
-        <ScreenHeader title="GESTIÓN DE MODOS" onBack={() => navigation.goBack()} />
+        <ScreenHeader title="CATÁLOGOS" onBack={() => navigation.goBack()} />
         <View style={styles.denied}>
           <Feather name="lock" size={32} color={theme.textMuted} />
-          <Text style={[styles.deniedText, { color: theme.textMuted }]}>Solo el dueño puede gestionar Modos</Text>
+          <Text style={[styles.deniedText, { color: theme.textMuted }]}>Solo el dueño puede gestionar catálogos</Text>
           <TouchableOpacity onPress={() => navigation.goBack()} style={[styles.deniedBtn, { borderColor: theme.cardBorder }]}>
             <Text style={[styles.deniedBtnText, { color: theme.text }]}>Volver</Text>
           </TouchableOpacity>
@@ -42,20 +62,23 @@ export default function ManageModesScreen({ navigation }) {
   const handleCreate = async () => {
     const { ok, error } = validateModeForm({ name: newName, existingModes: modes });
     if (!ok) { setCreateError(error); return; }
-    await createModeFromForm({ name: newName.trim(), description: newDesc.trim() });
+    const created = await createModeFromForm({ name: newName.trim(), description: newDesc.trim() });
     setShowCreate(false); setNewName(''); setNewDesc(''); setCreateError('');
-    showSnack({ total: 0, sales: [] });
+    showSnack({ message: `Catálogo '${created.name}' creado` });
   };
 
   const handleActivate = async (modeId) => {
+    const mode = modes.find(m => m.id === modeId);
     await setCurrentMode(modeId);
     setShowConfirm(null);
+    showSnack({ message: `Catálogo '${mode?.name}' activado` });
   };
 
   const handleDelete = async (modeId) => {
     try {
       await deleteMode(modeId);
       setShowConfirm(null);
+      showSnack({ message: 'Catálogo eliminado' });
     } catch (e) {
       setShowConfirm(null);
     }
@@ -65,18 +88,23 @@ export default function ManageModesScreen({ navigation }) {
     const source = modes.find(m => m.id === modeId);
     if (!source) return;
     await cloneMode(modeId, `${source.name} (copia)`);
+    showSnack({ message: 'Catálogo clonado' });
   };
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.bg }]}>
-      <ScreenHeader title="GESTIÓN DE MODOS" onBack={() => navigation.goBack()} />
+      <ScreenHeader title="CATÁLOGOS" onBack={() => navigation.goBack()} />
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         {modes.map(mode => {
           const isActive = mode.id === currentModeId;
           const activeCount = Object.values(mode.productOverrides || {}).filter(o => o.active).length;
           return (
-            <View key={mode.id} style={[styles.card, { backgroundColor: theme.card, borderColor: isActive ? theme.accent : theme.cardBorder }]}>
+            <View key={mode.id} style={[
+              styles.card,
+              { backgroundColor: theme.card, borderColor: theme.cardBorder },
+              isActive && { borderLeftWidth: 4, borderLeftColor: theme.success },
+            ]}>
               <View style={styles.cardHeader}>
                 <View style={{ flex: 1 }}>
                   <Text style={[styles.cardName, { color: theme.text }]}>{mode.name}</Text>
@@ -97,34 +125,45 @@ export default function ManageModesScreen({ navigation }) {
                   )}
                 </View>
               </View>
+
+              {/* Worker bubbles */}
+              <View style={styles.workerRow}>
+                {(mode.assignedWorkerIds || []).map(wId => {
+                  const w = workers.find(wr => wr.id === wId);
+                  if (!w) return null;
+                  return w.photo ? (
+                    <Image key={w.id} source={{ uri: w.photo }} style={styles.workerBubble} />
+                  ) : (
+                    <View key={w.id} style={[styles.workerBubble, { backgroundColor: w.color || theme.accent, alignItems: 'center', justifyContent: 'center' }]}>
+                      <Text style={styles.workerInitial}>{w.name?.charAt(0)?.toUpperCase()}</Text>
+                    </View>
+                  );
+                })}
+                {isActive && currentWorker && !(mode.assignedWorkerIds || []).includes(currentWorker.id) && (
+                  currentWorker.photo ? (
+                    <Image source={{ uri: currentWorker.photo }} style={[styles.workerBubble, { borderWidth: 1.5, borderColor: theme.accent, borderStyle: 'dashed' }]} />
+                  ) : (
+                    <View style={[styles.workerBubble, { backgroundColor: currentWorker.color || theme.accent, alignItems: 'center', justifyContent: 'center', borderWidth: 1.5, borderColor: theme.accent, borderStyle: 'dashed' }]}>
+                      <Text style={styles.workerInitial}>{currentWorker.name?.charAt(0)?.toUpperCase()}</Text>
+                    </View>
+                  )
+                )}
+                <View style={[styles.addBubble, { borderColor: theme.textMuted }]}>
+                  <Feather name="plus" size={12} color={theme.textMuted} />
+                </View>
+                {(mode.assignedWorkerIds || []).length === 0 && (
+                  <Text style={[styles.unassigned, { color: theme.textMuted }]}>Toca Editar para asignar empleados</Text>
+                )}
+              </View>
+
               <View style={styles.cardActions}>
                 {!isActive && (
-                  <TouchableOpacity
-                    style={[styles.actionBtn, { borderColor: theme.success }]}
-                    onPress={() => setShowConfirm({ type: 'activate', modeId: mode.id, name: mode.name })}
-                  >
-                    <Text style={[styles.actionText, { color: theme.success }]}>Activar</Text>
-                  </TouchableOpacity>
+                  <ActionPill label="Activar" color={theme.success} bgColor={theme.success + '18'} onPress={() => setShowConfirm({ type: 'activate', modeId: mode.id, name: mode.name })} />
                 )}
-                <TouchableOpacity
-                  style={[styles.actionBtn, { borderColor: theme.cardBorder }]}
-                  onPress={() => navigation.navigate('ModeEditor', { modeId: mode.id })}
-                >
-                  <Text style={[styles.actionText, { color: theme.text }]}>Editar</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.actionBtn, { borderColor: theme.cardBorder }]}
-                  onPress={() => handleClone(mode.id)}
-                >
-                  <Text style={[styles.actionText, { color: theme.text }]}>Clonar</Text>
-                </TouchableOpacity>
+                <ActionPill label="Editar" color={theme.text} bgColor={theme.card} onPress={() => navigation.navigate('ModeEditor', { modeId: mode.id })} />
+                <ActionPill label="Clonar" color={theme.text} bgColor={theme.card} onPress={() => handleClone(mode.id)} />
                 {!mode.isDefault && !isActive && (
-                  <TouchableOpacity
-                    style={[styles.actionBtn, { borderColor: theme.danger }]}
-                    onPress={() => setShowConfirm({ type: 'delete', modeId: mode.id, name: mode.name })}
-                  >
-                    <Text style={[styles.actionText, { color: theme.danger }]}>Eliminar</Text>
-                  </TouchableOpacity>
+                  <ActionPill label="Eliminar" color={theme.danger} bgColor={theme.danger + '12'} onPress={() => setShowConfirm({ type: 'delete', modeId: mode.id, name: mode.name })} />
                 )}
               </View>
             </View>
@@ -136,24 +175,30 @@ export default function ManageModesScreen({ navigation }) {
           onPress={() => setShowCreate(true)}
         >
           <Feather name="plus" size={18} color={theme.textMuted} />
-          <Text style={[styles.createBtnText, { color: theme.textMuted }]}>Crear nuevo Modo</Text>
+          <Text style={[styles.createBtnText, { color: theme.textMuted }]}>Crear nuevo catálogo</Text>
         </TouchableOpacity>
 
-        <View style={styles.upsellSection}>
-          <RequiresQentas fallback={
-            <View style={{ gap: 12 }}>
-              <UpsellCard title="Control remoto de Modos" description="Cambiá el Modo activo del cajero desde tu celular" />
-              <UpsellCard title="Programación server-side" description="Los cambios programados corren sin que la app esté abierta" />
-              <UpsellCard title="Delegación a Encargado" description="Permití que un co-admin cambie el Modo en tiempo real" />
-              <UpsellCard title="Panel de Modos por dispositivo" description="Visibilidad de qué Modo corre cada cajero" />
-            </View>
-          }>
-            <Text style={[styles.comingSoon, { color: theme.textMuted }]}>Próximamente</Text>
-          </RequiresQentas>
-        </View>
+        <RequiresQentas fallback={
+          <View style={styles.tipsSection}>
+            <Text style={[styles.tipsTitle, { color: theme.textMuted }]}>PRÓXIMAMENTE CON QENTAS</Text>
+            {[
+              { icon: 'smartphone', text: 'Cambiá el catálogo activo desde tu celular' },
+              { icon: 'clock', text: 'Cambios programados corren sin la app abierta' },
+              { icon: 'users', text: 'Delegá el control a un Encargado en tiempo real' },
+              { icon: 'monitor', text: 'Visibilidad de qué catálogo corre cada cajero' },
+            ].map((tip, i) => (
+              <View key={i} style={styles.tipRow}>
+                <Feather name={tip.icon} size={14} color={theme.textMuted} />
+                <Text style={[styles.tipText, { color: theme.textMuted }]}>{tip.text}</Text>
+              </View>
+            ))}
+          </View>
+        }>
+          <Text style={[styles.comingSoon, { color: theme.textMuted }]}>Próximamente</Text>
+        </RequiresQentas>
       </ScrollView>
 
-      <CenterModal visible={showCreate} onClose={() => { setShowCreate(false); setCreateError(''); }} title="NUEVO MODO">
+      <CenterModal visible={showCreate} onClose={() => { setShowCreate(false); setCreateError(''); }} title="NUEVO CATÁLOGO">
         <ThemedTextInput label="NOMBRE" value={newName} onChangeText={setNewName} placeholder="Ej: Festival del mango" autoFocus error={createError} />
         <ThemedTextInput label="DESCRIPCIÓN" value={newDesc} onChangeText={setNewDesc} placeholder="Opcional" />
         <View style={{ marginTop: 16 }}>
@@ -164,7 +209,7 @@ export default function ManageModesScreen({ navigation }) {
       <CenterModal
         visible={!!showConfirm}
         onClose={() => setShowConfirm(null)}
-        title={showConfirm?.type === 'activate' ? 'ACTIVAR MODO' : 'ELIMINAR MODO'}
+        title={showConfirm?.type === 'activate' ? 'ACTIVAR CATÁLOGO' : 'ELIMINAR CATÁLOGO'}
       >
         <Text style={[styles.confirmText, { color: theme.textMuted }]}>
           {showConfirm?.type === 'activate'
@@ -201,6 +246,11 @@ const styles = StyleSheet.create({
   badges: { flexDirection: 'row', gap: 6 },
   badge: { borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3, borderWidth: 1 },
   badgeText: { fontSize: 10, fontWeight: '800', letterSpacing: 1 },
+  workerRow: { flexDirection: 'row', gap: 4, marginTop: 8 },
+  workerBubble: { width: 28, height: 28, borderRadius: 14 },
+  workerInitial: { color: '#fff', fontSize: 12, fontWeight: '900' },
+  addBubble: { width: 28, height: 28, borderRadius: 14, borderWidth: 1, borderStyle: 'dashed', alignItems: 'center', justifyContent: 'center' },
+  unassigned: { fontSize: 11, fontWeight: '500', fontStyle: 'italic' },
   cardActions: { flexDirection: 'row', gap: 8, marginTop: 12, flexWrap: 'wrap' },
   actionBtn: { borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8, borderWidth: 1 },
   actionText: { fontSize: 12, fontWeight: '700' },
@@ -209,7 +259,10 @@ const styles = StyleSheet.create({
     borderRadius: 14, paddingVertical: 16, borderWidth: 1, borderStyle: 'dashed', marginTop: 8,
   },
   createBtnText: { fontSize: 14, fontWeight: '700' },
-  upsellSection: { marginTop: 24 },
+  tipsSection: { marginTop: 24, gap: 8 },
+  tipsTitle: { fontSize: 10, fontWeight: '800', letterSpacing: 2, marginBottom: 4 },
+  tipRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  tipText: { fontSize: 12, fontWeight: '500', flex: 1 },
   comingSoon: { fontSize: 14, fontWeight: '600', textAlign: 'center', padding: 20 },
   confirmText: { fontSize: 14, fontWeight: '500', textAlign: 'center', lineHeight: 20 },
 });
