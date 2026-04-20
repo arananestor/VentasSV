@@ -1,7 +1,7 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View, Text, TouchableOpacity, ScrollView, StyleSheet, Image,
-  KeyboardAvoidingView, Platform, Animated, PanResponder,
+  KeyboardAvoidingView, Platform, Animated, PanResponder, LayoutAnimation,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
@@ -21,12 +21,17 @@ import { formatDateTimeReadable } from '../utils/formatters';
 
 function SwipeRow({ isActive, onToggle, children, theme }) {
   const pan = useRef(new Animated.Value(0)).current;
+  const activeRef = useRef(isActive);
+  const toggleRef = useRef(onToggle);
+  useEffect(() => { activeRef.current = isActive; }, [isActive]);
+  useEffect(() => { toggleRef.current = onToggle; }, [onToggle]);
+
   const responder = useRef(PanResponder.create({
     onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dx) > 10,
     onPanResponderMove: (_, g) => pan.setValue(g.dx),
     onPanResponderRelease: (_, g) => {
-      if (g.dx > 60 && !isActive) { onToggle(); }
-      else if (g.dx < -60 && isActive) { onToggle(); }
+      if (g.dx > 60 && !activeRef.current) { toggleRef.current(); }
+      else if (g.dx < -60 && activeRef.current) { toggleRef.current(); }
       Animated.spring(pan, { toValue: 0, useNativeDriver: true }).start();
     },
   })).current;
@@ -59,18 +64,21 @@ export default function ModeEditorScreen({ route, navigation }) {
   const [tabOrd, setTabOrd] = useState(mode?.tabOrder || []);
   const [assignedIds, setAssignedIds] = useState(mode?.assignedWorkerIds || []);
   const [nameError, setNameError] = useState('');
+  const [expandedProduct, setExpandedProduct] = useState(null);
   const initPriceInputs = {};
   products.forEach(p => {
     const ov = (mode?.productOverrides || {})[p.id];
     initPriceInputs[p.id] = ov?.priceOverride != null ? String(ov.priceOverride) : '';
   });
   const [priceInputs, setPriceInputs] = useState(initPriceInputs);
+
   const [showSchedule, setShowSchedule] = useState(false);
-  const [schedStartDate, setSchedStartDate] = useState(new Date());
-  const [schedStartTime, setSchedStartTime] = useState({ hours: 8, minutes: 0 });
-  const [schedEndDate, setSchedEndDate] = useState(new Date());
-  const [schedEndTime, setSchedEndTime] = useState({ hours: 18, minutes: 0 });
-  const [hasEndDate, setHasEndDate] = useState(false);
+  const [schedStart, setSchedStart] = useState(null);
+  const [schedEnd, setSchedEnd] = useState(null);
+  const [showStartTime, setShowStartTime] = useState(false);
+  const [showEndTime, setShowEndTime] = useState(false);
+  const [startTime, setStartTime] = useState({ hours: 8, minutes: 0 });
+  const [endTime, setEndTime] = useState({ hours: 18, minutes: 0 });
   const [schedError, setSchedError] = useState('');
 
   if (!mode) {
@@ -101,13 +109,18 @@ export default function ModeEditorScreen({ route, navigation }) {
     navigation.goBack();
   };
 
-  const toggleProduct = (productId) => {
-    const current = overrides[productId] || { active: true, priceOverride: null };
-    setOverrides(buildOverridesPatch({ currentOverrides: overrides, productId, patch: { active: !current.active } }));
+  const toggleProduct = (pid) => {
+    const cur = overrides[pid] || { active: true, priceOverride: null };
+    setOverrides(buildOverridesPatch({ currentOverrides: overrides, productId: pid, patch: { active: !cur.active } }));
   };
 
-  const toggleWorker = (workerId) => {
-    setAssignedIds(prev => prev.includes(workerId) ? prev.filter(id => id !== workerId) : [...prev, workerId]);
+  const toggleWorker = (wid) => {
+    setAssignedIds(prev => prev.includes(wid) ? prev.filter(id => id !== wid) : [...prev, wid]);
+  };
+
+  const toggleExpand = (pid) => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setExpandedProduct(prev => prev === pid ? null : pid);
   };
 
   const moveTab = (from, to) => {
@@ -115,15 +128,21 @@ export default function ModeEditorScreen({ route, navigation }) {
     setTabOrd(reorderTabOrder(tabOrd, from, to));
   };
 
-  const buildIso = (date, time) => new Date(date.getFullYear(), date.getMonth(), date.getDate(), time.hours, time.minutes).toISOString();
+  const buildIso = (date, time, useTime) => {
+    if (!date) return null;
+    const h = useTime ? time.hours : 0;
+    const m = useTime ? time.minutes : 0;
+    return new Date(date.getFullYear(), date.getMonth(), date.getDate(), h, m).toISOString();
+  };
 
   const handleAddSchedule = async () => {
-    const startsAt = buildIso(schedStartDate, schedStartTime);
-    const endsAt = hasEndDate ? buildIso(schedEndDate, schedEndTime) : null;
-    if (!isScheduleValid({ startsAt, endsAt })) { setSchedError('Fecha inválida'); return; }
+    const startsAt = buildIso(schedStart, startTime, showStartTime);
+    const endsAt = schedEnd ? buildIso(schedEnd, endTime, showEndTime) : null;
+    if (!startsAt || !isScheduleValid({ startsAt, endsAt })) { setSchedError('Fecha inválida'); return; }
     const updated = appendScheduledActivation(mode, { startsAt, endsAt, previousModeId: null });
     await updateMode(modeId, { scheduledActivations: updated.scheduledActivations });
-    setShowSchedule(false); setSchedError('');
+    setShowSchedule(false); setSchedError(''); setSchedStart(null); setSchedEnd(null);
+    setShowStartTime(false); setShowEndTime(false);
   };
 
   const handleRemoveSchedule = async (entryId) => {
@@ -147,20 +166,40 @@ export default function ModeEditorScreen({ route, navigation }) {
           {products.map(p => {
             const ov = overrides[p.id] || { active: true, priceOverride: null };
             const singleSize = p.sizes?.length === 1;
+            const isExp = expandedProduct === p.id;
             return (
               <SwipeRow key={p.id} isActive={ov.active} onToggle={() => toggleProduct(p.id)} theme={theme}>
                 <View style={[styles.statusDot, { backgroundColor: ov.active ? '#30D158' : '#D1D1D6' }]} />
                 <View style={{ flex: 1 }}>
-                  <Text style={[styles.productName, { color: theme.text }]}>{p.name}</Text>
-                  {singleSize && ov.active && (
-                    <ThemedTextInput
-                      value={priceInputs[p.id] || ''}
-                      onChangeText={v => setPriceInputs(prev => ({ ...prev, [p.id]: v }))}
-                      placeholder={`Base: $${p.sizes[0]?.price?.toFixed(2) || '0.00'}`}
-                      keyboardType="decimal-pad"
-                    />
+                  <TouchableOpacity onPress={() => toggleExpand(p.id)} style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <Text style={[styles.productName, { color: theme.text }]}>{p.name}</Text>
+                    <Feather name={isExp ? 'chevron-up' : 'chevron-down'} size={14} color={theme.textMuted} />
+                  </TouchableOpacity>
+                  {isExp && (
+                    <View style={{ marginTop: 8, gap: 4 }}>
+                      {singleSize && ov.active && (
+                        <ThemedTextInput value={priceInputs[p.id] || ''} onChangeText={v => setPriceInputs(prev => ({ ...prev, [p.id]: v }))}
+                          placeholder={`Base: $${p.sizes[0]?.price?.toFixed(2) || '0.00'}`} keyboardType="decimal-pad" />
+                      )}
+                      {!singleSize && <Text style={[styles.multiSize, { color: theme.textMuted }]}>Múltiples precios — sin override</Text>}
+                      {(p.ingredients || p.flavors || []).length > 0 && (
+                        <View style={{ marginTop: 4 }}>
+                          <Text style={[styles.detailLabel, { color: theme.textMuted }]}>INGREDIENTES</Text>
+                          {(p.ingredients || p.flavors || []).map((ing, idx) => (
+                            <Text key={idx} style={[styles.detailItem, { color: theme.textSecondary }]}>• {ing.name || ing}</Text>
+                          ))}
+                        </View>
+                      )}
+                      {(p.extras || p.toppings || []).length > 0 && (
+                        <View style={{ marginTop: 4 }}>
+                          <Text style={[styles.detailLabel, { color: theme.textMuted }]}>EXTRAS</Text>
+                          {(p.extras || p.toppings || []).map((ex, idx) => (
+                            <Text key={idx} style={[styles.detailItem, { color: theme.textSecondary }]}>• {ex.name || ex}{ex.price ? ` +$${ex.price.toFixed(2)}` : ''}</Text>
+                          ))}
+                        </View>
+                      )}
+                    </View>
                   )}
-                  {!singleSize && <Text style={[styles.multiSize, { color: theme.textMuted }]}>Múltiples precios — sin override</Text>}
                 </View>
               </SwipeRow>
             );
@@ -172,13 +211,10 @@ export default function ModeEditorScreen({ route, navigation }) {
             return (
               <SwipeRow key={w.id} isActive={assigned} onToggle={() => toggleWorker(w.id)} theme={theme}>
                 <View style={[styles.statusDot, { backgroundColor: assigned ? '#30D158' : '#D1D1D6' }]} />
-                {w.photo ? (
-                  <Image source={{ uri: w.photo }} style={styles.workerBubble} />
-                ) : (
-                  <View style={[styles.workerBubble, { backgroundColor: w.color || theme.accent, alignItems: 'center', justifyContent: 'center' }]}>
-                    <Text style={styles.workerInitial}>{w.name?.charAt(0)?.toUpperCase()}</Text>
-                  </View>
-                )}
+                {w.photo ? <Image source={{ uri: w.photo }} style={styles.workerBubble} />
+                  : <View style={[styles.workerBubble, { backgroundColor: w.color || theme.accent, alignItems: 'center', justifyContent: 'center' }]}>
+                      <Text style={styles.workerInitial}>{w.name?.charAt(0)?.toUpperCase()}</Text>
+                    </View>}
                 <Text style={[styles.workerName, { color: theme.text }]}>{w.name}</Text>
               </SwipeRow>
             );
@@ -186,18 +222,13 @@ export default function ModeEditorScreen({ route, navigation }) {
 
           <Text style={[styles.section, { color: theme.textMuted }]}>ORDEN DE PESTAÑAS</Text>
           {tabOrd.map((tId, i) => {
-            const tab = tabsLookup[tId];
-            if (!tab) return null;
+            const tab = tabsLookup[tId]; if (!tab) return null;
             return (
               <View key={tId} style={[styles.tabRow, { borderColor: theme.cardBorder }]}>
                 <Text style={[styles.tabName, { color: theme.text }]}>{tab.name}</Text>
                 <View style={styles.tabBtns}>
-                  <TouchableOpacity onPress={() => moveTab(i, i - 1)} disabled={i === 0}>
-                    <Feather name="chevron-up" size={20} color={i === 0 ? theme.cardBorder : theme.text} />
-                  </TouchableOpacity>
-                  <TouchableOpacity onPress={() => moveTab(i, i + 1)} disabled={i === tabOrd.length - 1}>
-                    <Feather name="chevron-down" size={20} color={i === tabOrd.length - 1 ? theme.cardBorder : theme.text} />
-                  </TouchableOpacity>
+                  <TouchableOpacity onPress={() => moveTab(i, i - 1)} disabled={i === 0}><Feather name="chevron-up" size={20} color={i === 0 ? theme.cardBorder : theme.text} /></TouchableOpacity>
+                  <TouchableOpacity onPress={() => moveTab(i, i + 1)} disabled={i === tabOrd.length - 1}><Feather name="chevron-down" size={20} color={i === tabOrd.length - 1 ? theme.cardBorder : theme.text} /></TouchableOpacity>
                 </View>
               </View>
             );
@@ -210,9 +241,7 @@ export default function ModeEditorScreen({ route, navigation }) {
                 <Text style={[styles.schedDate, { color: theme.text }]}>Desde: {formatDateTimeReadable(entry.startsAt)}</Text>
                 {entry.endsAt && <Text style={[styles.schedDate, { color: theme.textMuted }]}>Hasta: {formatDateTimeReadable(entry.endsAt)}</Text>}
               </View>
-              <TouchableOpacity onPress={() => handleRemoveSchedule(entry.id)}>
-                <Feather name="trash-2" size={16} color={theme.danger} />
-              </TouchableOpacity>
+              <TouchableOpacity onPress={() => handleRemoveSchedule(entry.id)}><Feather name="trash-2" size={16} color={theme.danger} /></TouchableOpacity>
             </View>
           ))}
           <TouchableOpacity style={[styles.schedAddBtn, { borderColor: theme.cardBorder }]} onPress={() => setShowSchedule(true)}>
@@ -227,27 +256,37 @@ export default function ModeEditorScreen({ route, navigation }) {
       </KeyboardAvoidingView>
 
       <CenterModal visible={showSchedule} onClose={() => { setShowSchedule(false); setSchedError(''); }} title="PROGRAMAR ACTIVACIÓN">
-        <Text style={[styles.section, { color: theme.textMuted }]}>INICIO</Text>
-        <CalendarPicker selectedDate={schedStartDate} onSelect={setSchedStartDate} />
-        <TimeWheelPicker value={schedStartTime} onChange={setSchedStartTime} />
-
-        <TouchableOpacity style={styles.endToggle} onPress={() => setHasEndDate(!hasEndDate)}>
-          <Feather name={hasEndDate ? 'check-square' : 'square'} size={18} color={theme.textMuted} />
-          <Text style={[styles.endToggleText, { color: theme.textMuted }]}>Con fecha de fin</Text>
-        </TouchableOpacity>
-
-        {hasEndDate && (
-          <>
-            <Text style={[styles.section, { color: theme.textMuted }]}>FIN</Text>
-            <CalendarPicker selectedDate={schedEndDate} onSelect={setSchedEndDate} />
-            <TimeWheelPicker value={schedEndTime} onChange={setSchedEndTime} />
-          </>
+        <CalendarPicker startDate={schedStart} endDate={schedEnd} onSelectStart={setSchedStart} onSelectEnd={setSchedEnd} />
+        {schedStart && (
+          <Text style={[styles.schedSummary, { color: theme.textMuted }]}>
+            Inicio: {schedStart.getDate()}/{schedStart.getMonth() + 1}/{schedStart.getFullYear()}
+            {schedEnd ? ` → Fin: ${schedEnd.getDate()}/${schedEnd.getMonth() + 1}/${schedEnd.getFullYear()}` : ' (día completo)'}
+          </Text>
         )}
-
+        {!showStartTime ? (
+          <TouchableOpacity onPress={() => setShowStartTime(true)} style={styles.timeToggle}>
+            <Feather name="clock" size={14} color={theme.textMuted} />
+            <Text style={[styles.timeToggleText, { color: theme.textMuted }]}>Agregar hora de inicio</Text>
+          </TouchableOpacity>
+        ) : (
+          <View style={{ marginTop: 8 }}>
+            <Text style={[styles.detailLabel, { color: theme.textMuted }]}>HORA DE INICIO</Text>
+            <TimeWheelPicker value={startTime} onChange={setStartTime} />
+          </View>
+        )}
+        {schedEnd && !showEndTime ? (
+          <TouchableOpacity onPress={() => setShowEndTime(true)} style={styles.timeToggle}>
+            <Feather name="clock" size={14} color={theme.textMuted} />
+            <Text style={[styles.timeToggleText, { color: theme.textMuted }]}>Agregar hora de fin</Text>
+          </TouchableOpacity>
+        ) : schedEnd && showEndTime ? (
+          <View style={{ marginTop: 8 }}>
+            <Text style={[styles.detailLabel, { color: theme.textMuted }]}>HORA DE FIN</Text>
+            <TimeWheelPicker value={endTime} onChange={setEndTime} />
+          </View>
+        ) : null}
         {schedError ? <Text style={{ color: theme.danger, fontSize: 12, marginTop: 8 }}>{schedError}</Text> : null}
-        <View style={{ marginTop: 16 }}>
-          <PrimaryButton label="PROGRAMAR" onPress={handleAddSchedule} />
-        </View>
+        <View style={{ marginTop: 16 }}><PrimaryButton label="PROGRAMAR" onPress={handleAddSchedule} /></View>
       </CenterModal>
     </SafeAreaView>
   );
@@ -264,6 +303,8 @@ const styles = StyleSheet.create({
   multiSize: { fontSize: 11, fontWeight: '500', marginTop: 4 },
   swipeBg: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, justifyContent: 'center', paddingHorizontal: 20 },
   swipeBgText: { fontSize: 13, fontWeight: '700' },
+  detailLabel: { fontSize: 9, fontWeight: '800', letterSpacing: 2, marginBottom: 2 },
+  detailItem: { fontSize: 12, fontWeight: '500', paddingLeft: 4 },
   workerBubble: { width: 28, height: 28, borderRadius: 14 },
   workerInitial: { color: '#fff', fontSize: 12, fontWeight: '900' },
   workerName: { fontSize: 14, fontWeight: '700', flex: 1 },
@@ -272,11 +313,9 @@ const styles = StyleSheet.create({
   tabBtns: { flexDirection: 'row', gap: 8 },
   schedRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, borderBottomWidth: 1 },
   schedDate: { fontSize: 12, fontWeight: '600' },
-  schedAddBtn: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-    borderRadius: 12, paddingVertical: 14, borderWidth: 1, borderStyle: 'dashed', marginTop: 8,
-  },
+  schedAddBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderRadius: 12, paddingVertical: 14, borderWidth: 1, borderStyle: 'dashed', marginTop: 8 },
   schedAddText: { fontSize: 13, fontWeight: '700' },
-  endToggle: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 12 },
-  endToggleText: { fontSize: 13, fontWeight: '600' },
+  schedSummary: { fontSize: 12, fontWeight: '600', textAlign: 'center', marginTop: 12 },
+  timeToggle: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 10, marginTop: 4 },
+  timeToggleText: { fontSize: 13, fontWeight: '600' },
 });

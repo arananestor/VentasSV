@@ -18,6 +18,7 @@ function WheelColumn({ items, selected, onSelect }) {
     <View style={styles.column}>
       <ScrollView
         ref={ref}
+        nestedScrollEnabled
         showsVerticalScrollIndicator={false}
         snapToInterval={ITEM_H}
         decelerationRate="fast"
