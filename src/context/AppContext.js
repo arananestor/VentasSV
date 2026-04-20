@@ -13,6 +13,8 @@ import { migrateBusinessConfigToQentasFields } from '../utils/businessConfigMigr
 import { migrateToV5 } from '../utils/schemaMigrationV5';
 import { createMode } from '../models/mode';
 import { evaluateSchedule } from '../utils/modeScheduling';
+import { findModeForWorker } from '../utils/modeManagement';
+import { useAuth } from './AuthContext';
 
 const WA_COLOR = '#25D366';
 const AppContext = createContext();
@@ -253,6 +255,22 @@ export function AppProvider({ children }) {
     return () => clearInterval(timer);
   }, [modes, currentModeId]);
 
+  // ── AUTO-ACTIVATE CATALOG BY WORKER ──────────────────────
+  const { currentWorker } = useAuth();
+
+  const autoActivateForWorker = (workerId) => {
+    const mode = findModeForWorker(modes, workerId);
+    if (mode && mode.id !== currentModeId) {
+      setCurrentMode(mode.id);
+    }
+  };
+
+  useEffect(() => {
+    if (currentWorker?.id) {
+      autoActivateForWorker(currentWorker.id);
+    }
+  }, [currentWorker?.id, modes]);
+
   // ── NOTIF BAR (top, for non-sale messages) ────────────────
   const [notifData, setNotifData] = useState(null);
   const notifAnim = useRef(new Animated.Value(-80)).current;
@@ -322,6 +340,7 @@ export function AppProvider({ children }) {
       cart, addToCart, removeFromCart, clearCart, cartTotal, cartCount,
       modes, currentModeId, currentMode,
       setCurrentMode, createModeFromForm, updateMode, deleteMode, cloneMode,
+      autoActivateForWorker,
       showSnack, showNotif,
     }}>
       {children}

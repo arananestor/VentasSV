@@ -33,4 +33,13 @@ const reorderTabOrder = (tabOrder, fromIndex, toIndex) => {
   return arr;
 };
 
-module.exports = { canManageModesLocally, validateModeForm, buildOverridesPatch, reorderTabOrder };
+const findModeForWorker = (modes, workerId) => {
+  if (!modes || modes.length === 0) return null;
+  if (workerId) {
+    const assigned = modes.find(m => (m.assignedWorkerIds || []).includes(workerId));
+    if (assigned) return assigned;
+  }
+  return modes.find(m => m.isDefault) || null;
+};
+
+module.exports = { canManageModesLocally, validateModeForm, buildOverridesPatch, reorderTabOrder, findModeForWorker };
