@@ -32,6 +32,11 @@ export function AuthProvider({ children }) {
       const savedDevice  = await AsyncStorage.getItem('ventasv_device_type');
       if (savedWorkers) {
         const parsed = JSON.parse(savedWorkers);
+        const owner = parsed.find(w => w.role === 'owner');
+        if (owner && owner.color === '#FFFFFF') {
+          owner.color = '#1C1C1E';
+          await AsyncStorage.setItem('ventasv_workers', JSON.stringify(parsed));
+        }
         setWorkers(parsed);
         setIsSetup(true);
       } else {
@@ -53,7 +58,7 @@ export function AuthProvider({ children }) {
       puesto: 'Dueño',
       dui: '',
       photo: null,
-      color: '#FFFFFF',
+      color: '#1C1C1E',
       createdAt: new Date().toISOString(),
     };
     const newWorkers = [owner];

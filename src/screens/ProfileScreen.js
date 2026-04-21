@@ -121,7 +121,7 @@ export default function ProfileScreen({ navigation }) {
             {currentWorker?.photo ? (
               <Image source={{ uri: currentWorker.photo }} style={styles.profilePhoto} />
             ) : (
-              <View style={[styles.profileAvatar, { backgroundColor: currentWorker?.color || theme.accent }]}>
+              <View style={[styles.profileAvatar, { backgroundColor: currentWorker?.color || '#1C1C1E' }]}>
                 <Text style={[styles.profileAvatarText, { color: theme.accentText }]}>
                   {currentWorker?.name?.charAt(0)?.toUpperCase() || '?'}
                 </Text>
@@ -266,8 +266,8 @@ export default function ProfileScreen({ navigation }) {
                       {worker.photo ? (
                         <Image source={{ uri: worker.photo }} style={styles.workerPhoto} />
                       ) : (
-                        <View style={[styles.workerAvatar, { backgroundColor: worker.color || theme.accent }]}>
-                          <Text style={styles.workerInitial}>
+                        <View style={[styles.workerAvatar, { backgroundColor: worker.color || '#1C1C1E' }]}>
+                          <Text style={[styles.workerInitial, { color: theme.accentText }]}>
                             {worker.name.charAt(0).toUpperCase()}
                           </Text>
                         </View>
@@ -339,7 +339,7 @@ export default function ProfileScreen({ navigation }) {
           {currentWorker?.photo ? (
             <Image source={{ uri: currentWorker.photo }} style={styles.detailPhoto} />
           ) : (
-            <View style={[styles.detailAvatar, { backgroundColor: currentWorker?.color || theme.accent }]}>
+            <View style={[styles.detailAvatar, { backgroundColor: currentWorker?.color || '#1C1C1E' }]}>
               <Text style={[styles.detailAvatarText, { color: theme.accentText }]}>
                 {currentWorker?.name?.charAt(0)?.toUpperCase()}
               </Text>
@@ -626,7 +626,7 @@ const styles = StyleSheet.create({
   workerTop:     { flexDirection: 'row', alignItems: 'center', gap: 12 },
   workerPhoto:   { width: 42, height: 42, borderRadius: 21, resizeMode: 'cover' },
   workerAvatar:  { width: 42, height: 42, borderRadius: 21, alignItems: 'center', justifyContent: 'center' },
-  workerInitial: { fontSize: 16, fontWeight: '900', color: '#000' },
+  workerInitial: { fontSize: 16, fontWeight: '900', color: '#fff' },
   workerMeta:    { flex: 1 },
   workerName:    { fontSize: 15, fontWeight: '700' },
   workerPuestoRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 3 },

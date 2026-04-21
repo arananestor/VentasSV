@@ -34,7 +34,7 @@ function ActionPill({ label, color, bgColor, onPress }) {
 }
 
 export default function ManageModesScreen({ navigation }) {
-  const { modes, currentModeId, setCurrentMode, createModeFromForm, deleteMode, cloneMode, showNotif } = useApp();
+  const { modes, currentModeId, createModeFromForm, deleteMode, cloneMode, showNotif } = useApp();
   const { currentWorker, workers } = useAuth();
   const { theme } = useTheme();
 
@@ -67,13 +67,6 @@ export default function ManageModesScreen({ navigation }) {
     showNotif(`Catálogo '${created.name}' creado`);
   };
 
-  const handleActivate = async (modeId) => {
-    const mode = modes.find(m => m.id === modeId);
-    await setCurrentMode(modeId);
-    setShowConfirm(null);
-    showNotif(`Catálogo '${mode?.name}' activado`);
-  };
-
   const handleDelete = async (modeId) => {
     try {
       await deleteMode(modeId);
@@ -87,7 +80,8 @@ export default function ManageModesScreen({ navigation }) {
   const handleClone = async (modeId) => {
     const source = modes.find(m => m.id === modeId);
     if (!source) return;
-    await cloneMode(modeId, `${source.name} (copia)`);
+    const { generateCatalogName } = require('../utils/funNames');
+    await cloneMode(modeId, generateCatalogName());
     showNotif('Catálogo clonado');
   };
 
@@ -139,24 +133,12 @@ export default function ManageModesScreen({ navigation }) {
                     </View>
                   );
                 })}
-                {isActive && currentWorker && !(mode.assignedWorkerIds || []).includes(currentWorker.id) && (
-                  currentWorker.photo ? (
-                    <Image source={{ uri: currentWorker.photo }} style={[styles.workerBubble, { borderWidth: 1.5, borderColor: theme.accent, borderStyle: 'dashed' }]} />
-                  ) : (
-                    <View style={[styles.workerBubble, { backgroundColor: currentWorker.color || theme.accent, alignItems: 'center', justifyContent: 'center', borderWidth: 1.5, borderColor: theme.accent, borderStyle: 'dashed' }]}>
-                      <Text style={styles.workerInitial}>{currentWorker.name?.charAt(0)?.toUpperCase()}</Text>
-                    </View>
-                  )
-                )}
                 {(mode.assignedWorkerIds || []).length === 0 && (
                   <Text style={[styles.unassigned, { color: theme.textMuted }]}>Toca Editar para asignar empleados</Text>
                 )}
               </View>
 
               <View style={styles.cardActions}>
-                {!isActive && (
-                  <ActionPill label="Activar" color={theme.success} bgColor={theme.success + '18'} onPress={() => setShowConfirm({ type: 'activate', modeId: mode.id, name: mode.name })} />
-                )}
                 <ActionPill label="Editar" color={theme.text} bgColor={theme.card} onPress={() => navigation.navigate('ModeEditor', { modeId: mode.id })} />
                 <ActionPill label="Clonar" color={theme.text} bgColor={theme.card} onPress={() => handleClone(mode.id)} />
                 {!mode.isDefault && !isActive && (
@@ -206,22 +188,16 @@ export default function ManageModesScreen({ navigation }) {
       <CenterModal
         visible={!!showConfirm}
         onClose={() => setShowConfirm(null)}
-        title={showConfirm?.type === 'activate' ? 'ACTIVAR CATÁLOGO' : 'ELIMINAR CATÁLOGO'}
+        title="ELIMINAR CATÁLOGO"
       >
         <Text style={[styles.confirmText, { color: theme.textMuted }]}>
-          {showConfirm?.type === 'activate'
-            ? `¿Activar "${showConfirm?.name}" en este dispositivo?`
-            : `¿Eliminar "${showConfirm?.name}"? Esta acción no se puede deshacer.`
-          }
+          ¿Eliminar "{showConfirm?.name}"? Esta acción no se puede deshacer.
         </Text>
         <View style={{ marginTop: 16 }}>
           <PrimaryButton
-            label={showConfirm?.type === 'activate' ? 'ACTIVAR' : 'ELIMINAR'}
-            variant={showConfirm?.type === 'delete' ? 'danger' : 'primary'}
-            onPress={() => showConfirm?.type === 'activate'
-              ? handleActivate(showConfirm.modeId)
-              : handleDelete(showConfirm.modeId)
-            }
+            label="ELIMINAR"
+            variant="danger"
+            onPress={() => handleDelete(showConfirm?.modeId)}
           />
         </View>
       </CenterModal>
