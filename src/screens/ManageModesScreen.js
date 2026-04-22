@@ -97,7 +97,6 @@ export default function ManageModesScreen({ navigation }) {
             <View key={mode.id} style={[
               styles.card,
               { backgroundColor: theme.card, borderColor: theme.cardBorder },
-              isActive && { borderLeftWidth: 4, borderLeftColor: theme.success },
             ]}>
               <View style={styles.cardHeader}>
                 <View style={{ flex: 1 }}>
@@ -107,11 +106,6 @@ export default function ManageModesScreen({ navigation }) {
                   </Text>
                 </View>
                 <View style={styles.badges}>
-                  {isActive && (
-                    <View style={[styles.badge, { backgroundColor: theme.success + '22', borderColor: theme.success }]}>
-                      <Text style={[styles.badgeText, { color: theme.success }]}>Activo</Text>
-                    </View>
-                  )}
                   {mode.isDefault && (
                     <View style={[styles.badge, { backgroundColor: theme.accent + '15', borderColor: theme.accent }]}>
                       <Text style={[styles.badgeText, { color: theme.accent }]}>Default</Text>

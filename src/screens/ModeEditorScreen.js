@@ -56,7 +56,7 @@ function SwipeRow({ isActive, onToggle, onLongPress, children, theme }) {
 
 export default function ModeEditorScreen({ route, navigation }) {
   const { modeId } = route.params;
-  const { modes, products, updateMode, updateProduct, showNotif } = useApp();
+  const { modes, products, updateMode, updateProduct, showNotif, currentModeId, setCurrentMode } = useApp();
   const { workers } = useAuth();
   const { tabs } = useTab();
   const { theme } = useTheme();
@@ -288,6 +288,14 @@ export default function ModeEditorScreen({ route, navigation }) {
             <Text style={[styles.addProductText, { color: theme.textMuted }]}>Agregar producto</Text>
           </TouchableOpacity>
 
+          <Text style={[styles.section, { color: theme.textMuted }]}>CATÁLOGO ACTIVO</Text>
+          <SwipeRow isActive={currentModeId === modeId} onToggle={() => { if (currentModeId !== modeId) { setCurrentMode(modeId); showNotif('Catálogo activado'); } }} theme={theme}>
+            <View style={[styles.statusDot, { backgroundColor: currentModeId === modeId ? '#30D158' : '#D1D1D6' }]} />
+            <Text style={[styles.productName, { color: theme.text, flex: 1 }]}>
+              {currentModeId === modeId ? 'Este catálogo está activo' : 'Deslizá para activar permanentemente'}
+            </Text>
+          </SwipeRow>
+
           <Text style={[styles.section, { color: theme.textMuted }]}>EMPLEADOS</Text>
           <Text style={{ fontSize: 12, fontWeight: '500', color: theme.textMuted, marginBottom: 8 }}>{assignedIds.length} de {workers.length} asignados</Text>
           {workers.map(w => {
@@ -430,7 +438,7 @@ export default function ModeEditorScreen({ route, navigation }) {
         {editProdSizes.map((s, i) => (
           <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 }}>
             <View style={{ flex: 1 }}><ThemedTextInput value={s.name} onChangeText={v => setEditProdSizes(prev => prev.map((ps, pi) => pi === i ? { ...ps, name: v } : ps))} placeholder="Tamaño" /></View>
-            <View style={{ width: 80 }}><ThemedTextInput value={s.priceStr} onChangeText={v => setEditProdSizes(prev => prev.map((ps, pi) => pi === i ? { ...ps, priceStr: v } : ps))} placeholder="$0.00" keyboardType="decimal-pad" prefix="$" /></View>
+            <View style={{ width: 95 }}><ThemedTextInput value={s.priceStr} onChangeText={v => setEditProdSizes(prev => prev.map((ps, pi) => pi === i ? { ...ps, priceStr: v } : ps))} placeholder="$0.00" keyboardType="decimal-pad" prefix="$" /></View>
             {editProdSizes.length > 1 && <TouchableOpacity onPress={() => setEditProdSizes(prev => prev.filter((_, pi) => pi !== i))}><Feather name="x" size={16} color={theme.danger} /></TouchableOpacity>}
           </View>
         ))}
@@ -477,7 +485,7 @@ export default function ModeEditorScreen({ route, navigation }) {
                 </TouchableOpacity>
                 <TextInput value={ex.name} onChangeText={v => setEditProdExtras(prev => prev.map((p, pi) => pi === i ? { ...p, name: v } : p))} placeholder="Extra" placeholderTextColor={theme.textMuted}
                   style={{ flex: 1, fontSize: 14, fontWeight: '600', color: theme.text, paddingVertical: 4 }} />
-                <View style={{ width: 60 }}>
+                <View style={{ width: 90 }}>
                   <ThemedTextInput value={ex.priceStr} onChangeText={v => setEditProdExtras(prev => prev.map((p, pi) => pi === i ? { ...p, priceStr: v } : p))} placeholder="$" keyboardType="decimal-pad" prefix="$" />
                 </View>
                 <TouchableOpacity onPress={() => setEditProdExtras(prev => prev.filter((_, pi) => pi !== i))}><Feather name="x" size={16} color={theme.danger} /></TouchableOpacity>
