@@ -1,10 +1,12 @@
 import React, { useState, useRef, useEffect } from 'react';
 import {
-  View, Text, TouchableOpacity, ScrollView, StyleSheet, Image,
+  View, Text, TouchableOpacity, ScrollView, StyleSheet, Image, TextInput, Modal, FlatList,
   KeyboardAvoidingView, Platform, Animated, PanResponder, LayoutAnimation,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
 import { useApp } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
@@ -13,11 +15,14 @@ import ScreenHeader from '../components/ScreenHeader';
 import ThemedTextInput from '../components/ThemedTextInput';
 import PrimaryButton from '../components/PrimaryButton';
 import CenterModal from '../components/CenterModal';
+import BottomSheetModal from '../components/BottomSheetModal';
 import CalendarPicker from '../components/CalendarPicker';
 import TimeWheelPicker from '../components/TimeWheelPicker';
 import { validateModeForm, buildOverridesPatch, reorderTabOrder } from '../utils/modeManagement';
 import { appendScheduledActivation, removeScheduledActivation, isScheduleValid } from '../utils/modeScheduling';
 import { formatDateTimeReadable } from '../utils/formatters';
+import { cycleColor } from '../utils/productEditorLogic';
+import { FOOD_ICONS, CARD_COLORS, INGREDIENT_COLORS, ICON_COLS, ICON_BTN_SIZE } from '../constants/productConstants';
 
 function SwipeRow({ isActive, onToggle, onLongPress, children, theme }) {
   const pan = useRef(new Animated.Value(0)).current;
@@ -84,6 +89,17 @@ export default function ModeEditorScreen({ route, navigation }) {
   const [editProdSizes, setEditProdSizes] = useState([]);
   const [editProdIngredients, setEditProdIngredients] = useState([]);
   const [editProdExtras, setEditProdExtras] = useState([]);
+  const [editImageMode, setEditImageMode] = useState('icon');
+  const [editSelectedIcon, setEditSelectedIcon] = useState('food');
+  const [editIconBgColor, setEditIconBgColor] = useState('#000000');
+  const [editProductPhoto, setEditProductPhoto] = useState(null);
+  const [editMaxIngredients, setEditMaxIngredients] = useState('');
+  const [showEditColorPicker, setShowEditColorPicker] = useState(false);
+  const [showEditIconPicker, setShowEditIconPicker] = useState(false);
+  const [showEditPalette, setShowEditPalette] = useState(false);
+  const [editPaletteTarget, setEditPaletteTarget] = useState(null);
+  const [showEditIngIconPicker, setShowEditIngIconPicker] = useState(false);
+  const [editIconTarget, setEditIconTarget] = useState(null);
 
   if (!mode) {
     return (
@@ -131,8 +147,17 @@ export default function ModeEditorScreen({ route, navigation }) {
     setEditingProduct(p);
     setEditProdName(p.name);
     setEditProdSizes(p.sizes.map(s => ({ ...s, priceStr: String(s.price) })));
-    setEditProdIngredients((p.ingredients || p.flavors || []).map(ing => ({ name: typeof ing === 'string' ? ing : ing.name || '', color: ing.color, icon: ing.icon })));
-    setEditProdExtras((p.extras || p.toppings || []).map(ex => ({ name: typeof ex === 'string' ? ex : ex.name || '', price: ex.price || 0, priceStr: String(ex.price || 0) })));
+    setEditProdIngredients((p.ingredients || p.flavors || []).map(ing => ({
+      name: typeof ing === 'string' ? ing : ing.name || '', color: ing.color || INGREDIENT_COLORS[0], icon: ing.icon || null,
+    })));
+    setEditProdExtras((p.extras || p.toppings || []).map(ex => ({
+      name: typeof ex === 'string' ? ex : ex.name || '', price: ex.price || 0, priceStr: String(ex.price || 0), color: ex.color || INGREDIENT_COLORS[0],
+    })));
+    setEditImageMode(p.imageMode || (p.customImage ? 'photo' : 'icon'));
+    setEditSelectedIcon(p.iconName || 'food');
+    setEditIconBgColor(p.iconBgColor || '#000000');
+    setEditProductPhoto(p.customImage || null);
+    setEditMaxIngredients(p.maxIngredients ? String(p.maxIngredients) : '');
   };
 
   const handleSaveProduct = async () => {
@@ -141,14 +166,36 @@ export default function ModeEditorScreen({ route, navigation }) {
       const { priceStr, ...rest } = s;
       return { ...rest, price: parseFloat(priceStr) || 0 };
     });
-    const ingredients = editProdIngredients.filter(ing => ing.name.trim());
-    const extras = editProdExtras.filter(ex => ex.name.trim()).map(ex => {
-      const { priceStr, ...rest } = ex;
-      return { ...rest, price: parseFloat(priceStr) || 0 };
-    });
-    await updateProduct(editingProduct.id, { name: editProdName.trim(), sizes, ingredients, extras });
+    const updates = {
+      name: editProdName.trim(),
+      sizes,
+      imageMode: editImageMode,
+      iconName: editImageMode === 'icon' ? editSelectedIcon : null,
+      iconBgColor: editImageMode === 'icon' ? editIconBgColor : null,
+      customImage: editImageMode === 'photo' ? editProductPhoto : null,
+    };
+    if (editingProduct.type === 'elaborado') {
+      updates.ingredients = editProdIngredients.filter(ing => ing.name.trim());
+      updates.extras = editProdExtras.filter(ex => ex.name.trim()).map(ex => {
+        const { priceStr, ...rest } = ex;
+        return { ...rest, price: parseFloat(priceStr) || 0 };
+      });
+      updates.maxIngredients = editMaxIngredients ? parseInt(editMaxIngredients) || null : null;
+    }
+    await updateProduct(editingProduct.id, updates);
     setEditingProduct(null);
     showNotif('Producto actualizado');
+  };
+
+  const pickEditPhoto = async () => {
+    const result = await ImagePicker.launchImageLibraryAsync({ quality: 0.7, allowsEditing: true, aspect: [1, 1] });
+    if (!result.canceled) setEditProductPhoto(result.assets[0].uri);
+  };
+  const takeEditPhoto = async () => {
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== 'granted') return;
+    const result = await ImagePicker.launchCameraAsync({ quality: 0.7, allowsEditing: true, aspect: [1, 1] });
+    if (!result.canceled) setEditProductPhoto(result.assets[0].uri);
   };
 
   const moveTab = (from, to) => {
@@ -242,6 +289,7 @@ export default function ModeEditorScreen({ route, navigation }) {
           </TouchableOpacity>
 
           <Text style={[styles.section, { color: theme.textMuted }]}>EMPLEADOS</Text>
+          <Text style={{ fontSize: 12, fontWeight: '500', color: theme.textMuted, marginBottom: 8 }}>{assignedIds.length} de {workers.length} asignados</Text>
           {workers.map(w => {
             const assigned = assignedIds.includes(w.id);
             return (
@@ -326,51 +374,187 @@ export default function ModeEditorScreen({ route, navigation }) {
       </CenterModal>
 
       <CenterModal visible={!!editingProduct} onClose={() => setEditingProduct(null)} title="EDITAR PRODUCTO">
-        {editingProduct?.customImage && <Image source={{ uri: editingProduct.customImage }} style={{ width: 80, height: 80, borderRadius: 12, alignSelf: 'center', marginBottom: 12 }} />}
-        <ThemedTextInput label="NOMBRE" value={editProdName} onChangeText={setEditProdName} placeholder="Nombre del producto" />
+        <ThemedTextInput label="NOMBRE" value={editProdName} onChangeText={setEditProdName} placeholder="Nombre del producto" maxLength={30} />
 
-        <Text style={[styles.detailLabel, { color: theme.textMuted, marginTop: 16 }]}>PRECIOS POR TAMAÑO</Text>
+        <Text style={[styles.detailLabel, { color: theme.textMuted, marginTop: 16 }]}>IMAGEN</Text>
+        <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
+          <TouchableOpacity onPress={() => setEditImageMode('icon')} style={[styles.modeBtn, { backgroundColor: editImageMode === 'icon' ? theme.accent : theme.card, borderColor: editImageMode === 'icon' ? theme.accent : theme.cardBorder }]}>
+            <Text style={{ color: editImageMode === 'icon' ? theme.accentText : theme.textSecondary, fontWeight: '700', fontSize: 14 }}>Ícono</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => setEditImageMode('photo')} style={[styles.modeBtn, { backgroundColor: editImageMode === 'photo' ? theme.accent : theme.card, borderColor: editImageMode === 'photo' ? theme.accent : theme.cardBorder }]}>
+            <Text style={{ color: editImageMode === 'photo' ? theme.accentText : theme.textSecondary, fontWeight: '700', fontSize: 14 }}>Foto</Text>
+          </TouchableOpacity>
+        </View>
+        {editImageMode === 'icon' && (
+          <View style={{ alignItems: 'center', gap: 10, marginBottom: 12 }}>
+            <View style={{ width: 72, height: 72, borderRadius: 20, backgroundColor: editIconBgColor, alignItems: 'center', justifyContent: 'center' }}>
+              <MaterialCommunityIcons name={editSelectedIcon} size={36} color="#fff" />
+            </View>
+            <View style={{ flexDirection: 'row', gap: 8 }}>
+              <TouchableOpacity onPress={() => setShowEditColorPicker(true)} style={[styles.pickerBtn, { borderColor: theme.cardBorder }]}>
+                <View style={{ width: 14, height: 14, borderRadius: 7, backgroundColor: editIconBgColor }} />
+                <Text style={{ fontSize: 12, fontWeight: '600', color: theme.textSecondary }}>Color</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => setShowEditIconPicker(true)} style={[styles.pickerBtn, { borderColor: theme.cardBorder }]}>
+                <Feather name="grid" size={14} color={theme.textSecondary} />
+                <Text style={{ fontSize: 12, fontWeight: '600', color: theme.textSecondary }}>Ícono</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+        {editImageMode === 'photo' && (
+          <View style={{ alignItems: 'center', gap: 10, marginBottom: 12 }}>
+            {editProductPhoto ? (
+              <View>
+                <Image source={{ uri: editProductPhoto }} style={{ width: 80, height: 80, borderRadius: 14 }} />
+                <TouchableOpacity onPress={() => setEditProductPhoto(null)} style={{ position: 'absolute', top: -6, right: -6, width: 24, height: 24, borderRadius: 12, backgroundColor: theme.danger, alignItems: 'center', justifyContent: 'center' }}>
+                  <Feather name="x" size={12} color="#fff" />
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <View style={{ flexDirection: 'row', gap: 8 }}>
+                <TouchableOpacity onPress={takeEditPhoto} style={[styles.pickerBtn, { borderColor: theme.cardBorder }]}>
+                  <Feather name="camera" size={14} color={theme.textSecondary} />
+                  <Text style={{ fontSize: 12, fontWeight: '600', color: theme.textSecondary }}>Cámara</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={pickEditPhoto} style={[styles.pickerBtn, { borderColor: theme.cardBorder }]}>
+                  <Feather name="image" size={14} color={theme.textSecondary} />
+                  <Text style={{ fontSize: 12, fontWeight: '600', color: theme.textSecondary }}>Galería</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
+        )}
+
+        <Text style={[styles.detailLabel, { color: theme.textMuted, marginTop: 12 }]}>TAMAÑOS Y PRECIOS</Text>
         {editProdSizes.map((s, i) => (
-          <ThemedTextInput key={i} label={s.name || 'Normal'} value={s.priceStr}
-            onChangeText={v => setEditProdSizes(prev => prev.map((ps, pi) => pi === i ? { ...ps, priceStr: v } : ps))}
-            keyboardType="decimal-pad" placeholder="0.00" />
-        ))}
-
-        <Text style={[styles.detailLabel, { color: theme.textMuted, marginTop: 16 }]}>INGREDIENTES</Text>
-        {editProdIngredients.map((ing, i) => (
-          <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-            <ThemedTextInput value={ing.name} onChangeText={v => setEditProdIngredients(prev => prev.map((p, pi) => pi === i ? { ...p, name: v } : p))} placeholder="Ingrediente" style={{ flex: 1 }} />
-            <TouchableOpacity onPress={() => setEditProdIngredients(prev => prev.filter((_, pi) => pi !== i))}>
-              <Feather name="trash-2" size={16} color={theme.danger} />
-            </TouchableOpacity>
+          <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+            <View style={{ flex: 1 }}><ThemedTextInput value={s.name} onChangeText={v => setEditProdSizes(prev => prev.map((ps, pi) => pi === i ? { ...ps, name: v } : ps))} placeholder="Tamaño" /></View>
+            <View style={{ width: 80 }}><ThemedTextInput value={s.priceStr} onChangeText={v => setEditProdSizes(prev => prev.map((ps, pi) => pi === i ? { ...ps, priceStr: v } : ps))} placeholder="$0.00" keyboardType="decimal-pad" prefix="$" /></View>
+            {editProdSizes.length > 1 && <TouchableOpacity onPress={() => setEditProdSizes(prev => prev.filter((_, pi) => pi !== i))}><Feather name="x" size={16} color={theme.danger} /></TouchableOpacity>}
           </View>
         ))}
-        <TouchableOpacity onPress={() => setEditProdIngredients(prev => [...prev, { name: '' }])} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 8 }}>
+        <TouchableOpacity onPress={() => setEditProdSizes(prev => [...prev, { name: '', price: 0, priceStr: '' }])} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 6 }}>
           <Feather name="plus" size={14} color={theme.textMuted} />
-          <Text style={{ fontSize: 12, fontWeight: '600', color: theme.textMuted }}>Agregar ingrediente</Text>
+          <Text style={{ fontSize: 12, fontWeight: '600', color: theme.textMuted }}>Agregar tamaño</Text>
         </TouchableOpacity>
 
-        <Text style={[styles.detailLabel, { color: theme.textMuted, marginTop: 16 }]}>EXTRAS</Text>
-        {editProdExtras.map((ex, i) => (
-          <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-            <View style={{ flex: 1 }}>
-              <ThemedTextInput value={ex.name} onChangeText={v => setEditProdExtras(prev => prev.map((p, pi) => pi === i ? { ...p, name: v } : p))} placeholder="Extra" />
-            </View>
-            <View style={{ width: 70 }}>
-              <ThemedTextInput value={ex.priceStr} onChangeText={v => setEditProdExtras(prev => prev.map((p, pi) => pi === i ? { ...p, priceStr: v } : p))} placeholder="$" keyboardType="decimal-pad" />
-            </View>
-            <TouchableOpacity onPress={() => setEditProdExtras(prev => prev.filter((_, pi) => pi !== i))}>
-              <Feather name="trash-2" size={16} color={theme.danger} />
+        {editingProduct?.type === 'elaborado' && (
+          <>
+            <Text style={[styles.detailLabel, { color: theme.textMuted, marginTop: 16 }]}>INGREDIENTES</Text>
+            {editProdIngredients.length > 0 && (
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                <Text style={{ fontSize: 12, fontWeight: '600', color: theme.textMuted }}>Máx por pedido:</Text>
+                <TextInput value={editMaxIngredients} onChangeText={setEditMaxIngredients} keyboardType="numeric" placeholder="∞" placeholderTextColor={theme.textMuted}
+                  style={{ width: 40, fontSize: 14, fontWeight: '700', color: theme.text, textAlign: 'center', borderBottomWidth: 1, borderColor: theme.cardBorder, paddingVertical: 4 }} />
+              </View>
+            )}
+            {editProdIngredients.map((ing, i) => (
+              <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+                <TouchableOpacity onPress={() => setEditProdIngredients(prev => prev.map((p, pi) => pi === i ? { ...p, color: cycleColor(p.color, INGREDIENT_COLORS) } : p))}
+                  onLongPress={() => { setEditPaletteTarget({ type: 'ingredient', index: i }); setShowEditPalette(true); }} delayLongPress={400}>
+                  <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: ing.color || INGREDIENT_COLORS[0] }} />
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => { setEditIconTarget(i); setShowEditIngIconPicker(true); }}>
+                  <MaterialCommunityIcons name={ing.icon || 'food'} size={20} color={theme.text} />
+                </TouchableOpacity>
+                <TextInput value={ing.name} onChangeText={v => setEditProdIngredients(prev => prev.map((p, pi) => pi === i ? { ...p, name: v } : p))} placeholder="Ingrediente" placeholderTextColor={theme.textMuted}
+                  style={{ flex: 1, fontSize: 14, fontWeight: '600', color: theme.text, paddingVertical: 4 }} />
+                <TouchableOpacity onPress={() => setEditProdIngredients(prev => prev.filter((_, pi) => pi !== i))}><Feather name="x" size={16} color={theme.danger} /></TouchableOpacity>
+              </View>
+            ))}
+            <TouchableOpacity onPress={() => setEditProdIngredients(prev => [...prev, { name: '', color: INGREDIENT_COLORS[prev.length % INGREDIENT_COLORS.length], icon: null }])} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 6 }}>
+              <Feather name="plus" size={14} color={theme.textMuted} />
+              <Text style={{ fontSize: 12, fontWeight: '600', color: theme.textMuted }}>Agregar ingrediente</Text>
             </TouchableOpacity>
-          </View>
-        ))}
-        <TouchableOpacity onPress={() => setEditProdExtras(prev => [...prev, { name: '', price: 0, priceStr: '0' }])} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 8 }}>
-          <Feather name="plus" size={14} color={theme.textMuted} />
-          <Text style={{ fontSize: 12, fontWeight: '600', color: theme.textMuted }}>Agregar extra</Text>
-        </TouchableOpacity>
+
+            <Text style={[styles.detailLabel, { color: theme.textMuted, marginTop: 16 }]}>EXTRAS</Text>
+            {editProdExtras.map((ex, i) => (
+              <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+                <TouchableOpacity onPress={() => setEditProdExtras(prev => prev.map((p, pi) => pi === i ? { ...p, color: cycleColor(p.color, INGREDIENT_COLORS) } : p))}
+                  onLongPress={() => { setEditPaletteTarget({ type: 'extra', index: i }); setShowEditPalette(true); }} delayLongPress={400}>
+                  <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: ex.color || INGREDIENT_COLORS[0] }} />
+                </TouchableOpacity>
+                <TextInput value={ex.name} onChangeText={v => setEditProdExtras(prev => prev.map((p, pi) => pi === i ? { ...p, name: v } : p))} placeholder="Extra" placeholderTextColor={theme.textMuted}
+                  style={{ flex: 1, fontSize: 14, fontWeight: '600', color: theme.text, paddingVertical: 4 }} />
+                <View style={{ width: 60 }}>
+                  <ThemedTextInput value={ex.priceStr} onChangeText={v => setEditProdExtras(prev => prev.map((p, pi) => pi === i ? { ...p, priceStr: v } : p))} placeholder="$" keyboardType="decimal-pad" prefix="$" />
+                </View>
+                <TouchableOpacity onPress={() => setEditProdExtras(prev => prev.filter((_, pi) => pi !== i))}><Feather name="x" size={16} color={theme.danger} /></TouchableOpacity>
+              </View>
+            ))}
+            <TouchableOpacity onPress={() => setEditProdExtras(prev => [...prev, { name: '', price: 0, priceStr: '0', color: INGREDIENT_COLORS[prev.length % INGREDIENT_COLORS.length] }])} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 6 }}>
+              <Feather name="plus" size={14} color={theme.textMuted} />
+              <Text style={{ fontSize: 12, fontWeight: '600', color: theme.textMuted }}>Agregar extra</Text>
+            </TouchableOpacity>
+          </>
+        )}
 
         <View style={{ marginTop: 16 }}><PrimaryButton label="GUARDAR" onPress={handleSaveProduct} /></View>
       </CenterModal>
+
+      {/* Color picker for product icon bg */}
+      <Modal visible={showEditColorPicker} transparent animationType="fade">
+        <TouchableOpacity style={{ flex: 1, backgroundColor: theme.overlay, justifyContent: 'center', paddingHorizontal: 24 }} activeOpacity={1} onPress={() => setShowEditColorPicker(false)}>
+          <View style={{ backgroundColor: theme.card, borderRadius: 16, padding: 20, borderWidth: 1, borderColor: theme.cardBorder }} onStartShouldSetResponder={() => true}>
+            <Text style={{ color: theme.text, fontSize: 14, fontWeight: '800', textAlign: 'center', marginBottom: 12 }}>Color de fondo</Text>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, justifyContent: 'center' }}>
+              {CARD_COLORS.map(c => (
+                <TouchableOpacity key={c} onPress={() => { setEditIconBgColor(c); setShowEditColorPicker(false); }}
+                  style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: c, alignItems: 'center', justifyContent: 'center', borderWidth: editIconBgColor === c ? 3 : 0, borderColor: '#fff' }}>
+                  {editIconBgColor === c && <Feather name="check" size={14} color="#fff" />}
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* Ingredient/extra color palette */}
+      <Modal visible={showEditPalette} transparent animationType="fade">
+        <TouchableOpacity style={{ flex: 1, backgroundColor: theme.overlay, justifyContent: 'center', paddingHorizontal: 24 }} activeOpacity={1} onPress={() => { setShowEditPalette(false); setEditPaletteTarget(null); }}>
+          <View style={{ backgroundColor: theme.card, borderRadius: 16, padding: 20, borderWidth: 1, borderColor: theme.cardBorder }} onStartShouldSetResponder={() => true}>
+            <Text style={{ color: theme.text, fontSize: 14, fontWeight: '800', textAlign: 'center', marginBottom: 12 }}>Elegir color</Text>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, justifyContent: 'center' }}>
+              {INGREDIENT_COLORS.map(c => (
+                <TouchableOpacity key={c} onPress={() => {
+                  if (editPaletteTarget?.type === 'ingredient') setEditProdIngredients(prev => prev.map((p, pi) => pi === editPaletteTarget.index ? { ...p, color: c } : p));
+                  if (editPaletteTarget?.type === 'extra') setEditProdExtras(prev => prev.map((p, pi) => pi === editPaletteTarget.index ? { ...p, color: c } : p));
+                  setShowEditPalette(false); setEditPaletteTarget(null);
+                }} style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: c }} />
+              ))}
+            </View>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* Icon picker for product */}
+      <BottomSheetModal visible={showEditIconPicker} onClose={() => setShowEditIconPicker(false)} title="ÍCONO DEL PRODUCTO">
+        <FlatList data={FOOD_ICONS} numColumns={ICON_COLS} keyExtractor={item => item} contentContainerStyle={{ paddingHorizontal: 8, paddingBottom: 40 }}
+          renderItem={({ item }) => (
+            <TouchableOpacity onPress={() => { setEditSelectedIcon(item); setShowEditIconPicker(false); }}
+              style={{ width: ICON_BTN_SIZE, height: ICON_BTN_SIZE, borderRadius: 12, alignItems: 'center', justifyContent: 'center', margin: 4, backgroundColor: editSelectedIcon === item ? editIconBgColor : theme.bg, borderWidth: editSelectedIcon === item ? 1.5 : 1, borderColor: editSelectedIcon === item ? editIconBgColor : theme.cardBorder }}>
+              <MaterialCommunityIcons name={item} size={26} color={editSelectedIcon === item ? '#fff' : theme.text} />
+            </TouchableOpacity>
+          )} />
+      </BottomSheetModal>
+
+      {/* Icon picker for ingredient */}
+      <BottomSheetModal visible={showEditIngIconPicker} onClose={() => { setShowEditIngIconPicker(false); setEditIconTarget(null); }} title="ÍCONO DEL INGREDIENTE">
+        <FlatList data={FOOD_ICONS} numColumns={ICON_COLS} keyExtractor={item => item} contentContainerStyle={{ paddingHorizontal: 8, paddingBottom: 40 }}
+          renderItem={({ item }) => {
+            const curColor = editIconTarget !== null ? (editProdIngredients[editIconTarget]?.color || INGREDIENT_COLORS[0]) : theme.accent;
+            const curIcon = editIconTarget !== null ? editProdIngredients[editIconTarget]?.icon : null;
+            return (
+              <TouchableOpacity onPress={() => {
+                if (editIconTarget !== null) setEditProdIngredients(prev => prev.map((p, pi) => pi === editIconTarget ? { ...p, icon: item } : p));
+                setShowEditIngIconPicker(false); setEditIconTarget(null);
+              }} style={{ width: ICON_BTN_SIZE, height: ICON_BTN_SIZE, borderRadius: 12, alignItems: 'center', justifyContent: 'center', margin: 4, backgroundColor: curIcon === item ? curColor : theme.bg, borderWidth: curIcon === item ? 1.5 : 1, borderColor: curIcon === item ? curColor : theme.cardBorder }}>
+                <MaterialCommunityIcons name={item} size={26} color={curIcon === item ? '#fff' : theme.text} />
+              </TouchableOpacity>
+            );
+          }} />
+      </BottomSheetModal>
     </SafeAreaView>
   );
 }
@@ -401,6 +585,8 @@ const styles = StyleSheet.create({
   schedSummary: { fontSize: 12, fontWeight: '600', textAlign: 'center', marginTop: 12 },
   timeToggle: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 10, marginTop: 4 },
   timeToggleText: { fontSize: 13, fontWeight: '600' },
+  modeBtn: { flex: 1, borderRadius: 12, paddingVertical: 12, alignItems: 'center', borderWidth: 1 },
+  pickerBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 14, paddingVertical: 10, borderRadius: 10, borderWidth: 1 },
   addProductBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
     borderRadius: 12, paddingVertical: 14, borderWidth: 1, borderStyle: 'dashed', marginTop: 8,
