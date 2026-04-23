@@ -11,16 +11,14 @@ export default function CenterModal({ visible, onClose, title, children }) {
     <Modal visible={visible} transparent animationType="fade">
       <TouchableWithoutFeedback onPress={onClose}>
         <View style={[styles.overlay, { backgroundColor: theme.overlay }]}>
-          <TouchableWithoutFeedback>
-            <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder, maxHeight: MAX_H }]}>
-              {title ? (
-                <Text style={[styles.title, { color: theme.text }]}>{title}</Text>
-              ) : null}
-              <ScrollView showsVerticalScrollIndicator={false} nestedScrollEnabled bounces={false} keyboardShouldPersistTaps="handled">
-                {children}
-              </ScrollView>
-            </View>
-          </TouchableWithoutFeedback>
+          <View onStartShouldSetResponder={() => true} style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder, maxHeight: MAX_H }]}>
+            {title ? (
+              <Text style={[styles.title, { color: theme.text }]}>{title}</Text>
+            ) : null}
+            <ScrollView showsVerticalScrollIndicator={false} nestedScrollEnabled bounces={false} keyboardShouldPersistTaps="handled">
+              {children}
+            </ScrollView>
+          </View>
         </View>
       </TouchableWithoutFeedback>
     </Modal>

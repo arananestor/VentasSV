@@ -121,8 +121,8 @@ export default function ProfileScreen({ navigation }) {
             {currentWorker?.photo ? (
               <Image source={{ uri: currentWorker.photo }} style={styles.profilePhoto} />
             ) : (
-              <View style={[styles.profileAvatar, { backgroundColor: currentWorker?.color || '#1C1C1E' }]}>
-                <Text style={[styles.profileAvatarText, { color: theme.accentText }]}>
+              <View style={[styles.profileAvatar, { backgroundColor: currentWorker?.role === 'owner' ? theme.accent : (currentWorker?.color || '#1C1C1E') }]}>
+                <Text style={[styles.profileAvatarText, { color: currentWorker?.role === 'owner' ? theme.accentText : '#fff' }]}>
                   {currentWorker?.name?.charAt(0)?.toUpperCase() || '?'}
                 </Text>
               </View>
@@ -266,8 +266,8 @@ export default function ProfileScreen({ navigation }) {
                       {worker.photo ? (
                         <Image source={{ uri: worker.photo }} style={styles.workerPhoto} />
                       ) : (
-                        <View style={[styles.workerAvatar, { backgroundColor: worker.color || '#1C1C1E' }]}>
-                          <Text style={[styles.workerInitial, { color: theme.accentText }]}>
+                        <View style={[styles.workerAvatar, { backgroundColor: worker.role === 'owner' ? theme.accent : (worker.color || '#1C1C1E') }]}>
+                          <Text style={[styles.workerInitial, { color: worker.role === 'owner' ? theme.accentText : '#fff' }]}>
                             {worker.name.charAt(0).toUpperCase()}
                           </Text>
                         </View>
@@ -339,8 +339,8 @@ export default function ProfileScreen({ navigation }) {
           {currentWorker?.photo ? (
             <Image source={{ uri: currentWorker.photo }} style={styles.detailPhoto} />
           ) : (
-            <View style={[styles.detailAvatar, { backgroundColor: currentWorker?.color || '#1C1C1E' }]}>
-              <Text style={[styles.detailAvatarText, { color: theme.accentText }]}>
+            <View style={[styles.detailAvatar, { backgroundColor: currentWorker?.role === 'owner' ? theme.accent : (currentWorker?.color || '#1C1C1E') }]}>
+              <Text style={[styles.detailAvatarText, { color: currentWorker?.role === 'owner' ? theme.accentText : '#fff' }]}>
                 {currentWorker?.name?.charAt(0)?.toUpperCase()}
               </Text>
             </View>
