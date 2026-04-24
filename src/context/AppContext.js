@@ -5,6 +5,17 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Feather } from '@expo/vector-icons';
 import { printTicket } from '../utils/ticketPrinter';
 import { buildTicketMessage } from '../utils/businessConfig';
+import { migrateAllSalesV2toV3 } from '../utils/salesMigration';
+import { newId } from '../utils/ids';
+import { migrateCollectionToV4 } from '../utils/schemaMigrationV4';
+import * as repository from '../data/repository';
+import { migrateBusinessConfigToQentasFields } from '../utils/businessConfigMigration';
+import { migrateToV5 } from '../utils/schemaMigrationV5';
+import { createMode } from '../models/mode';
+import { evaluateSchedule } from '../utils/modeScheduling';
+import { findModeForWorker } from '../utils/modeManagement';
+import { generateCatalogName } from '../utils/funNames';
+import { useAuth } from './AuthContext';
 
 const WA_COLOR = '#25D366';
 const AppContext = createContext();
@@ -13,6 +24,8 @@ export function AppProvider({ children }) {
   const [products, setProducts] = useState([]);
   const [sales, setSales] = useState([]);
   const [cart, setCart] = useState([]);
+  const [modes, setModes] = useState([]);
+  const [currentModeId, setCurrentModeIdState] = useState(null);
 
   // Snackbar global
   const [snackData, setSnackData] = useState(null);
@@ -24,23 +37,86 @@ export function AppProvider({ children }) {
 
   const loadData = async () => {
     try {
+      const deviceId = await repository.init();
+
       const savedProducts = await AsyncStorage.getItem('ventasv_products');
       const savedSales = await AsyncStorage.getItem('ventasv_sales');
-      if (savedProducts) setProducts(JSON.parse(savedProducts));
-      if (savedSales) setSales(JSON.parse(savedSales));
+      let loadedProducts = savedProducts ? JSON.parse(savedProducts) : [];
+      let loadedSales = savedSales ? JSON.parse(savedSales) : [];
+
+      // v2→v3 migration (sales items[])
+      const salesVersion = await AsyncStorage.getItem('ventasv_sales_schema_version');
+      if (!salesVersion || Number(salesVersion) < 3) {
+        loadedSales = migrateAllSalesV2toV3(loadedSales);
+        await AsyncStorage.setItem('ventasv_sales_schema_version', '3');
+      }
+
+      // v3→v4 migration (entity envelope) — unified schema version
+      const schemaVersion = await AsyncStorage.getItem('ventasv_schema_version');
+      if (!schemaVersion || Number(schemaVersion) < 4) {
+        loadedSales = migrateCollectionToV4(loadedSales, deviceId);
+        loadedProducts = migrateCollectionToV4(loadedProducts, deviceId);
+        await repository.save('sales', loadedSales);
+        await repository.save('products', loadedProducts);
+
+        // Migrate workers and tabs via their storage keys
+        const savedWorkers = await AsyncStorage.getItem('ventasv_workers');
+        if (savedWorkers) {
+          const migratedWorkers = migrateCollectionToV4(JSON.parse(savedWorkers), deviceId);
+          await repository.save('workers', migratedWorkers);
+        }
+        const savedTabs = await AsyncStorage.getItem('ventasv_tabs');
+        if (savedTabs) {
+          const migratedTabs = migrateCollectionToV4(JSON.parse(savedTabs), deviceId);
+          await repository.save('tabs', migratedTabs);
+        }
+        // BusinessConfig qentas fields migration
+        const rawBc = await AsyncStorage.getItem('business_bank_config');
+        if (rawBc) {
+          const bc = JSON.parse(rawBc);
+          const migratedBc = migrateBusinessConfigToQentasFields(bc);
+          await AsyncStorage.setItem('business_bank_config', JSON.stringify(migratedBc));
+        }
+        await AsyncStorage.setItem('ventasv_schema_version', '4');
+      }
+
+      // v4→v5 migration (Modes)
+      const schemaV5 = await AsyncStorage.getItem('ventasv_schema_version');
+      if (!schemaV5 || Number(schemaV5) < 5) {
+        const existingModes = await repository.getAll('modes');
+        const existingCurrentModeId = await repository.getCurrentModeId();
+        const loadedTabs = await repository.getAll('tabs');
+        const v5Result = migrateToV5({ products: loadedProducts, tabs: loadedTabs, existingModes, deviceId });
+        if (existingModes.length === 0) {
+          await repository.save('modes', v5Result.modes);
+          if (!existingCurrentModeId && v5Result.currentModeId) {
+            await repository.setCurrentModeId(v5Result.currentModeId);
+          }
+        }
+        await AsyncStorage.setItem('ventasv_schema_version', '5');
+      }
+
+      const loadedModes = await repository.getAll('modes');
+      const loadedCurrentModeId = await repository.getCurrentModeId();
+
+      setProducts(loadedProducts);
+      setSales(loadedSales);
+      setModes(loadedModes);
+      setCurrentModeIdState(loadedCurrentModeId);
     } catch (e) { console.log('Error loading data', e); }
   };
 
   const saveProducts = async (newProducts) => {
     setProducts(newProducts);
-    await AsyncStorage.setItem('ventasv_products', JSON.stringify(newProducts));
+    await repository.save('products', newProducts);
   };
 
   const addProduct = async (product) => {
-    const id = Date.now().toString();
+    const id = newId();
     const newProduct = { ...product, id };
-    await saveProducts([...products, newProduct]);
-    return newProduct;
+    const enveloped = await repository.upsert('products', newProduct);
+    setProducts(prev => [...prev, enveloped]);
+    return enveloped;
   };
 
   const updateProduct = async (id, updates) => {
@@ -64,24 +140,26 @@ export function AppProvider({ children }) {
 
   // ── VENTAS ───────────────────────────────────────────────
   const addSale = async (sale) => {
+    if (!sale.items || sale.items.length === 0) {
+      throw new Error('Sale requires non-empty items[]');
+    }
     const today = new Date().toDateString();
     const todaySales = sales.filter(s => new Date(s.timestamp).toDateString() === today);
     const orderNumber = String(todaySales.length + 1).padStart(4, '0');
     const newSale = {
       ...sale,
-      id: Date.now().toString(),
+      id: newId(),
       orderNumber,
       orderStatus: 'new',
       timestamp: new Date().toISOString(),
     };
-    const newSales = [...sales, newSale];
-    setSales(newSales);
-    await AsyncStorage.setItem('ventasv_sales', JSON.stringify(newSales));
-    return newSale;
+    const enveloped = await repository.upsert('sales', newSale);
+    setSales(prev => [...prev, enveloped]);
+    return enveloped;
   };
 
   const updateSaleStatus = async (saleId, status) => {
-    const newSales = sales.map(s =>
+    const updated = sales.map(s =>
       s.id === saleId ? {
         ...s,
         orderStatus: status,
@@ -89,8 +167,22 @@ export function AppProvider({ children }) {
         completedAt: status === 'done' ? new Date().toISOString() : s.completedAt,
       } : s
     );
+    setSales(updated);
+    await repository.save('sales', updated);
+  };
+
+  const updateSaleItemUnit = async (saleId, itemIndex, unitIndex, cookLevel) => {
+    const newSales = sales.map(s => {
+      if (s.id !== saleId) return s;
+      const newItems = s.items.map((item, idx) => {
+        if (idx !== itemIndex) return item;
+        const newUnits = item.units.map((u, uIdx) => uIdx !== unitIndex ? u : { ...u, cookLevel });
+        return { ...item, units: newUnits };
+      });
+      return { ...s, items: newItems };
+    });
     setSales(newSales);
-    await AsyncStorage.setItem('ventasv_sales', JSON.stringify(newSales));
+    await repository.save('sales', newSales);
   };
 
   const getTodaySales = () => {
@@ -99,6 +191,112 @@ export function AppProvider({ children }) {
   };
 
   const getAllSales = () => sales;
+
+  // ── MODOS ───────────────────────────────────────────────
+  const currentMode = modes.find(m => m.id === currentModeId) || null;
+
+  const setCurrentMode = async (modeId) => {
+    await repository.setCurrentModeId(modeId);
+    setCurrentModeIdState(modeId);
+  };
+
+  const createModeFromForm = async ({ name, description = '' }) => {
+    const mode = createMode({ name, description, isDefault: false });
+    const enveloped = await repository.upsert('modes', mode);
+    setModes(prev => [...prev, enveloped]);
+    return enveloped;
+  };
+
+  const updateMode = async (modeId, patch) => {
+    const updated = modes.map(m =>
+      m.id === modeId ? { ...m, ...patch, updatedAt: new Date().toISOString() } : m
+    );
+    setModes(updated);
+    await repository.save('modes', updated);
+  };
+
+  const deleteMode = async (modeId) => {
+    const mode = modes.find(m => m.id === modeId);
+    if (mode?.isDefault) throw new Error('No se puede eliminar el catálogo principal');
+    if (currentModeId === modeId) throw new Error('No se puede eliminar el catálogo activo');
+    const filtered = modes.filter(m => m.id !== modeId);
+    setModes(filtered);
+    await repository.save('modes', filtered);
+  };
+
+  const cloneMode = async (modeId, newName) => {
+    const source = modes.find(m => m.id === modeId);
+    if (!source) throw new Error('Catálogo no encontrado');
+    const overrides = {};
+    for (const [k, v] of Object.entries(source.productOverrides || {})) {
+      overrides[k] = { ...v };
+    }
+    const cloned = createMode({
+      name: newName,
+      description: source.description,
+      productOverrides: overrides,
+      tabOrder: [...source.tabOrder],
+      isDefault: false,
+    });
+    const enveloped = await repository.upsert('modes', cloned);
+    setModes(prev => [...prev, enveloped]);
+    return enveloped;
+  };
+
+  // ── SCHEDULING TIMER ─────────────────────────────────────
+  useEffect(() => {
+    const check = () => {
+      const result = evaluateSchedule({ modes, currentModeId, now: new Date().toISOString() });
+      if (result.action === 'activate' || result.action === 'revert') {
+        setCurrentMode(result.targetModeId);
+      }
+    };
+    check();
+    const timer = setInterval(check, 60000);
+    return () => clearInterval(timer);
+  }, [modes, currentModeId]);
+
+  // ── AUTO-ACTIVATE CATALOG BY WORKER ──────────────────────
+  const { currentWorker } = useAuth();
+
+  const autoActivateForWorker = (workerId) => {
+    const mode = findModeForWorker(modes, workerId);
+    if (mode && mode.id !== currentModeId) {
+      setCurrentMode(mode.id);
+    }
+  };
+
+  useEffect(() => {
+    if (currentWorker?.id) {
+      autoActivateForWorker(currentWorker.id);
+    }
+  }, [currentWorker?.id, modes]);
+
+  // ── NOTIF BAR (top, for non-sale messages) ────────────────
+  const [notifData, setNotifData] = useState(null);
+  const notifAnim = useRef(new Animated.Value(-80)).current;
+  const notifOpacity = useRef(new Animated.Value(0)).current;
+  const notifTimer = useRef(null);
+
+  const showNotif = (message) => {
+    if (notifTimer.current) clearTimeout(notifTimer.current);
+    setNotifData(message);
+    notifAnim.setValue(-80);
+    notifOpacity.setValue(0);
+    Animated.parallel([
+      Animated.spring(notifAnim, { toValue: 0, useNativeDriver: true, tension: 80, friction: 12 }),
+      Animated.timing(notifOpacity, { toValue: 1, duration: 180, useNativeDriver: true }),
+    ]).start();
+    notifTimer.current = setTimeout(() => hideNotif(), 1500);
+  };
+
+  const hideNotif = () => {
+    if (notifTimer.current) clearTimeout(notifTimer.current);
+    Animated.parallel([
+      Animated.timing(notifAnim, { toValue: -80, duration: 200, useNativeDriver: true }),
+      Animated.timing(notifOpacity, { toValue: 0, duration: 200, useNativeDriver: true }),
+    ]).start(() => setNotifData(null));
+  };
 
   // ── SNACKBAR GLOBAL ──────────────────────────────────────
   const showSnack = (data) => {
@@ -129,10 +327,9 @@ export function AppProvider({ children }) {
 
   const handleSnackWhatsApp = () => {
     if (!snackData?.sales?.length || !snackData?.waNumber) return;
-    snackData.sales.forEach(sale => {
-      const msg = buildTicketMessage(sale);
-      Linking.openURL(`https://wa.me/503${snackData.waNumber}?text=${msg}`);
-    });
+    const sale = snackData.sales[0];
+    const msg = buildTicketMessage(sale);
+    Linking.openURL(`https://wa.me/503${snackData.waNumber}?text=${msg}`);
     hideSnack();
   };
 
@@ -140,11 +337,24 @@ export function AppProvider({ children }) {
     <AppContext.Provider value={{
       products, sales,
       addProduct, updateProduct, deleteProduct,
-      addSale, getTodaySales, getAllSales, updateSaleStatus,
+      addSale, getTodaySales, getAllSales, updateSaleStatus, updateSaleItemUnit,
       cart, addToCart, removeFromCart, clearCart, cartTotal, cartCount,
-      showSnack,
+      modes, currentModeId, currentMode,
+      setCurrentMode, createModeFromForm, updateMode, deleteMode, cloneMode,
+      autoActivateForWorker,
+      showSnack, showNotif,
     }}>
       {children}
+
+      {/* NOTIF BAR — top */}
+      {notifData && (
+        <Animated.View style={[snackStyles.notif, { transform: [{ translateY: notifAnim }], opacity: notifOpacity }]}>
+          <TouchableOpacity style={snackStyles.notifInner} onPress={hideNotif} activeOpacity={0.9}>
+            <Text style={snackStyles.notifText}>{notifData}</Text>
+            <Feather name="x" size={14} color="#888" />
+          </TouchableOpacity>
+        </Animated.View>
+      )}
 
       {/* SNACKBAR GLOBAL — flota sobre toda la app */}
       {snackData && (
@@ -157,8 +367,8 @@ export function AppProvider({ children }) {
           <View style={snackStyles.left}>
             <View style={snackStyles.dot} />
             <View>
-              <Text style={snackStyles.title}>Venta registrada</Text>
-              <Text style={snackStyles.sub}>${snackData.total?.toFixed(2)}</Text>
+              <Text style={snackStyles.title}>{snackData.message || 'Venta registrada'}</Text>
+              {!snackData.message && <Text style={snackStyles.sub}>${snackData.total?.toFixed(2)}</Text>}
             </View>
           </View>
           <View style={snackStyles.actions}>
@@ -197,6 +407,13 @@ const snackStyles = StyleSheet.create({
   actions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   btn: { width: 36, height: 36, borderRadius: 10, backgroundColor: '#0A84FF', alignItems: 'center', justifyContent: 'center' },
   close: { width: 30, height: 30, alignItems: 'center', justifyContent: 'center', marginLeft: 2 },
+  notif: {
+    position: 'absolute', top: 50, left: 16, right: 16, zIndex: 9999,
+    backgroundColor: '#1C1C1E', borderRadius: 12, borderWidth: 1, borderColor: '#2C2C2E',
+    paddingVertical: 10, paddingHorizontal: 16,
+  },
+  notifInner: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  notifText: { fontSize: 13, fontWeight: '600', color: '#FFFFFF', flex: 1 },
 });
 
 export const useApp = () => useContext(AppContext);

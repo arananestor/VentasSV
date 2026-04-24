@@ -121,8 +121,8 @@ export default function ProfileScreen({ navigation }) {
             {currentWorker?.photo ? (
               <Image source={{ uri: currentWorker.photo }} style={styles.profilePhoto} />
             ) : (
-              <View style={[styles.profileAvatar, { backgroundColor: currentWorker?.color || theme.accent }]}>
-                <Text style={[styles.profileAvatarText, { color: theme.accentText }]}>
+              <View style={[styles.profileAvatar, { backgroundColor: currentWorker?.role === 'owner' ? theme.accent : (currentWorker?.color || '#1C1C1E') }]}>
+                <Text style={[styles.profileAvatarText, { color: currentWorker?.role === 'owner' ? theme.accentText : '#fff' }]}>
                   {currentWorker?.name?.charAt(0)?.toUpperCase() || '?'}
                 </Text>
               </View>
@@ -214,7 +214,7 @@ export default function ProfileScreen({ navigation }) {
 
             <View style={styles.group}>
               <TouchableOpacity
-                style={[styles.row, styles.rowFirst, styles.rowLast, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}
+                style={[styles.row, styles.rowFirst, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}
                 onPress={() => navigation.navigate('BusinessConfig')}
               >
                 <View style={[styles.rowIcon, { backgroundColor: isDark ? '#1C1C1E' : '#F0F0F0' }]}>
@@ -226,6 +226,21 @@ export default function ProfileScreen({ navigation }) {
                 </View>
                 <Feather name="chevron-right" size={18} color={theme.textMuted} />
               </TouchableOpacity>
+              {currentWorker?.role === 'owner' && (
+                <TouchableOpacity
+                  style={[styles.row, styles.rowLast, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}
+                  onPress={() => navigation.navigate('ManageModes')}
+                >
+                  <View style={[styles.rowIcon, { backgroundColor: isDark ? '#1C1C1E' : '#F0F0F0' }]}>
+                    <Feather name="layers" size={15} color={theme.text} />
+                  </View>
+                  <View style={styles.rowTexts}>
+                    <Text style={[styles.rowTitle, { color: theme.text }]}>Catálogos</Text>
+                    <Text style={[styles.rowSub, { color: theme.textMuted }]}>Crear, editar y programar catálogos</Text>
+                  </View>
+                  <Feather name="chevron-right" size={18} color={theme.textMuted} />
+                </TouchableOpacity>
+              )}
             </View>
 
             <Text style={[styles.sectionLabel, { color: theme.textMuted }]}>EQUIPO</Text>
@@ -251,8 +266,8 @@ export default function ProfileScreen({ navigation }) {
                       {worker.photo ? (
                         <Image source={{ uri: worker.photo }} style={styles.workerPhoto} />
                       ) : (
-                        <View style={[styles.workerAvatar, { backgroundColor: worker.color || theme.accent }]}>
-                          <Text style={styles.workerInitial}>
+                        <View style={[styles.workerAvatar, { backgroundColor: worker.role === 'owner' ? theme.accent : (worker.color || '#1C1C1E') }]}>
+                          <Text style={[styles.workerInitial, { color: worker.role === 'owner' ? theme.accentText : '#fff' }]}>
                             {worker.name.charAt(0).toUpperCase()}
                           </Text>
                         </View>
@@ -324,8 +339,8 @@ export default function ProfileScreen({ navigation }) {
           {currentWorker?.photo ? (
             <Image source={{ uri: currentWorker.photo }} style={styles.detailPhoto} />
           ) : (
-            <View style={[styles.detailAvatar, { backgroundColor: currentWorker?.color || theme.accent }]}>
-              <Text style={[styles.detailAvatarText, { color: theme.accentText }]}>
+            <View style={[styles.detailAvatar, { backgroundColor: currentWorker?.role === 'owner' ? theme.accent : (currentWorker?.color || '#1C1C1E') }]}>
+              <Text style={[styles.detailAvatarText, { color: currentWorker?.role === 'owner' ? theme.accentText : '#fff' }]}>
                 {currentWorker?.name?.charAt(0)?.toUpperCase()}
               </Text>
             </View>
@@ -611,7 +626,7 @@ const styles = StyleSheet.create({
   workerTop:     { flexDirection: 'row', alignItems: 'center', gap: 12 },
   workerPhoto:   { width: 42, height: 42, borderRadius: 21, resizeMode: 'cover' },
   workerAvatar:  { width: 42, height: 42, borderRadius: 21, alignItems: 'center', justifyContent: 'center' },
-  workerInitial: { fontSize: 16, fontWeight: '900', color: '#000' },
+  workerInitial: { fontSize: 16, fontWeight: '900', color: '#fff' },
   workerMeta:    { flex: 1 },
   workerName:    { fontSize: 15, fontWeight: '700' },
   workerPuestoRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 3 },

@@ -7,6 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { methodLabel } from '../utils/formatters';
+import { getSaleSummary } from '../utils/itemsLogic';
 import ScreenHeader from '../components/ScreenHeader';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
@@ -168,9 +169,9 @@ export default function SalesScreen({ navigation }) {
                   )}
                 </View>
                 <View>
-                  <Text style={[styles.saleName, { color: theme.text }]}>{sale.productName}</Text>
+                  <Text style={[styles.saleName, { color: theme.text }]}>{getSaleSummary(sale)}</Text>
                   <Text style={[styles.saleDetail, { color: theme.textMuted }]}>
-                    {sale.size} · {sale.quantity}x · {methodLabel(sale.paymentMethod)}
+                    {(sale.items || []).length} {(sale.items || []).length === 1 ? 'producto' : 'productos'} · {methodLabel(sale.paymentMethod)}
                   </Text>
                 </View>
               </View>

@@ -23,7 +23,7 @@ make dev-clear         # Start with cache cleared
 make tunnel            # Expo with tunnel (restrictive networks)
 
 # Testing
-npm test               # Run all tests (457 tests, 21 suites — must be 0 failures)
+npm test               # Run all tests (707 tests, 49 suites — must be 0 failures)
 npm run test:unit      # Unit tests only (__tests__/unit/)
 npm run test:integration  # Integration tests only (__tests__/integration/)
 npm run test:coverage  # Coverage report (70% threshold)
@@ -53,7 +53,7 @@ make update m='msg'    # OTA update to production
 - SalesStack: SalesMain → SaleDetail
 - ProfileStack: ProfileMain → BusinessConfig
 
-**Data persistence:** AsyncStorage with schema versioning (current v2). Migration logic in AuthContext.
+**Data persistence:** AsyncStorage via repository layer (src/data/repository.js). Schema versioning unified in `ventasv_schema_version` (current v5). Migrations: v1→v2 (AuthContext), v2→v3 (salesMigration.js items[]), v3→v4 (schemaMigrationV4.js entity envelope), v4→v5 (schemaMigrationV5.js Modes). All entities have UUID v4 IDs (newId from src/utils/ids.js) and sync envelope (accountId, deviceId, syncState, serverUpdatedAt).
 
 **Role system:** owner → co-admin → worker (positions: Cajero, Cocinero, Motorista, Camarero)
 
@@ -66,11 +66,11 @@ make update m='msg'    # OTA update to production
 ## Testing
 
 - Runner: jest-expo. Config in package.json `jest` field
-- Unit tests (`__tests__/unit/`): auth, businessConfig, cart, displayComponents, formComponents, homeScreen, migration, pinEntry, pinKeypadModal, productPermissions, products, roleConfig, sales, selectWorker, setup, snackbar, tabs, theme, workers
+- Unit tests (`__tests__/unit/`): auth, businessConfig, cart, displayComponents, formComponents, homeScreen, migration, pinEntry, pinKeypadModal, productPermissions, products, roleConfig, geoLogic, itemsLogic, salesMigration, saleDetailItems, salesListSummary, cookModalItems, ticketPrinter, ticketMessage, transferMessage, ids, entityEnvelope, schemaMigrationV4, qentasClient, requiresQentasLogic, upsellCardLogic, businessConfigQentasFields, modes/modeModel, modes/schemaMigrationV5, modes/repositoryModes, modes/modeManagementLogic, modes/modeResolution, modes/homeScreenModeFiltering, modes/orderBuilderPricing, modes/modeManagement, modes/modeScheduling, modes/modeEditorLogic, modes/modeAutoActivation, modes/modeProductEditorLogic, sales, selectWorker, setup, snackbar, tabs, theme, workers
 - Integration tests (`__tests__/integration/`): payment, orders
 - Mocks in `__mocks__/` for AsyncStorage, vector-icons, safe-area-context
 - Coverage threshold: 70% on branches, functions, lines, statements
-- **Rule: 457 tests (minimum), 0 failures before any merge. No exceptions.**
+- **Rule: 707 tests (minimum), 0 failures before any merge. No exceptions.**
 - **AAA Pattern (mandatory):** Every test must follow Arrange-Act-Assert. The Act step must call a real function imported from `src/`. Never reimplement logic in tests. Comments `// Arrange`, `// Act`, `// Assert` are required in every test block.
 
 ## Repository
@@ -152,6 +152,7 @@ Architecture design docs are REQUIRED before starting any major feature. Feature
 - **Role changes require global grep**: Any PR that modifies role logic must include `grep -r "role ===" src/` output in the PR description to verify no orphaned role checks exist. (Source: PRs #13, #16 — `role === 'admin'` bug appeared twice)
 - **Reuse estimation requires diff analysis**: Before extracting a component for reuse, count actual consumers at the diff level, not by visual similarity. (Source: PR #10-12 retro — StatusBadge/InfoCard had less reuse than estimated)
 - **CLAUDE.md must be verified on every PR**: Before opening any PR, read CLAUDE.md and update test counts, suite lists, and priority status if they have changed. This file is the primary context source — if it drifts, all future work drifts with it.
+- **Verification logs**: Execution PRs should include temporary `[FASE VERIFY]` console.log blocks (marked `TODO(cleanup-next-pr)`) to confirm infrastructure changes at boot. The PR immediately following must remove them.
 
 ## UI Conventions
 
@@ -186,4 +187,12 @@ Before adding any feature, ask: **Does this help a business owner in El Salvador
 9. Owner dashboard — live orders, daily sales, active team
 10. Cash register close — for fixed devices on shift change
 11. ~~Role interfaces — tab filtering by role/puesto~~ ✅ Done (PR #24)
-12. Role-specific screens — motorista (entregas), camarero (mesas)
+12. ~~Sale model refactor Fase A — items[], migration v2→v3~~ ✅ Done
+13. ~~Sale model refactor Fase B — consumers read items[]~~ ✅ Done
+14. ~~Sale model refactor Fase C — ticket, WhatsApp, transfer~~ ✅ Done
+15. ~~Foundation Fase F1 — UUIDs, device identity, entity envelope, repository~~ ✅ Done
+16. ~~Foundation Fase F2 — Qentas client stub, RequiresQentas, UpsellCard~~ ✅ Done
+17. ~~Modos de operación — foundation~~ ✅ Done
+18. ~~Modos de operación — cashier view respects active mode~~ ✅ Done
+19. ~~Modos de operación — owner management + scheduling~~ ✅ Done
+20. Role-specific screens — motorista (entregas), camarero (mesas)

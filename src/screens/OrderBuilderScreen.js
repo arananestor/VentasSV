@@ -9,6 +9,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '../context/ThemeContext';
 import { useApp } from '../context/AppContext';
 import { getTextColor } from '../utils/colorUtils';
+import { resolveProductPrice } from '../utils/modeResolution';
 import ScreenHeader from '../components/ScreenHeader';
 
 const { width } = Dimensions.get('window');
@@ -16,7 +17,7 @@ const { width } = Dimensions.get('window');
 export default function OrderBuilderScreen({ route, navigation }) {
   const { product } = route.params;
   const { theme } = useTheme();
-  const { addToCart } = useApp();
+  const { addToCart, currentMode } = useApp();
   const scrollRef = useRef(null);
 
   const productIngredients = product.ingredients || product.flavors || [];
@@ -114,7 +115,7 @@ export default function OrderBuilderScreen({ route, navigation }) {
 
   const calcTotal = () => {
     return units.reduce((sum, u) => {
-      const base = product.sizes[u.sizeIdx]?.price || 0;
+      const base = resolveProductPrice(product, u.sizeIdx, currentMode);
       const extrasTotal = u.extras.reduce((s, e) => s + (e.price || 0), 0);
       return sum + base + extrasTotal;
     }, 0);
@@ -175,7 +176,7 @@ export default function OrderBuilderScreen({ route, navigation }) {
                 </Text>
                 <Text style={[styles.sizePrice, { color: theme.textSecondary },
                   active.sizeIdx === i && { color: theme.accentText }]}>
-                  ${s.price.toFixed(2)}
+                  ${resolveProductPrice(product, i, currentMode).toFixed(2)}
                 </Text>
               </TouchableOpacity>
             ))}
