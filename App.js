@@ -66,6 +66,21 @@ function ProfileStack() {
   );
 }
 
+function ComingSoonPlaceholder({ icon, title }) {
+  const { theme } = useTheme();
+  return (
+    <View style={{ flex: 1, backgroundColor: theme.bg, alignItems: 'center', justifyContent: 'center', gap: 12 }}>
+      <MaterialCommunityIcons name={icon} size={48} color={theme.textMuted} />
+      <Text style={{ fontSize: 18, fontWeight: '800', letterSpacing: 3, color: theme.text }}>{title}</Text>
+      <Text style={{ fontSize: 13, fontWeight: '600', color: theme.textMuted }}>PRÓXIMAMENTE</Text>
+    </View>
+  );
+}
+
+function ComandasPlaceholder() {
+  return <ComingSoonPlaceholder icon="clipboard-list-outline" title="COMANDAS" />;
+}
+
 function MainTabs() {
   const { currentWorker } = useAuth();
   const { theme } = useTheme();
@@ -103,7 +118,7 @@ function MainTabs() {
       {allowedTabs.includes('Comandas') && (
         <Tab.Screen
           name="Comandas"
-          component={OrdersScreen}
+          component={ComandasPlaceholder}
           options={{
             tabBarIcon: ({ color }) => (
               <MaterialCommunityIcons name="clipboard-list-outline" size={24} color={color} />

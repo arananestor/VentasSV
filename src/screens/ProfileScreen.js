@@ -245,85 +245,11 @@ export default function ProfileScreen({ navigation }) {
 
             <Text style={[styles.sectionLabel, { color: theme.textMuted }]}>EQUIPO</Text>
 
-            <View style={styles.group}>
-              {workers.map((worker, index) => {
-                const wPuesto    = worker.puesto || 'Cajero';
-                const wIcon      = PUESTO_ICONS[wPuesto] || 'account';
-                const pinVisible = revealPinId === worker.id;
-                const isFirst    = index === 0;
-                const isLast     = index === workers.length - 1;
-                return (
-                  <View
-                    key={worker.id}
-                    style={[
-                      styles.workerCard,
-                      { backgroundColor: theme.card, borderColor: theme.cardBorder },
-                      isFirst && styles.rowFirst,
-                      isLast  && styles.rowLast,
-                    ]}
-                  >
-                    <View style={styles.workerTop}>
-                      {worker.photo ? (
-                        <Image source={{ uri: worker.photo }} style={styles.workerPhoto} />
-                      ) : (
-                        <View style={[styles.workerAvatar, { backgroundColor: worker.role === 'owner' ? theme.accent : (worker.color || '#1C1C1E') }]}>
-                          <Text style={[styles.workerInitial, { color: worker.role === 'owner' ? theme.accentText : '#fff' }]}>
-                            {worker.name.charAt(0).toUpperCase()}
-                          </Text>
-                        </View>
-                      )}
-                      <View style={styles.workerMeta}>
-                        <Text style={[styles.workerName, { color: theme.text }]}>{worker.name}</Text>
-                        <View style={styles.workerPuestoRow}>
-                          <MaterialCommunityIcons name={wIcon} size={11} color={theme.textMuted} />
-                          <Text style={[styles.workerPuesto, { color: theme.textMuted }]}>{wPuesto}</Text>
-                        </View>
-                      </View>
-                      {worker.id !== 'owner' && (
-                        <TouchableOpacity
-                          style={[styles.trashBtn, { backgroundColor: theme.bg }]}
-                          onPress={() => { setWorkerToDelete(worker); setShowDeleteModal(true); }}
-                        >
-                          <Feather name="trash-2" size={14} color="#FF3B30" />
-                        </TouchableOpacity>
-                      )}
-                    </View>
-
-                    <View style={[styles.workerDetails, { borderTopColor: theme.cardBorder }]}>
-                      <View style={styles.detailCol}>
-                        <Text style={[styles.detailLabel, { color: theme.textMuted }]}>DUI</Text>
-                        <Text style={[styles.detailValue, { color: theme.text }]}>{worker.dui || '—'}</Text>
-                      </View>
-                      <View style={[styles.detailDivider, { backgroundColor: theme.cardBorder }]} />
-                      <View style={styles.detailCol}>
-                        <Text style={[styles.detailLabel, { color: theme.textMuted }]}>PIN</Text>
-                        <TouchableOpacity
-                          style={styles.pinRow}
-                          onPress={() => setRevealPinId(pinVisible ? null : worker.id)}
-                        >
-                          <Text style={[styles.detailValue, { color: theme.text }]}>
-                            {pinVisible ? worker.pin : '• • • •'}
-                          </Text>
-                          <Feather
-                            name={pinVisible ? 'eye-off' : 'eye'}
-                            size={13} color={theme.textMuted}
-                            style={{ marginLeft: 6 }}
-                          />
-                        </TouchableOpacity>
-                      </View>
-                    </View>
-                  </View>
-                );
-              })}
+            <View style={[styles.group, { alignItems: 'center', paddingVertical: 28, gap: 8 }]}>
+              <Feather name="users" size={32} color={theme.textMuted} />
+              <Text style={[styles.rowTitle, { color: theme.text }]}>EQUIPO</Text>
+              <Text style={{ fontSize: 13, fontWeight: '600', color: theme.textMuted }}>PRÓXIMAMENTE</Text>
             </View>
-
-            <TouchableOpacity
-              style={[styles.addBtn, { borderColor: theme.cardBorder }]}
-              onPress={() => setShowAddWorker(true)}
-            >
-              <Feather name="user-plus" size={16} color={theme.textMuted} />
-              <Text style={[styles.addBtnText, { color: theme.textMuted }]}>Agregar empleado</Text>
-            </TouchableOpacity>
           </View>
         )}
 
