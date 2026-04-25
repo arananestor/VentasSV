@@ -211,13 +211,7 @@ export default function HomeScreen({ navigation }) {
               </TouchableOpacity>
             );
           })}
-          <TouchableOpacity
-            style={[styles.tabManageBtn, { borderColor: theme.cardBorder }]}
-            onPress={() => requestPinAction(() => navigation.navigate('ManageTabs'))}
-          >
-            <Feather name="folder-plus" size={14} color={theme.textMuted} />
-            <Text style={[styles.tabManageText, { color: theme.textMuted }]}>Pestañas</Text>
-          </TouchableOpacity>
+          {/* ManageTabs hidden for POS focus lockdown */}
         </ScrollView>
       </View>
       {filteredTabs.length <= 1 && (
