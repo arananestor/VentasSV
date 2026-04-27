@@ -1,4 +1,4 @@
-# Architecture Design: HomeScreen UI Improvements
+# Architecture Design: POSScreen UI Improvements
 
 ## Document Status
 
@@ -11,7 +11,7 @@
 
 ## Problem
 
-HomeScreen has several UI issues that hurt usability and don't meet beta quality standards:
+POSScreen has several UI issues that hurt usability and don't meet beta quality standards:
 1. PIN authorization modal uses a plain text input instead of a numeric dot-based keypad
 2. PIN is requested too frequently — even for non-critical actions by the owner
 3. Header is oversized with "VENTASSV PUNTO DE VENTA" title that wastes vertical space
@@ -61,6 +61,6 @@ PIN should NOT be required for:
 ## Rules
 
 1. All components use ThemeContext — no hardcoded colors
-2. No visual changes to other screens — only HomeScreen and App.js (tab navigator)
+2. No visual changes to other screens — only POSScreen and App.js (tab navigator)
 3. Tests must pass after changes
 4. The app must remain fully functional

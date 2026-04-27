@@ -18,7 +18,7 @@
 
 ## What went wrong
 
-- The AddProductScreen role bug was the same pattern as the HomeScreen bug fixed in PR #13 — should have been caught in the same audit
+- The AddProductScreen role bug was the same pattern as the POSScreen bug fixed in PR #13 — should have been caught in the same audit
 
 ## Lesson
 

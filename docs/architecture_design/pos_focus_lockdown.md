@@ -35,7 +35,7 @@ Agregar pantallas placeholder "PRÓXIMAMENTE" solo en las funciones que no son P
 - Mantener intacto: tarjeta de perfil del dueño, tema, cambiar turno/cerrar sesión, configuración de cobro, catálogos — todo eso es POS
 - El modal de agregar empleado se puede dejar en el código pero sin forma de abrirlo
 
-### 3. Bloquear ManageTabs (src/screens/HomeScreen.js o donde se acceda)
+### 3. Bloquear ManageTabs (src/screens/POSScreen.js o donde se acceda)
 - Encontrar dónde se navega a ManageTabs y reemplazar el botón/acceso con un indicador "PRÓXIMAMENTE" o simplemente ocultar el acceso
 - No borrar ManageTabsScreen ni su ruta en el navigator
 

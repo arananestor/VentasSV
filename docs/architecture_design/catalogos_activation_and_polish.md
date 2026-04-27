@@ -111,6 +111,6 @@ Reescribir el modal de edición de producto en ModeEditorScreen para replicar la
 1. npm test — 0 fallos, tests nuevos pasan.
 2. Manual: en ModeEditorScreen, long-press un producto elaborado → modal muestra: nombre, image mode toggle, ingredientes con colores/iconos, extras con colores/precios, max ingredientes.
 3. Manual: long-press un producto simple → modal muestra: nombre, image mode toggle, precios. NO muestra ingredientes ni extras.
-4. Manual: en el modal, cambiar ícono y color de un ingrediente → guardar → producto actualizado refleja los cambios en toda la app (HomeScreen, OrderBuilder, etc).
+4. Manual: en el modal, cambiar ícono y color de un ingrediente → guardar → producto actualizado refleja los cambios en toda la app (POSScreen, OrderBuilder, etc).
 5. Manual: AddProductScreen sigue funcionando exactamente igual después de mover las constantes al archivo compartido.
 6. grep -rn "const FOOD_ICONS\|const CARD_COLORS\|const INGREDIENT_COLORS" src/ debe devolver matches solo en src/constants/productConstants.js.
