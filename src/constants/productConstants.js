@@ -44,7 +44,16 @@ export const INGREDIENT_COLORS = [
   '#6EE7B7', '#93C5FD', '#C084FC', '#FCA5A5', '#FDBA74',
 ];
 
+// deprecated: use getIconCols(screenWidth) for dynamic column count
 export const ICON_COLS = 6;
 export const MAX_ICON_BTN = 56;
-export const getIconBtnSize = (screenWidth) =>
-  Math.min(MAX_ICON_BTN, Math.floor((screenWidth - 32 - (ICON_COLS - 1) * 8) / ICON_COLS));
+const ICON_MARGIN = 4; // margin per side on each button
+const GRID_PAD = 8; // paddingHorizontal of the icon grid container
+
+export const getIconCols = (screenWidth) =>
+  Math.max(4, Math.floor((screenWidth - GRID_PAD * 2) / (MAX_ICON_BTN + ICON_MARGIN * 2)));
+
+export const getIconBtnSize = (screenWidth) => {
+  const cols = getIconCols(screenWidth);
+  return Math.min(MAX_ICON_BTN, Math.floor((screenWidth - GRID_PAD * 2 - cols * ICON_MARGIN * 2) / cols));
+};

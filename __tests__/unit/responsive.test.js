@@ -1,5 +1,5 @@
 import { computeResponsive, MIN_CARD_WIDTH, MAX_CARD_WIDTH } from '../../src/hooks/useResponsive';
-import { getIconBtnSize, MAX_ICON_BTN } from '../../src/constants/productConstants';
+import { getIconBtnSize, getIconCols, MAX_ICON_BTN } from '../../src/constants/productConstants';
 
 describe('computeResponsive', () => {
   describe('phone small (320x568)', () => {
@@ -201,6 +201,38 @@ describe('computeResponsive', () => {
       // Assert
       expect(size).toBeLessThanOrEqual(MAX_ICON_BTN);
       expect(size).toBeGreaterThan(30);
+    });
+  });
+
+  describe('dynamic icon columns', () => {
+    it('phone (375px) gives 5-6 cols', () => {
+      // Arrange / Act
+      const cols = getIconCols(375);
+      // Assert
+      expect(cols).toBeGreaterThanOrEqual(5);
+      expect(cols).toBeLessThanOrEqual(6);
+    });
+
+    it('landscape (800px) gives more cols than phone', () => {
+      // Arrange / Act
+      const phoneCols = getIconCols(375);
+      const landscapeCols = getIconCols(800);
+      // Assert
+      expect(landscapeCols).toBeGreaterThan(phoneCols);
+    });
+
+    it('always at least 4 cols', () => {
+      // Arrange / Act
+      const cols = getIconCols(200);
+      // Assert
+      expect(cols).toBeGreaterThanOrEqual(4);
+    });
+
+    it('tablet (1200px) gives many cols', () => {
+      // Arrange / Act
+      const cols = getIconCols(1200);
+      // Assert
+      expect(cols).toBeGreaterThanOrEqual(15);
     });
   });
 });

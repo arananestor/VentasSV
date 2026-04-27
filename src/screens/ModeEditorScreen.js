@@ -22,7 +22,7 @@ import { validateModeForm, buildOverridesPatch, reorderTabOrder } from '../utils
 import { appendScheduledActivation, removeScheduledActivation, isScheduleValid } from '../utils/modeScheduling';
 import { formatDateTimeReadable } from '../utils/formatters';
 import { cycleColor } from '../utils/productEditorLogic';
-import { FOOD_ICONS, CARD_COLORS, INGREDIENT_COLORS, ICON_COLS, getIconBtnSize } from '../constants/productConstants';
+import { FOOD_ICONS, CARD_COLORS, INGREDIENT_COLORS, getIconBtnSize, getIconCols } from '../constants/productConstants';
 
 function SwipeRow({ isActive, onToggle, onLongPress, children, theme }) {
   const pan = useRef(new Animated.Value(0)).current;
@@ -62,6 +62,7 @@ export default function ModeEditorScreen({ route, navigation }) {
   const { theme } = useTheme();
   const { width: screenWidth } = useWindowDimensions();
   const ICON_BTN_SIZE = getIconBtnSize(screenWidth);
+  const ICON_COLS_DYN = getIconCols(screenWidth);
 
   const mode = modes.find(m => m.id === modeId);
   const [name, setName] = useState(mode?.name || '');
@@ -540,7 +541,7 @@ export default function ModeEditorScreen({ route, navigation }) {
 
       {/* Icon picker for product */}
       <BottomSheetModal visible={showEditIconPicker} onClose={() => setShowEditIconPicker(false)} title="ÍCONO DEL PRODUCTO">
-        <FlatList data={FOOD_ICONS} numColumns={ICON_COLS} keyExtractor={item => item} contentContainerStyle={{ paddingHorizontal: 8, paddingBottom: 40 }}
+        <FlatList data={FOOD_ICONS} key={ICON_COLS_DYN} numColumns={ICON_COLS_DYN} keyExtractor={item => item} contentContainerStyle={{ paddingHorizontal: 8, paddingBottom: 40 }}
           renderItem={({ item }) => (
             <TouchableOpacity onPress={() => { setEditSelectedIcon(item); setShowEditIconPicker(false); }}
               style={{ width: ICON_BTN_SIZE, height: ICON_BTN_SIZE, borderRadius: 12, alignItems: 'center', justifyContent: 'center', margin: 4, backgroundColor: editSelectedIcon === item ? editIconBgColor : theme.bg, borderWidth: editSelectedIcon === item ? 1.5 : 1, borderColor: editSelectedIcon === item ? editIconBgColor : theme.cardBorder }}>
@@ -551,7 +552,7 @@ export default function ModeEditorScreen({ route, navigation }) {
 
       {/* Icon picker for ingredient */}
       <BottomSheetModal visible={showEditIngIconPicker} onClose={() => { setShowEditIngIconPicker(false); setEditIconTarget(null); }} title="ÍCONO DEL INGREDIENTE">
-        <FlatList data={FOOD_ICONS} numColumns={ICON_COLS} keyExtractor={item => item} contentContainerStyle={{ paddingHorizontal: 8, paddingBottom: 40 }}
+        <FlatList data={FOOD_ICONS} key={ICON_COLS_DYN} numColumns={ICON_COLS_DYN} keyExtractor={item => item} contentContainerStyle={{ paddingHorizontal: 8, paddingBottom: 40 }}
           renderItem={({ item }) => {
             const curColor = editIconTarget !== null ? (editProdIngredients[editIconTarget]?.color || INGREDIENT_COLORS[0]) : theme.accent;
             const curIcon = editIconTarget !== null ? editProdIngredients[editIconTarget]?.icon : null;
