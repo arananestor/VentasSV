@@ -45,5 +45,6 @@ export const INGREDIENT_COLORS = [
 ];
 
 export const ICON_COLS = 6;
+export const MAX_ICON_BTN = 56;
 export const getIconBtnSize = (screenWidth) =>
-  Math.floor((screenWidth - 32 - (ICON_COLS - 1) * 8) / ICON_COLS);
+  Math.min(MAX_ICON_BTN, Math.floor((screenWidth - 32 - (ICON_COLS - 1) * 8) / ICON_COLS));

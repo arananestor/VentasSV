@@ -23,7 +23,7 @@ make dev-clear         # Start with cache cleared
 make tunnel            # Expo with tunnel (restrictive networks)
 
 # Testing
-npm test               # Run all tests (722 tests, 50 suites — must be 0 failures)
+npm test               # Run all tests (727 tests, 50 suites — must be 0 failures)
 npm run test:unit      # Unit tests only (__tests__/unit/)
 npm run test:integration  # Integration tests only (__tests__/integration/)
 npm run test:coverage  # Coverage report (70% threshold)
@@ -70,7 +70,7 @@ make update m='msg'    # OTA update to production
 - Integration tests (`__tests__/integration/`): payment, orders
 - Mocks in `__mocks__/` for AsyncStorage, vector-icons, safe-area-context
 - Coverage threshold: 70% on branches, functions, lines, statements
-- **Rule: 722 tests (minimum), 0 failures before any merge. No exceptions.**
+- **Rule: 727 tests (minimum), 0 failures before any merge. No exceptions.**
 - **AAA Pattern (mandatory):** Every test must follow Arrange-Act-Assert. The Act step must call a real function imported from `src/`. Never reimplement logic in tests. Comments `// Arrange`, `// Act`, `// Assert` are required in every test block.
 
 ## Repository
@@ -153,6 +153,7 @@ Architecture design docs are REQUIRED before starting any major feature. Feature
 - **Reuse estimation requires diff analysis**: Before extracting a component for reuse, count actual consumers at the diff level, not by visual similarity. (Source: PR #10-12 retro — StatusBadge/InfoCard had less reuse than estimated)
 - **CLAUDE.md must be verified on every PR**: Before opening any PR, read CLAUDE.md and update test counts, suite lists, and priority status if they have changed. This file is the primary context source — if it drifts, all future work drifts with it.
 - **Retros must reflect reality**: If a subsequent PR reveals a retro claimed something was fixed but wasn't, the retro must be corrected in that same PR. Retros are living documents, not static snapshots.
+- **Global impact analysis is mandatory**: Before considering any change complete, grep the entire repo for every modified export, constant, function name, or file path. Update ALL consumers. No orphaned references, no runtime crashes from missed imports. This applies to renames, API changes, constant migrations, and any refactor.
 - **Verification logs**: Execution PRs should include temporary `[FASE VERIFY]` console.log blocks (marked `TODO(cleanup-next-pr)`) to confirm infrastructure changes at boot. The PR immediately following must remove them.
 
 ## UI Conventions
