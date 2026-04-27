@@ -525,7 +525,7 @@ export default function AddProductScreen({ navigation }) {
                 return (
                   <TouchableOpacity
                     style={[styles.iconGridBtn,
-                      { backgroundColor: isSelected ? iconBgColor : theme.bg },
+                      { width: ICON_BTN_SIZE, height: ICON_BTN_SIZE, backgroundColor: isSelected ? iconBgColor : theme.bg },
                       isSelected && { borderColor: iconBgColor }]}
                     onPress={() => { setSelectedIcon(item); setShowIconPicker(false); }}
                   >
@@ -555,7 +555,7 @@ export default function AddProductScreen({ navigation }) {
                 return (
                   <TouchableOpacity
                     style={[styles.iconGridBtn,
-                      { backgroundColor: isSelected ? curColor : theme.bg },
+                      { width: ICON_BTN_SIZE, height: ICON_BTN_SIZE, backgroundColor: isSelected ? curColor : theme.bg },
                       isSelected && { borderColor: curColor }]}
                     onPress={() => {
                       if (iconTarget !== null) updateIngredient(iconTarget, 'icon', item);
@@ -737,7 +737,6 @@ const styles = StyleSheet.create({
   bottomBar: { position: 'absolute', bottom: 0, left: 0, right: 0, padding: 16, paddingBottom: 34, borderTopWidth: 1 },
   iconGrid: { paddingHorizontal: 8, paddingBottom: 40 },
   iconGridBtn: {
-    width: ICON_BTN_SIZE, height: ICON_BTN_SIZE,
     borderRadius: 12, alignItems: 'center', justifyContent: 'center', borderWidth: 1.5,
     margin: 4,
   },
