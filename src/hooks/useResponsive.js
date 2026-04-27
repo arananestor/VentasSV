@@ -1,6 +1,7 @@
 import { useWindowDimensions } from 'react-native';
 
 export const MIN_CARD_WIDTH = 155;
+export const MAX_CARD_WIDTH = 220;
 
 export function computeResponsive(width, height) {
   const isTablet = Math.min(width, height) >= 600;
@@ -10,7 +11,8 @@ export function computeResponsive(width, height) {
   const gap = Math.max(10, Math.round(width * 0.03));
 
   const columns = Math.max(2, Math.floor((width - padding * 2 + gap) / (MIN_CARD_WIDTH + gap)));
-  const gridCardSize = (width - padding * 2 - gap * (columns - 1)) / columns;
+  const rawCardSize = (width - padding * 2 - gap * (columns - 1)) / columns;
+  const gridCardSize = Math.min(rawCardSize, MAX_CARD_WIDTH);
 
   const layout = isTablet && isLandscape ? 'split' : 'stack';
 

@@ -1,4 +1,5 @@
-import { computeResponsive, MIN_CARD_WIDTH } from '../../src/hooks/useResponsive';
+import { computeResponsive, MIN_CARD_WIDTH, MAX_CARD_WIDTH } from '../../src/hooks/useResponsive';
+import { getIconBtnSize, MAX_ICON_BTN } from '../../src/constants/productConstants';
 
 describe('computeResponsive', () => {
   describe('phone small (320x568)', () => {
@@ -159,6 +160,47 @@ describe('computeResponsive', () => {
       // Arrange / Act / Assert
       expect(MIN_CARD_WIDTH).toBeGreaterThan(0);
       expect(typeof MIN_CARD_WIDTH).toBe('number');
+    });
+  });
+
+  describe('max size caps', () => {
+    it('gridCardSize never exceeds MAX_CARD_WIDTH', () => {
+      // Arrange / Act
+      const r = computeResponsive(1400, 900);
+      // Assert
+      expect(r.gridCardSize).toBeLessThanOrEqual(MAX_CARD_WIDTH);
+    });
+
+    it('gridCardSize capped when few columns on medium width', () => {
+      // Arrange — width that yields 2 columns with large cards
+      const r = computeResponsive(520, 900);
+      // Act — 2 columns on 520px would give ~240px cards without cap
+      // Assert
+      expect(r.gridCardSize).toBeLessThanOrEqual(MAX_CARD_WIDTH);
+    });
+
+    it('gridCardSize uncapped on phone', () => {
+      // Arrange / Act
+      const r = computeResponsive(375, 667);
+      // Assert
+      expect(r.gridCardSize).toBeLessThan(MAX_CARD_WIDTH);
+    });
+  });
+
+  describe('icon button max cap', () => {
+    it('icon btn capped at MAX_ICON_BTN on wide screen', () => {
+      // Arrange / Act
+      const size = getIconBtnSize(1200);
+      // Assert
+      expect(size).toBeLessThanOrEqual(MAX_ICON_BTN);
+    });
+
+    it('icon btn uncapped on phone', () => {
+      // Arrange / Act
+      const size = getIconBtnSize(375);
+      // Assert
+      expect(size).toBeLessThanOrEqual(MAX_ICON_BTN);
+      expect(size).toBeGreaterThan(30);
     });
   });
 });
