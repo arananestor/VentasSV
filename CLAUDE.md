@@ -130,7 +130,7 @@ docs/feature_retros/       ← retrospectives after each merge
 - After each merge: create `docs/feature_retros/[date]_[name].md`
 - Always read existing docs before starting work
 
-Architecture design docs are REQUIRED before starting any major feature. Feature retros are REQUIRED after every merge to develop. No exceptions.
+Architecture design docs are REQUIRED before starting any major feature. Feature retros are REQUIRED after every merge to develop. No exceptions. Retros are living documents — if a subsequent PR reveals a retro claimed something was fixed but wasn't, the retro must be corrected in that same PR.
 
 ## Development Rules — No Exceptions
 
@@ -152,6 +152,7 @@ Architecture design docs are REQUIRED before starting any major feature. Feature
 - **Role changes require global grep**: Any PR that modifies role logic must include `grep -r "role ===" src/` output in the PR description to verify no orphaned role checks exist. (Source: PRs #13, #16 — `role === 'admin'` bug appeared twice)
 - **Reuse estimation requires diff analysis**: Before extracting a component for reuse, count actual consumers at the diff level, not by visual similarity. (Source: PR #10-12 retro — StatusBadge/InfoCard had less reuse than estimated)
 - **CLAUDE.md must be verified on every PR**: Before opening any PR, read CLAUDE.md and update test counts, suite lists, and priority status if they have changed. This file is the primary context source — if it drifts, all future work drifts with it.
+- **Retros must reflect reality**: If a subsequent PR reveals a retro claimed something was fixed but wasn't, the retro must be corrected in that same PR. Retros are living documents, not static snapshots.
 - **Verification logs**: Execution PRs should include temporary `[FASE VERIFY]` console.log blocks (marked `TODO(cleanup-next-pr)`) to confirm infrastructure changes at boot. The PR immediately following must remove them.
 
 ## UI Conventions

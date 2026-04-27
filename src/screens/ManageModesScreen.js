@@ -122,8 +122,8 @@ export default function ManageModesScreen({ navigation }) {
                   return w.photo ? (
                     <Image key={w.id} source={{ uri: w.photo }} style={styles.workerBubble} />
                   ) : (
-                    <View key={w.id} style={[styles.workerBubble, { backgroundColor: w.color || theme.accent, alignItems: 'center', justifyContent: 'center' }]}>
-                      <Text style={styles.workerInitial}>{w.name?.charAt(0)?.toUpperCase()}</Text>
+                    <View key={w.id} style={[styles.workerBubble, { backgroundColor: w.role === 'owner' ? theme.accent : (w.color || '#1C1C1E'), alignItems: 'center', justifyContent: 'center' }]}>
+                      <Text style={[styles.workerInitial, { color: w.role === 'owner' ? theme.accentText : '#fff' }]}>{w.name?.charAt(0)?.toUpperCase()}</Text>
                     </View>
                   );
                 })}
