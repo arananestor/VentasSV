@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import {
   View, Text, TouchableOpacity, ScrollView, StyleSheet, Image, TextInput, Modal, FlatList,
-  KeyboardAvoidingView, Platform, Animated, PanResponder, LayoutAnimation,
+  KeyboardAvoidingView, Platform, Animated, PanResponder, LayoutAnimation, useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
@@ -22,7 +22,7 @@ import { validateModeForm, buildOverridesPatch, reorderTabOrder } from '../utils
 import { appendScheduledActivation, removeScheduledActivation, isScheduleValid } from '../utils/modeScheduling';
 import { formatDateTimeReadable } from '../utils/formatters';
 import { cycleColor } from '../utils/productEditorLogic';
-import { FOOD_ICONS, CARD_COLORS, INGREDIENT_COLORS, ICON_COLS, ICON_BTN_SIZE } from '../constants/productConstants';
+import { FOOD_ICONS, CARD_COLORS, INGREDIENT_COLORS, ICON_COLS, getIconBtnSize } from '../constants/productConstants';
 
 function SwipeRow({ isActive, onToggle, onLongPress, children, theme }) {
   const pan = useRef(new Animated.Value(0)).current;
@@ -60,6 +60,8 @@ export default function ModeEditorScreen({ route, navigation }) {
   const { workers } = useAuth();
   const { tabs } = useTab();
   const { theme } = useTheme();
+  const { width: screenWidth } = useWindowDimensions();
+  const ICON_BTN_SIZE = getIconBtnSize(screenWidth);
 
   const mode = modes.find(m => m.id === modeId);
   const [name, setName] = useState(mode?.name || '');
