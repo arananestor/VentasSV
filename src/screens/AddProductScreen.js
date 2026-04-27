@@ -14,7 +14,7 @@ import { useTab } from '../context/TabContext';
 import ScreenHeader from '../components/ScreenHeader';
 import PrimaryButton from '../components/PrimaryButton';
 import BottomSheetModal from '../components/BottomSheetModal';
-import { FOOD_ICONS, CARD_COLORS, INGREDIENT_COLORS, ICON_COLS, getIconBtnSize } from '../constants/productConstants';
+import { FOOD_ICONS, CARD_COLORS, INGREDIENT_COLORS, getIconBtnSize, getIconCols } from '../constants/productConstants';
 
 export default function AddProductScreen({ navigation }) {
   const { addProduct } = useApp();
@@ -22,6 +22,7 @@ export default function AddProductScreen({ navigation }) {
   const { theme } = useTheme();
   const { width: screenWidth } = useWindowDimensions();
   const ICON_BTN_SIZE = getIconBtnSize(screenWidth);
+  const ICON_COLS_DYN = getIconCols(screenWidth);
   const { tabs, activeTabId, addProductToMultipleTabs } = useTab();
 
   // Tipo de producto
@@ -516,7 +517,8 @@ export default function AddProductScreen({ navigation }) {
       >
             <FlatList
               data={FOOD_ICONS}
-              numColumns={6}
+              key={ICON_COLS_DYN}
+              numColumns={ICON_COLS_DYN}
               keyExtractor={item => item}
               contentContainerStyle={styles.iconGrid}
               showsVerticalScrollIndicator={false}
@@ -544,7 +546,8 @@ export default function AddProductScreen({ navigation }) {
       >
             <FlatList
               data={FOOD_ICONS}
-              numColumns={6}
+              key={ICON_COLS_DYN}
+              numColumns={ICON_COLS_DYN}
               keyExtractor={item => item}
               contentContainerStyle={styles.iconGrid}
               showsVerticalScrollIndicator={false}
