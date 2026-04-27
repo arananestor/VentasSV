@@ -304,8 +304,8 @@ export default function ModeEditorScreen({ route, navigation }) {
               <SwipeRow key={w.id} isActive={assigned} onToggle={() => toggleWorker(w.id)} theme={theme}>
                 <View style={[styles.statusDot, { backgroundColor: assigned ? '#30D158' : '#D1D1D6' }]} />
                 {w.photo ? <Image source={{ uri: w.photo }} style={styles.workerBubble} />
-                  : <View style={[styles.workerBubble, { backgroundColor: w.color || theme.accent, alignItems: 'center', justifyContent: 'center' }]}>
-                      <Text style={styles.workerInitial}>{w.name?.charAt(0)?.toUpperCase()}</Text>
+                  : <View style={[styles.workerBubble, { backgroundColor: w.role === 'owner' ? theme.accent : (w.color || '#1C1C1E'), alignItems: 'center', justifyContent: 'center' }]}>
+                      <Text style={[styles.workerInitial, { color: w.role === 'owner' ? theme.accentText : '#fff' }]}>{w.name?.charAt(0)?.toUpperCase()}</Text>
                     </View>}
                 <Text style={[styles.workerName, { color: theme.text }]}>{w.name}</Text>
               </SwipeRow>
