@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
   View, Text, TouchableOpacity, ScrollView, StyleSheet,
-  Dimensions, Image, StatusBar, Alert, Modal,
+  Image, StatusBar, Alert, Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
@@ -13,13 +13,9 @@ import { useTab } from '../context/TabContext';
 import ProductSticker from '../components/ProductSticker';
 import PinKeypadModal from '../components/PinKeypadModal';
 import { resolveVisibleProducts, resolveProductPrice, resolveTabOrder } from '../utils/modeResolution';
+import useResponsive from '../hooks/useResponsive';
 
-const { width } = Dimensions.get('window');
-const CARD_GAP = 12;
-const PADDING = 16;
-const CARD_SIZE = (width - (PADDING * 2) - CARD_GAP) / 2;
-
-export default function HomeScreen({ navigation }) {
+export default function POSScreen({ navigation }) {
   const {
     products, deleteProduct,
     cart, addToCart, removeFromCart, clearCart, cartTotal, cartCount,
@@ -27,6 +23,7 @@ export default function HomeScreen({ navigation }) {
   } = useApp();
   const { currentWorker, verifyOwnerPin } = useAuth();
   const { theme } = useTheme();
+  const { columns, gridCardSize: CARD_SIZE, padding: PADDING, gap: CARD_GAP } = useResponsive();
   const {
     tabs, activeTabId, getActiveTab, getFilteredTabs,
     selectTab, removeProductFromTab, removeProductFromAllTabs,
@@ -150,7 +147,7 @@ export default function HomeScreen({ navigation }) {
     <SafeAreaView style={[styles.container, { backgroundColor: theme.bg }]}>
       <StatusBar barStyle={theme.statusBar} backgroundColor={theme.bg} />
 
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingHorizontal: PADDING }]}>
         <View style={styles.headerLeft}>
           <View style={[styles.statusDot, { backgroundColor: theme.success }]} />
           <Text style={[styles.workerName, { color: theme.text }]} numberOfLines={1}>
@@ -177,7 +174,7 @@ export default function HomeScreen({ navigation }) {
       {/* <View style={styles.filterRow}>...</View> */}
 
       {currentMode && (
-        <View style={[styles.modeIndicator, { borderColor: theme.cardBorder }]}>
+        <View style={[styles.modeIndicator, { borderColor: theme.cardBorder, marginLeft: PADDING }]}>
           <Feather name="layers" size={12} color={theme.textMuted} />
           <Text style={[styles.modeIndicatorText, { color: theme.textMuted }]}>
             Catálogo: {currentMode.name}
@@ -220,19 +217,19 @@ export default function HomeScreen({ navigation }) {
         </Text>
       )}
 
-      <ScrollView contentContainerStyle={styles.grid} showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={{ flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: PADDING, gap: CARD_GAP, paddingTop: 4 }} showsVerticalScrollIndicator={false}>
         {tabProducts.map((product) => (
-          <View key={product.id} style={styles.cardWrapper}>
+          <View key={product.id} style={{ width: CARD_SIZE, position: 'relative' }}>
             <TouchableOpacity
-              style={[styles.productCard, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}
+              style={[{ width: '100%', height: CARD_SIZE * 1.05, borderRadius: 18, borderWidth: 1, overflow: 'hidden' }, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}
               activeOpacity={0.8}
               onPress={() => handleProductTap(product)}
             >
               <View style={styles.cardInner}>
                 {product.customImage ? (
-                  <Image source={{ uri: product.customImage }} style={styles.productImage} />
+                  <Image source={{ uri: product.customImage }} style={{ width: CARD_SIZE * 0.45, height: CARD_SIZE * 0.45, borderRadius: 14, resizeMode: 'cover' }} />
                 ) : product.iconName ? (
-                  <View style={[styles.iconBgCircle, { backgroundColor: product.iconBgColor || '#000' }]}>
+                  <View style={[{ width: CARD_SIZE * 0.62, height: CARD_SIZE * 0.62, borderRadius: CARD_SIZE * 0.18, alignItems: 'center', justifyContent: 'center' }, { backgroundColor: product.iconBgColor || '#000' }]}>
                     <MaterialCommunityIcons name={product.iconName} size={CARD_SIZE * 0.32} color="#fff" />
                   </View>
                 ) : (
@@ -448,7 +445,7 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   header: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    paddingHorizontal: PADDING, paddingTop: 12, paddingBottom: 10,
+    paddingTop: 12, paddingBottom: 10,
   },
   headerLeft: { flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 },
   statusDot: { width: 10, height: 10, borderRadius: 5 },
@@ -461,12 +458,12 @@ const styles = StyleSheet.create({
   editBtnText: { fontSize: 13, fontWeight: '700' },
   modeIndicator: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
-    alignSelf: 'flex-start', marginLeft: PADDING, marginBottom: 6,
+    alignSelf: 'flex-start', marginBottom: 6,
     borderWidth: 1, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4,
   },
   modeIndicatorText: { fontSize: 11, fontWeight: '600' },
   tabBarWrapper: { height: 48, marginBottom: 6 },
-  tabBar: { paddingHorizontal: PADDING, alignItems: 'center', gap: 8 },
+  tabBar: { paddingHorizontal: 16, alignItems: 'center', gap: 8 },
   tabPill: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
     height: 40, paddingHorizontal: 16, borderRadius: 20, borderWidth: 1.5,
@@ -485,19 +482,10 @@ const styles = StyleSheet.create({
   tabManageText: { fontSize: 12, fontWeight: '700' },
   tabHint: {
     fontSize: 12, fontWeight: '500', textAlign: 'center',
-    paddingHorizontal: PADDING, marginBottom: 6, marginTop: -2,
-  },
-  grid: {
-    flexDirection: 'row', flexWrap: 'wrap',
-    paddingHorizontal: PADDING, gap: CARD_GAP, paddingTop: 4,
-  },
-  cardWrapper: { width: CARD_SIZE, position: 'relative' },
-  productCard: {
-    width: '100%', height: CARD_SIZE * 1.05,
-    borderRadius: 18, borderWidth: 1, overflow: 'hidden',
+    paddingHorizontal: 16, marginBottom: 6, marginTop: -2,
   },
   cardInner: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingTop: 12 },
-  productImage: { width: CARD_SIZE * 0.45, height: CARD_SIZE * 0.45, borderRadius: 14, resizeMode: 'cover' },
+  // productImage moved inline for dynamic CARD_SIZE
   cardBottom: { width: '100%', paddingHorizontal: 12, paddingVertical: 8, marginTop: 'auto' },
   productName: { fontSize: 11, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 1 },
   productPrice: { fontSize: 18, fontWeight: '900', marginTop: 2 },
@@ -506,10 +494,7 @@ const styles = StyleSheet.create({
     borderRadius: 18, alignItems: 'center', justifyContent: 'center', gap: 6, zIndex: 10,
   },
   deleteText: { color: '#FFF', fontSize: 12, fontWeight: '800', letterSpacing: 1 },
-  iconBgCircle: {
-    width: CARD_SIZE * 0.62, height: CARD_SIZE * 0.62,
-    borderRadius: CARD_SIZE * 0.18, alignItems: 'center', justifyContent: 'center',
-  },
+  // iconBgCircle moved inline for dynamic CARD_SIZE
   cartFab: {
     position: 'absolute', bottom: 24, left: 20, right: 20,
     borderRadius: 18, paddingVertical: 16, paddingHorizontal: 20,
