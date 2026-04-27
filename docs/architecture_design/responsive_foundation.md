@@ -13,7 +13,7 @@
 
 Toda la app usa Dimensions.get('window') estático que se calcula una vez y nunca se actualiza. Esto no responde a cambios de orientación ni adapta el layout para tablets. La app se va a usar en teléfonos chicos, medianos, grandes (con y sin notch/cámara frontal), tablets, en vertical y horizontal. Necesitamos infraestructura responsive antes de refactorear pantallas individuales.
 
-Archivos afectados actualmente: HomeScreen.js, OrderBuilderScreen.js, SelectWorkerScreen.js, CenterModal.js, productConstants.js — todos usan Dimensions.get estático. Solo OrdersScreen.js usa useWindowDimensions.
+Archivos afectados actualmente: POSScreen.js, OrderBuilderScreen.js, SelectWorkerScreen.js, CenterModal.js, productConstants.js — todos usan Dimensions.get estático. Solo OrdersScreen.js usa useWindowDimensions.
 
 ---
 
@@ -56,7 +56,7 @@ Hook simple que escucha cambios de orientación y fuerza re-render. Usa useWindo
 
 Nota: Si useResponsive ya cubre orientación, este hook puede no ser necesario como archivo separado. Evaluar durante implementación.
 
-### 3. Migrar HomeScreen.js como primera pantalla de prueba
+### 3. Migrar POSScreen.js como primera pantalla de prueba
 
 - Reemplazar `const { width } = Dimensions.get('window')` con useResponsive
 - CARD_SIZE, CARD_GAP, PADDING pasan a ser dinámicos desde el hook

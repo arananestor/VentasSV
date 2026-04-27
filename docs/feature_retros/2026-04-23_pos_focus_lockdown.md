@@ -11,7 +11,7 @@ Bloqueo visual de funciones no-POS: tab Comandas muestra placeholder, sección E
 
 - **App.js** — componente ComandasPlaceholder con ícono + "PRÓXIMAMENTE". Tab Comandas apunta a ese componente en vez de OrdersScreen. Import de OrdersScreen preservado.
 - **ProfileScreen.js** — sección EQUIPO (worker cards + agregar empleado) reemplazada por card con ícono users + "PRÓXIMAMENTE". Estados y modales de workers permanecen en el código.
-- **HomeScreen.js** — botón "Pestañas" (ManageTabs) comentado. Ruta ManageTabs permanece en el navigator.
+- **POSScreen.js** — botón "Pestañas" (ManageTabs) comentado. Ruta ManageTabs permanece en el navigator.
 
 ## Qué funcionó
 

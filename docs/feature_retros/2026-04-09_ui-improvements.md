@@ -1,4 +1,4 @@
-# Feature Retro: HomeScreen UI Improvements
+# Feature Retro: POSScreen UI Improvements
 
 - **Date:** 2026-04-09
 - **PR:** #15
@@ -21,7 +21,7 @@
 
 ## What went wrong
 
-- Nothing significant — all changes were isolated to HomeScreen and App.js as planned
+- Nothing significant — all changes were isolated to POSScreen and App.js as planned
 
 ## Lesson
 

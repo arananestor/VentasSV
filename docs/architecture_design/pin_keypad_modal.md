@@ -11,7 +11,7 @@
 
 ## Problem
 
-The PIN authorization modal with 4 dots + numeric keypad + shake animation exists inline in HomeScreen (lines 467-520, ~53 lines of JSX + ~50 lines of state/logic). ProfileScreen has state variables for a PIN modal (showOwnerPin, ownerPinInput, ownerPinError, pendingAdminAction) but the modal JSX was never connected — requireOwnerPin sets showOwnerPin to true but no CenterModal renders for it. This means admin actions in ProfileScreen that require PIN verification silently fail for non-owner users.
+The PIN authorization modal with 4 dots + numeric keypad + shake animation exists inline in POSScreen (lines 467-520, ~53 lines of JSX + ~50 lines of state/logic). ProfileScreen has state variables for a PIN modal (showOwnerPin, ownerPinInput, ownerPinError, pendingAdminAction) but the modal JSX was never connected — requireOwnerPin sets showOwnerPin to true but no CenterModal renders for it. This means admin actions in ProfileScreen that require PIN verification silently fail for non-owner users.
 
 Future screens (cash register close, role interfaces) will also need PIN authorization modals.
 
@@ -19,7 +19,7 @@ Future screens (cash register close, role interfaces) will also need PIN authori
 
 ## Solution
 
-Extract the PIN keypad modal pattern from HomeScreen into a reusable PinKeypadModal component. Replace HomeScreen's inline implementation. Connect ProfileScreen's existing requireOwnerPin logic to the new component.
+Extract the PIN keypad modal pattern from POSScreen into a reusable PinKeypadModal component. Replace POSScreen's inline implementation. Connect ProfileScreen's existing requireOwnerPin logic to the new component.
 
 ---
 
@@ -35,7 +35,7 @@ Extract the PIN keypad modal pattern from HomeScreen into a reusable PinKeypadMo
 - Cancel button at bottom calls onClose
 - Uses ThemeContext for all colors
 
-### 2. Update src/screens/HomeScreen.js
+### 2. Update src/screens/POSScreen.js
 - Remove inline PIN modal JSX (lines 467-520)
 - Remove PIN-related state: adminPin, adminPinError, shakeAnim
 - Remove handlePinPress, handlePinDelete, shakePin, closeAdminPin functions
@@ -56,7 +56,7 @@ Extract the PIN keypad modal pattern from HomeScreen into a reusable PinKeypadMo
 
 1. PinKeypadModal manages its own pin/error/shake state internally — consumers only pass visible, onClose, onVerify
 2. PIN is always exactly 4 digits — this is hardcoded in the component, not configurable
-3. The component must look identical to the current HomeScreen implementation
+3. The component must look identical to the current POSScreen implementation
 4. All colors from ThemeContext, no hardcoded values
 5. Tests must pass with 0 failures
 
@@ -64,7 +64,7 @@ Extract the PIN keypad modal pattern from HomeScreen into a reusable PinKeypadMo
 
 ## Verification
 
-1. HomeScreen admin PIN modal looks and behaves exactly as before
+1. POSScreen admin PIN modal looks and behaves exactly as before
 2. ProfileScreen admin actions (for non-owner users) now show the PIN keypad modal
 3. Shake animation fires on wrong PIN in both screens
 4. Correct PIN executes the pending action in both screens

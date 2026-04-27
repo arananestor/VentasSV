@@ -263,7 +263,7 @@ describe('PinKeypadModal verification', () => {
 
 describe('PinKeypadModal consumers', () => {
 
-  describe('HomeScreen — verifyOwnerPin', () => {
+  describe('POSScreen — verifyOwnerPin', () => {
     it('PIN correcto permite ejecutar pendingAction', () => {
       // Arrange
       let actionExecuted = false;

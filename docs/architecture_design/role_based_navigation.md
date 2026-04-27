@@ -85,7 +85,7 @@ All tests MUST follow AAA pattern (Arrange-Act-Assert with comments). Test cases
 
 ## Rules
 
-- Do NOT change any screen logic (HomeScreen, SalesScreen, etc.) — this PR only filters which tabs render
+- Do NOT change any screen logic (POSScreen, SalesScreen, etc.) — this PR only filters which tabs render
 - Do NOT create new screens or modify existing screen components
 - Owner and co-admin must see EXACTLY the same tabs they see today (all 4)
 - Perfil tab ALWAYS renders for every role — it's the escape hatch (logout/switch shift)

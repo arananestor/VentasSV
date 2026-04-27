@@ -30,5 +30,5 @@ Infraestructura invisible para Modos de operación. El cajero no ve cambios. Int
 ## Notas para el siguiente PR
 
 - feature/modos-cajero-ui debe empezar borrando los logs [MODOS-F1 VERIFY].
-- HomeScreen debe filtrar productos por productOverrides.active del currentMode.
+- POSScreen debe filtrar productos por productOverrides.active del currentMode.
 - OrderBuilder debe leer priceOverride cuando exista.

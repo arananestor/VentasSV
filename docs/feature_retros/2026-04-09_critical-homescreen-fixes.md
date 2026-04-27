@@ -1,4 +1,4 @@
-# Feature Retro: Critical HomeScreen Fixes
+# Feature Retro: Critical POSScreen Fixes
 
 - **Date:** 2026-04-09
 - **PR:** #13
@@ -17,7 +17,7 @@
 
 ## What went wrong
 
-- The `role === 'admin'` bug has been in the codebase since the initial HomeScreen implementation and was never caught because there were no tests for requestAdminAction logic
+- The `role === 'admin'` bug has been in the codebase since the initial POSScreen implementation and was never caught because there were no tests for requestAdminAction logic
 - The Sales button was likely a leftover from before the bottom tab navigation was set up
 
 ## Lesson
