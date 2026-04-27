@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
   View, Text, TouchableOpacity, TextInput, ScrollView,
-  StyleSheet, Alert, Image, Modal, FlatList, Dimensions,
+  StyleSheet, Alert, Image, Modal, FlatList, useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
@@ -14,12 +14,14 @@ import { useTab } from '../context/TabContext';
 import ScreenHeader from '../components/ScreenHeader';
 import PrimaryButton from '../components/PrimaryButton';
 import BottomSheetModal from '../components/BottomSheetModal';
-import { FOOD_ICONS, CARD_COLORS, INGREDIENT_COLORS, ICON_COLS, ICON_BTN_SIZE } from '../constants/productConstants';
+import { FOOD_ICONS, CARD_COLORS, INGREDIENT_COLORS, ICON_COLS, getIconBtnSize } from '../constants/productConstants';
 
 export default function AddProductScreen({ navigation }) {
   const { addProduct } = useApp();
   const { currentWorker } = useAuth();
   const { theme } = useTheme();
+  const { width: screenWidth } = useWindowDimensions();
+  const ICON_BTN_SIZE = getIconBtnSize(screenWidth);
   const { tabs, activeTabId, addProductToMultipleTabs } = useTab();
 
   // Tipo de producto

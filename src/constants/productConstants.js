@@ -1,5 +1,3 @@
-import { Dimensions } from 'react-native';
-
 export const FOOD_ICONS = [
   'food', 'food-outline', 'food-variant', 'food-fork-drink',
   'food-apple', 'food-apple-outline', 'food-croissant',
@@ -46,6 +44,6 @@ export const INGREDIENT_COLORS = [
   '#6EE7B7', '#93C5FD', '#C084FC', '#FCA5A5', '#FDBA74',
 ];
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
 export const ICON_COLS = 6;
-export const ICON_BTN_SIZE = Math.floor((SCREEN_WIDTH - 32 - (ICON_COLS - 1) * 8) / ICON_COLS);
+export const getIconBtnSize = (screenWidth) =>
+  Math.floor((screenWidth - 32 - (ICON_COLS - 1) * 8) / ICON_COLS);
