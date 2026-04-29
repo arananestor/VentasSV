@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
   View, Text, TouchableOpacity, ScrollView, StyleSheet,
-  Image, StatusBar, Alert, Modal,
+  Image, StatusBar, Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
@@ -11,29 +11,23 @@ import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { useTab } from '../context/TabContext';
 import ProductSticker from '../components/ProductSticker';
-import PinKeypadModal from '../components/PinKeypadModal';
 import { resolveVisibleProducts, resolveProductPrice, resolveTabOrder } from '../utils/modeResolution';
 import useResponsive from '../hooks/useResponsive';
 
 export default function POSScreen({ navigation }) {
   const {
-    products, deleteProduct,
+    products,
     cart, addToCart, removeFromCart, clearCart, cartTotal, cartCount,
     currentMode,
   } = useApp();
-  const { currentWorker, verifyOwnerPin } = useAuth();
+  const { currentWorker } = useAuth();
   const { theme } = useTheme();
   const { columns, gridCardSize: CARD_SIZE, padding: PADDING, gap: CARD_GAP } = useResponsive();
   const {
     tabs, activeTabId, getActiveTab, getFilteredTabs,
-    selectTab, removeProductFromTab, removeProductFromAllTabs,
+    selectTab,
   } = useTab();
 
-  const [showAdminPin, setShowAdminPin] = useState(false);
-  const [pendingAction, setPendingAction] = useState(null);
-  const [editMode, setEditMode] = useState(false);
-
-  const isAdminUser = currentWorker?.role === 'owner' || currentWorker?.role === 'co-admin';
   const [showCart, setShowCart] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [showSimpleModal, setShowSimpleModal] = useState(false);
@@ -48,23 +42,7 @@ export default function POSScreen({ navigation }) {
     ? activeProducts
     : activeProducts.filter(p => activeTab.productIds.includes(p.id));
 
-  const requestPinAction = (action) => {
-    setPendingAction(() => action);
-    setShowAdminPin(true);
-  };
-
-  const handlePinVerified = () => {
-    if (pendingAction) pendingAction();
-    setPendingAction(null);
-  };
-
-  const closeAdminPin = () => {
-    setShowAdminPin(false);
-    setPendingAction(null);
-  };
-
   const handleProductTap = (product) => {
-    if (editMode) return;
     const isElaborado = product.type === 'elaborado' ||
       (product.ingredients?.length > 0) ||
       (product.flavors?.length > 0);
@@ -112,31 +90,6 @@ export default function POSScreen({ navigation }) {
     : 0;
   const simpleHasItems = Object.values(sizeQuantities).some(q => q > 0);
 
-  const handleDeleteProduct = (product) => {
-    if (activeTab.id !== 'default') {
-      Alert.alert(product.name, '¿Qué querés hacer?', [
-        { text: 'Cancelar', style: 'cancel' },
-        { text: 'Quitar de aquí', onPress: () => removeProductFromTab(activeTab.id, product.id) },
-        { text: 'Eliminar de todo', style: 'destructive', onPress: async () => {
-          await removeProductFromAllTabs(product.id); await deleteProduct(product.id);
-        }},
-      ]);
-    } else {
-      Alert.alert(product.name, '¿Eliminar este producto?', [
-        { text: 'No', style: 'cancel' },
-        { text: 'Eliminar', style: 'destructive', onPress: async () => {
-          await removeProductFromAllTabs(product.id); await deleteProduct(product.id);
-        }},
-      ]);
-    }
-  };
-
-  const toggleEditMode = () => {
-    if (editMode) setEditMode(false);
-    else if (isAdminUser) setEditMode(true);
-    else requestPinAction(() => setEditMode(true));
-  };
-
   const handleCheckout = () => {
     if (cart.length === 0) return;
     setShowCart(false);
@@ -153,20 +106,6 @@ export default function POSScreen({ navigation }) {
           <Text style={[styles.workerName, { color: theme.text }]} numberOfLines={1}>
             {currentWorker?.name}
           </Text>
-        </View>
-        <View style={styles.headerRight}>
-          <TouchableOpacity
-            style={[styles.editBtn, {
-              backgroundColor: editMode ? theme.accent : theme.card,
-              borderColor: editMode ? theme.accent : theme.cardBorder,
-            }]}
-            onPress={toggleEditMode}
-          >
-            {editMode
-              ? <Text style={[styles.editBtnText, { color: theme.accentText }]}>Listo</Text>
-              : <Feather name="edit-2" size={16} color={theme.textMuted} />
-            }
-          </TouchableOpacity>
         </View>
       </View>
 
@@ -245,15 +184,6 @@ export default function POSScreen({ navigation }) {
                 </View>
               </View>
             </TouchableOpacity>
-            {editMode && (
-              <TouchableOpacity
-                style={[styles.deleteOverlay, { backgroundColor: 'rgba(255,59,48,0.9)' }]}
-                onPress={() => handleDeleteProduct(product)}
-              >
-                <Feather name="trash-2" size={22} color="#fff" />
-                <Text style={styles.deleteText}>Eliminar</Text>
-              </TouchableOpacity>
-            )}
           </View>
         ))}
 
@@ -429,14 +359,6 @@ export default function POSScreen({ navigation }) {
         </TouchableOpacity>
       </Modal>
 
-      <PinKeypadModal
-        visible={showAdminPin}
-        onClose={closeAdminPin}
-        onVerify={(pin) => {
-          if (verifyOwnerPin(pin)) { handlePinVerified(); return true; }
-          return false;
-        }}
-      />
     </SafeAreaView>
   );
 }
@@ -450,12 +372,6 @@ const styles = StyleSheet.create({
   headerLeft: { flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 },
   statusDot: { width: 10, height: 10, borderRadius: 5 },
   workerName: { fontSize: 17, fontWeight: '800' },
-  headerRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  editBtn: {
-    height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center',
-    borderWidth: 1, paddingHorizontal: 14,
-  },
-  editBtnText: { fontSize: 13, fontWeight: '700' },
   modeIndicator: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
     alignSelf: 'flex-start', marginBottom: 6,
@@ -489,11 +405,6 @@ const styles = StyleSheet.create({
   cardBottom: { width: '100%', paddingHorizontal: 12, paddingVertical: 8, marginTop: 'auto' },
   productName: { fontSize: 11, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 1 },
   productPrice: { fontSize: 18, fontWeight: '900', marginTop: 2 },
-  deleteOverlay: {
-    position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
-    borderRadius: 18, alignItems: 'center', justifyContent: 'center', gap: 6, zIndex: 10,
-  },
-  deleteText: { color: '#FFF', fontSize: 12, fontWeight: '800', letterSpacing: 1 },
   // iconBgCircle moved inline for dynamic CARD_SIZE
   cartFab: {
     position: 'absolute', bottom: 24, left: 20, right: 20,
