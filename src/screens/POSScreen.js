@@ -11,6 +11,7 @@ import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { useTab } from '../context/TabContext';
 import ProductSticker from '../components/ProductSticker';
+import CartSheet from '../components/CartSheet';
 import { resolveVisibleProducts, resolveProductPrice, resolveTabOrder } from '../utils/modeResolution';
 import useResponsive from '../hooks/useResponsive';
 
@@ -207,80 +208,16 @@ export default function POSScreen({ navigation }) {
         </TouchableOpacity>
       )}
 
-      {/* MODAL CARRITO */}
-      <Modal visible={showCart} transparent animationType="slide">
-        <TouchableOpacity style={[styles.cartOverlay, { backgroundColor: 'rgba(0,0,0,0.6)' }]} activeOpacity={1} onPress={() => setShowCart(false)}>
-          <TouchableOpacity style={[styles.cartSheet, { backgroundColor: theme.bg }]} activeOpacity={1} onPress={() => {}}>
-            <View style={[styles.cartHandle, { backgroundColor: theme.cardBorder }]} />
-            <View style={styles.cartHeader}>
-              <Text style={[styles.cartTitle, { color: theme.text }]}>PEDIDO ACTUAL</Text>
-              <TouchableOpacity onPress={() => setShowCart(false)}>
-                <Feather name="x" size={22} color={theme.textMuted} />
-              </TouchableOpacity>
-            </View>
-            <ScrollView style={styles.cartList} showsVerticalScrollIndicator={false}>
-              {cart.map((item) => (
-                <View key={item.cartId} style={[styles.cartItem, { borderColor: theme.cardBorder }]}>
-                  <View style={styles.cartItemLeft}>
-                    {item.product.iconName ? (
-                      <View style={[styles.cartItemIcon, { backgroundColor: item.product.iconBgColor || '#000' }]}>
-                        <MaterialCommunityIcons name={item.product.iconName} size={18} color="#fff" />
-                      </View>
-                    ) : (
-                      <View style={[styles.cartItemIcon, { backgroundColor: theme.card }]}>
-                        <Feather name="package" size={16} color={theme.textMuted} />
-                      </View>
-                    )}
-                    <View style={{ flex: 1 }}>
-                      <Text style={[styles.cartItemName, { color: theme.text }]}>{item.product.name}</Text>
-                      <Text style={[styles.cartItemDetail, { color: theme.textMuted }]}>
-                        {item.size?.name} · {item.quantity}x
-                        {item.units?.length > 0 ? ` · ${item.units.length} uds` : ''}
-                      </Text>
-                      {item.note ? (
-                        <Text style={[styles.cartItemNote, { color: theme.textMuted }]}>📝 {item.note}</Text>
-                      ) : null}
-                      {item.units?.length > 0 && item.units[0]?.ingredients?.length > 0 && (
-                        <View style={styles.cartIngredientDots}>
-                          {item.units.flatMap(u => u.ingredients || []).slice(0, 8).map((ing, i) => (
-                            <View key={i} style={[styles.cartIngDot, { backgroundColor: ing.color || '#888' }]} />
-                          ))}
-                        </View>
-                      )}
-                    </View>
-                  </View>
-                  <View style={styles.cartItemRight}>
-                    <Text style={[styles.cartItemPrice, { color: theme.text }]}>${item.total.toFixed(2)}</Text>
-                    <TouchableOpacity onPress={() => removeFromCart(item.cartId)}>
-                      <Feather name="trash-2" size={16} color={theme.textMuted} />
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              ))}
-            </ScrollView>
-            <View style={[styles.cartFooter, { borderTopColor: theme.cardBorder }]}>
-              <View style={styles.cartTotalRow}>
-                <Text style={[styles.cartTotalLabel, { color: theme.textMuted }]}>TOTAL</Text>
-                <Text style={[styles.cartTotalAmount, { color: theme.text }]}>${cartTotal.toFixed(2)}</Text>
-              </View>
-              <View style={styles.cartActions}>
-                <TouchableOpacity
-                  style={[styles.cartClearBtn, { borderColor: theme.cardBorder }]}
-                  onPress={() => { clearCart(); setShowCart(false); }}
-                >
-                  <Text style={[styles.cartClearText, { color: theme.textMuted }]}>Vaciar</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.cartCheckoutBtn, { backgroundColor: theme.accent, flex: 1 }]}
-                  onPress={handleCheckout}
-                >
-                  <Text style={[styles.cartCheckoutText, { color: theme.accentText }]}>COBRAR</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          </TouchableOpacity>
-        </TouchableOpacity>
-      </Modal>
+      <CartSheet
+        visible={showCart}
+        onClose={() => setShowCart(false)}
+        cart={cart}
+        cartTotal={cartTotal}
+        onRemoveItem={removeFromCart}
+        onClearCart={() => { clearCart(); setShowCart(false); }}
+        onCheckout={handleCheckout}
+        theme={theme}
+      />
 
       {/* MODAL PRODUCTO SIMPLE */}
       <Modal visible={showSimpleModal} transparent animationType="fade">
@@ -418,37 +355,6 @@ const styles = StyleSheet.create({
   cartBadgeText: { color: '#fff', fontSize: 13, fontWeight: '900' },
   cartFabLabel: { fontSize: 15, fontWeight: '800' },
   cartFabTotal: { fontSize: 18, fontWeight: '900' },
-  cartOverlay: { flex: 1, justifyContent: 'flex-end' },
-  cartSheet: { borderTopLeftRadius: 28, borderTopRightRadius: 28, maxHeight: '85%' },
-  cartHandle: { width: 40, height: 4, borderRadius: 2, alignSelf: 'center', marginTop: 12, marginBottom: 8 },
-  cartHeader: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    paddingHorizontal: 20, paddingVertical: 16,
-  },
-  cartTitle: { fontSize: 14, fontWeight: '900', letterSpacing: 3 },
-  cartList: { paddingHorizontal: 20, maxHeight: 400 },
-  cartItem: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start',
-    paddingVertical: 14, borderBottomWidth: 1,
-  },
-  cartItemLeft: { flexDirection: 'row', gap: 12, flex: 1 },
-  cartItemIcon: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
-  cartItemName: { fontSize: 15, fontWeight: '700' },
-  cartItemDetail: { fontSize: 12, fontWeight: '500', marginTop: 2 },
-  cartItemNote: { fontSize: 11, fontWeight: '500', marginTop: 4, fontStyle: 'italic' },
-  cartIngredientDots: { flexDirection: 'row', gap: 4, marginTop: 6 },
-  cartIngDot: { width: 10, height: 10, borderRadius: 5 },
-  cartItemRight: { alignItems: 'flex-end', gap: 8 },
-  cartItemPrice: { fontSize: 15, fontWeight: '900' },
-  cartFooter: { padding: 20, borderTopWidth: 1 },
-  cartTotalRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
-  cartTotalLabel: { fontSize: 11, fontWeight: '800', letterSpacing: 3 },
-  cartTotalAmount: { fontSize: 32, fontWeight: '900' },
-  cartActions: { flexDirection: 'row', gap: 10 },
-  cartClearBtn: { borderRadius: 14, paddingVertical: 16, paddingHorizontal: 20, alignItems: 'center', borderWidth: 1 },
-  cartClearText: { fontSize: 14, fontWeight: '700' },
-  cartCheckoutBtn: { borderRadius: 14, paddingVertical: 16, alignItems: 'center' },
-  cartCheckoutText: { fontSize: 16, fontWeight: '900', letterSpacing: 2 },
   simpleOverlay: { flex: 1, justifyContent: 'flex-end' },
   simpleSheet: { borderTopLeftRadius: 28, borderTopRightRadius: 28, paddingBottom: 34 },
   simpleHandle: { width: 40, height: 4, borderRadius: 2, alignSelf: 'center', marginTop: 12, marginBottom: 16 },
