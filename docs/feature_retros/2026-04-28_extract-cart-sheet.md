@@ -2,7 +2,7 @@
 
 - **Date:** 2026-04-28
 - **PR:** refactor/extract-cart-sheet
-- **Design doc:** docs/architecture_design/pos_screen_redesign.md (PR 1b)
+- **Design doc:** docs/architecture_design/pos_screen_redesign.md
 
 ## Resumen
 

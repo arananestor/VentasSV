@@ -5,7 +5,7 @@
 - Status: Proposed
 - Owner: Nestor Arana
 - Date: 2026-04-27
-- Target branch: Multiple sub-PRs (1a, 1b, 1c, 1d)
+- Target branch: fix/pos-remove-edit-mode, refactor/extract-cart-sheet, refactor/extract-simple-product-sheet, feat/pos-collapsible-header
 
 ---
 
@@ -17,13 +17,13 @@ POSScreen.js tiene 566 líneas haciendo demasiado: renderiza productos, maneja e
 
 ## Solution
 
-Limpiar POSScreen en 4 sub-PRs incrementales. Cada PR reduce complejidad sin cambiar funcionalidad visible (excepto edit mode que se elimina intencionalmente).
+Limpiar POSScreen en 4 PRs incrementales. Cada PR reduce complejidad sin cambiar funcionalidad visible (excepto edit mode que se elimina intencionalmente).
 
 ---
 
 ## Changes
 
-### PR 1a — fix/pos-remove-edit-mode
+### fix/pos-remove-edit-mode
 
 Eliminar edit mode y Alert.alert del POSScreen. La edición y eliminación de productos pertenece a AddProductScreen, no al POS.
 
@@ -44,7 +44,7 @@ Los estilos huérfanos (editBtn, editBtnText, deleteOverlay, deleteText) deben e
 
 Verificación: grep -r "editMode\|handleDeleteProduct\|toggleEditMode\|Alert\.alert" src/screens/POSScreen.js debe dar 0 resultados después del cambio.
 
-### PR 1b — refactor/extract-cart-sheet
+### refactor/extract-cart-sheet
 
 Extraer el modal del carrito a src/components/CartSheet.js.
 
@@ -58,7 +58,7 @@ POSScreen importa CartSheet y le pasa las props. El estado showCart se queda en 
 
 Mover los estilos relacionados al carrito (cartOverlay, cartSheet, cartHandle, cartHeader, cartTitle, cartList, cartItem, cartItemLeft, cartItemIcon, cartItemName, cartItemDetail, cartItemNote, cartIngredientDots, cartIngDot, cartItemRight, cartItemPrice, cartFooter, cartTotalRow, cartTotalLabel, cartTotalAmount, cartActions, cartClearBtn, cartClearText, cartCheckoutBtn, cartCheckoutText) al StyleSheet dentro de CartSheet.js.
 
-### PR 1c — refactor/extract-simple-product-sheet
+### refactor/extract-simple-product-sheet
 
 Extraer el modal de producto simple a src/components/SimpleProductSheet.js.
 
@@ -68,13 +68,13 @@ Toda la lógica de sizeQuantities, adjustSize, simpleTotal, simpleHasItems, y ha
 
 Mover todo el bloque del Modal visible={showSimpleModal} (líneas 356-430 actuales) al nuevo componente.
 
-Reemplazar el patrón de overlay TouchableOpacity + TouchableOpacity por Pressable + absoluteFill (mismo patrón que PR 1b).
+Reemplazar el patrón de overlay TouchableOpacity + TouchableOpacity por Pressable + absoluteFill (mismo patrón que refactor/extract-cart-sheet).
 
 POSScreen importa SimpleProductSheet y le pasa las props. Los estados selectedProduct y showSimpleModal se quedan en POSScreen. El estado sizeQuantities se mueve al nuevo componente.
 
 Mover los estilos relacionados (simpleOverlay, simpleSheet, simpleHandle, simpleHeader, simpleIconWrap, simpleProductName, sizeRows, sizeRow, sizeRowInfo, sizeRowName, sizeRowPrice, sizeRowCounter, counterBtn, counterBtnText, counterNum, simpleConfirmBtn, simpleConfirmText, simpleConfirmTotal) al StyleSheet dentro de SimpleProductSheet.js.
 
-### PR 1d — feat/pos-collapsible-header
+### feat/pos-collapsible-header
 
 Header colapsable opción A (mini-bar). Al hacer scroll hacia abajo, el header se colapsa a una barra mínima mostrando solo el nombre del worker y el indicador de modo. Al hacer scroll hacia arriba, el header se expande de nuevo.
 
@@ -94,25 +94,25 @@ El ScrollView de productos debe cambiar a Animated.ScrollView para poder vincula
 
 ## Rules
 
-1. Cada sub-PR es independiente y mergeable por separado. El orden es estricto: 1a → 1b → 1c → 1d.
-2. Cada sub-PR debe dejar POSScreen funcional y sin errores.
+1. Cada PR es independiente y mergeable por separado. El orden es estricto: fix/pos-remove-edit-mode → refactor/extract-cart-sheet → refactor/extract-simple-product-sheet → feat/pos-collapsible-header.
+2. Cada PR debe dejar POSScreen funcional y sin errores.
 3. Patrón de overlay en modales: Pressable + StyleSheet.absoluteFill para backdrop, View para sheet. No TouchableOpacity ni TouchableWithoutFeedback.
-4. Tests 0 fallos obligatorio en cada sub-PR.
-5. Cada sub-PR actualiza CLAUDE.md si cambia el conteo de tests o suites.
-6. Cada sub-PR crea su propio retro en docs/feature_retros/.
+4. Tests 0 fallos obligatorio en cada PR.
+5. Cada PR actualiza CLAUDE.md si cambia el conteo de tests o suites.
+6. Cada PR crea su propio retro en docs/feature_retros/.
 7. Antes de abrir cada PR, grep el repo entero para verificar que no quedan imports huérfanos ni referencias a código eliminado.
 
 ---
 
 ## Verification
 
-### PR 1a
+### fix/pos-remove-edit-mode
 - Edit mode eliminado: no existe botón de editar, no aparece overlay de delete, no hay Alert nativo
 - Tap en producto funciona normalmente (productos simples abren modal, elaborados van a OrderBuilder)
 - grep -r "editMode\|Alert\.alert" src/screens/POSScreen.js da 0 resultados
 - npm test 0 fallos
 
-### PR 1b
+### refactor/extract-cart-sheet
 - CartSheet renderiza idéntico al modal inline anterior
 - Tap en backdrop (área oscura) cierra el modal
 - Scroll dentro del carrito funciona correctamente
@@ -120,7 +120,7 @@ El ScrollView de productos debe cambiar a Animated.ScrollView para poder vincula
 - POSScreen.js tiene ~75 líneas menos
 - npm test 0 fallos
 
-### PR 1c
+### refactor/extract-simple-product-sheet
 - SimpleProductSheet renderiza idéntico al modal inline anterior
 - Contadores de tamaño funcionan (+/-)
 - Botón "Agregar al pedido" agrega correctamente al carrito
@@ -128,7 +128,7 @@ El ScrollView de productos debe cambiar a Animated.ScrollView para poder vincula
 - POSScreen.js tiene ~75 líneas menos
 - npm test 0 fallos
 
-### PR 1d
+### feat/pos-collapsible-header
 - Scroll hacia abajo colapsa header suavemente
 - Scroll hacia arriba expande header suavemente
 - No hay flicker ni saltos durante la animación

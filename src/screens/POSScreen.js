@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
   View, Text, TouchableOpacity, ScrollView, StyleSheet,
-  Image, StatusBar, Modal,
+  Image, StatusBar,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
@@ -12,6 +12,7 @@ import { useTheme } from '../context/ThemeContext';
 import { useTab } from '../context/TabContext';
 import ProductSticker from '../components/ProductSticker';
 import CartSheet from '../components/CartSheet';
+import SimpleProductSheet from '../components/SimpleProductSheet';
 import { resolveVisibleProducts, resolveProductPrice, resolveTabOrder } from '../utils/modeResolution';
 import useResponsive from '../hooks/useResponsive';
 
@@ -32,7 +33,6 @@ export default function POSScreen({ navigation }) {
   const [showCart, setShowCart] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [showSimpleModal, setShowSimpleModal] = useState(false);
-  const [sizeQuantities, setSizeQuantities] = useState({});
 
   const activeTab = getActiveTab();
   const filteredTabs = resolveTabOrder(getFilteredTabs(), currentMode);
@@ -52,44 +52,9 @@ export default function POSScreen({ navigation }) {
       navigation.navigate('OrderBuilder', { product });
     } else {
       setSelectedProduct(product);
-      const init = {};
-      product.sizes.forEach((_, i) => { init[i] = 0; });
-      setSizeQuantities(init);
       setShowSimpleModal(true);
     }
   };
-
-  const handleSimpleConfirm = () => {
-    if (!selectedProduct) return;
-    selectedProduct.sizes.forEach((size, i) => {
-      const qty = sizeQuantities[i] || 0;
-      if (qty > 0) {
-        const resolvedPrice = resolveProductPrice(selectedProduct, i, currentMode);
-        addToCart({
-          product: selectedProduct,
-          size,
-          quantity: qty,
-          units: [],
-          extras: [],
-          note: '',
-          total: resolvedPrice * qty,
-        });
-      }
-    });
-    setShowSimpleModal(false);
-  };
-
-  const adjustSize = (sizeIdx, delta) => {
-    setSizeQuantities(prev => ({
-      ...prev,
-      [sizeIdx]: Math.max(0, (prev[sizeIdx] || 0) + delta),
-    }));
-  };
-
-  const simpleTotal = selectedProduct
-    ? selectedProduct.sizes.reduce((sum, s, i) => sum + resolveProductPrice(selectedProduct, i, currentMode) * (sizeQuantities[i] || 0), 0)
-    : 0;
-  const simpleHasItems = Object.values(sizeQuantities).some(q => q > 0);
 
   const handleCheckout = () => {
     if (cart.length === 0) return;
@@ -219,82 +184,14 @@ export default function POSScreen({ navigation }) {
         theme={theme}
       />
 
-      {/* MODAL PRODUCTO SIMPLE */}
-      <Modal visible={showSimpleModal} transparent animationType="fade">
-        <TouchableOpacity
-          style={[styles.simpleOverlay, { backgroundColor: theme.overlay }]}
-          activeOpacity={1}
-          onPress={() => setShowSimpleModal(false)}
-        >
-          <TouchableOpacity
-            style={[styles.simpleSheet, { backgroundColor: theme.bg }]}
-            activeOpacity={1}
-            onPress={() => {}}
-          >
-            {selectedProduct && (
-              <>
-                <View style={[styles.simpleHandle, { backgroundColor: theme.cardBorder }]} />
-                <View style={styles.simpleHeader}>
-                  {selectedProduct.iconName ? (
-                    <View style={[styles.simpleIconWrap, { backgroundColor: selectedProduct.iconBgColor || '#000' }]}>
-                      <MaterialCommunityIcons name={selectedProduct.iconName} size={26} color="#fff" />
-                    </View>
-                  ) : null}
-                  <Text style={[styles.simpleProductName, { color: theme.text }]}>{selectedProduct.name}</Text>
-                </View>
-                <View style={styles.sizeRows}>
-                  {selectedProduct.sizes.map((s, i) => {
-                    const qty = sizeQuantities[i] || 0;
-                    const active = qty > 0;
-                    return (
-                      <View key={i} style={[styles.sizeRow, {
-                        backgroundColor: active ? theme.card : theme.bg,
-                        borderColor: active ? theme.accent : theme.cardBorder,
-                      }]}>
-                        <View style={styles.sizeRowInfo}>
-                          <Text style={[styles.sizeRowName, { color: theme.text }]}>{s.name || 'Normal'}</Text>
-                          <Text style={[styles.sizeRowPrice, { color: theme.textMuted }]}>${resolveProductPrice(selectedProduct, i, currentMode).toFixed(2)}</Text>
-                        </View>
-                        <View style={styles.sizeRowCounter}>
-                          <TouchableOpacity
-                            style={[styles.counterBtn, {
-                              backgroundColor: active ? theme.accent : theme.card,
-                              borderColor: active ? theme.accent : theme.cardBorder,
-                            }]}
-                            onPress={() => adjustSize(i, -1)}
-                          >
-                            <Text style={[styles.counterBtnText, { color: active ? theme.accentText : theme.textMuted }]}>−</Text>
-                          </TouchableOpacity>
-                          <Text style={[styles.counterNum, { color: active ? theme.text : theme.textMuted }]}>{qty}</Text>
-                          <TouchableOpacity
-                            style={[styles.counterBtn, { backgroundColor: theme.accent, borderColor: theme.accent }]}
-                            onPress={() => adjustSize(i, 1)}
-                          >
-                            <Text style={[styles.counterBtnText, { color: theme.accentText }]}>+</Text>
-                          </TouchableOpacity>
-                        </View>
-                      </View>
-                    );
-                  })}
-                </View>
-                
-                  <TouchableOpacity
-                  style={[styles.simpleConfirmBtn, { backgroundColor: theme.accent },
-                    !simpleHasItems && { opacity: 0.3 }]}
-                  onPress={simpleHasItems ? handleSimpleConfirm : undefined}
-                  activeOpacity={simpleHasItems ? 0.8 : 1}
-                >
-                  <Text style={[styles.simpleConfirmText, { color: theme.accentText }]}>Agregar al pedido</Text>
-                  <Text style={[styles.simpleConfirmTotal, { color: theme.accentText }]}>
-                    {simpleHasItems ? `$${simpleTotal.toFixed(2)}` : '--'}
-                  </Text>
-                </TouchableOpacity>
-                
-              </>
-            )}
-          </TouchableOpacity>
-        </TouchableOpacity>
-      </Modal>
+      <SimpleProductSheet
+        visible={showSimpleModal}
+        onClose={() => setShowSimpleModal(false)}
+        product={selectedProduct}
+        currentMode={currentMode}
+        onAddToCart={addToCart}
+        theme={theme}
+      />
 
     </SafeAreaView>
   );
@@ -355,29 +252,4 @@ const styles = StyleSheet.create({
   cartBadgeText: { color: '#fff', fontSize: 13, fontWeight: '900' },
   cartFabLabel: { fontSize: 15, fontWeight: '800' },
   cartFabTotal: { fontSize: 18, fontWeight: '900' },
-  simpleOverlay: { flex: 1, justifyContent: 'flex-end' },
-  simpleSheet: { borderTopLeftRadius: 28, borderTopRightRadius: 28, paddingBottom: 34 },
-  simpleHandle: { width: 40, height: 4, borderRadius: 2, alignSelf: 'center', marginTop: 12, marginBottom: 16 },
-  simpleHeader: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 20, marginBottom: 20 },
-  simpleIconWrap: { width: 44, height: 44, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
-  simpleProductName: { fontSize: 20, fontWeight: '900', flex: 1 },
-  sizeRows: { paddingHorizontal: 16, gap: 10, marginBottom: 16 },
-  sizeRow: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    borderRadius: 16, paddingHorizontal: 16, paddingVertical: 14, borderWidth: 1.5,
-  },
-  sizeRowInfo: { flex: 1 },
-  sizeRowName: { fontSize: 16, fontWeight: '700' },
-  sizeRowPrice: { fontSize: 13, fontWeight: '500', marginTop: 2 },
-  sizeRowCounter: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  counterBtn: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', borderWidth: 1.5 },
-  counterBtnText: { fontSize: 20, fontWeight: '300', lineHeight: 24 },
-  counterNum: { fontSize: 20, fontWeight: '800', minWidth: 28, textAlign: 'center' },
-  simpleConfirmBtn: {
-    marginHorizontal: 16, borderRadius: 16, paddingVertical: 18,
-    flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 24,
-    alignItems: 'center',
-  },
-  simpleConfirmText: { fontSize: 16, fontWeight: '900', letterSpacing: 1 },
-  simpleConfirmTotal: { fontSize: 20, fontWeight: '900' },
 });
