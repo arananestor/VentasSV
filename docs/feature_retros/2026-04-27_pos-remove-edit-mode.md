@@ -2,7 +2,7 @@
 
 - **Date:** 2026-04-27
 - **PR:** fix/pos-remove-edit-mode
-- **Design doc:** docs/architecture_design/pos_screen_redesign.md (PR 1a)
+- **Design doc:** docs/architecture_design/pos_screen_redesign.md
 
 ## Resumen
 
