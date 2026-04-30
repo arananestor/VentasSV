@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
-  View, Text, TouchableOpacity, ScrollView, StyleSheet,
-  Image, StatusBar,
+  View, Text, TouchableOpacity, Animated,
+  StyleSheet, Image, StatusBar,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
@@ -15,6 +15,7 @@ import CartSheet from '../components/CartSheet';
 import SimpleProductSheet from '../components/SimpleProductSheet';
 import { resolveVisibleProducts, resolveProductPrice, resolveTabOrder } from '../utils/modeResolution';
 import useResponsive from '../hooks/useResponsive';
+import { getInterpolationConfigs } from '../utils/collapsibleHeader';
 
 export default function POSScreen({ navigation }) {
   const {
@@ -33,6 +34,14 @@ export default function POSScreen({ navigation }) {
   const [showCart, setShowCart] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [showSimpleModal, setShowSimpleModal] = useState(false);
+
+  const scrollY = useRef(new Animated.Value(0)).current;
+  const configs = getInterpolationConfigs();
+  const tabBarOpacity = scrollY.interpolate(configs.tabBarOpacity);
+  const tabBarHeight = scrollY.interpolate(configs.tabBarHeight);
+  const tabBarMargin = scrollY.interpolate(configs.tabBarMargin);
+  const expandedSectionOpacity = scrollY.interpolate(configs.expandedSectionOpacity);
+  const miniModeOpacity = scrollY.interpolate(configs.miniModeOpacity);
 
   const activeTab = getActiveTab();
   const filteredTabs = resolveTabOrder(getFilteredTabs(), currentMode);
@@ -72,6 +81,14 @@ export default function POSScreen({ navigation }) {
           <Text style={[styles.workerName, { color: theme.text }]} numberOfLines={1}>
             {currentWorker?.name}
           </Text>
+          {currentMode && (
+            <Animated.View style={[styles.miniMode, { borderColor: theme.cardBorder, opacity: miniModeOpacity }]}>
+              <Feather name="layers" size={10} color={theme.textMuted} />
+              <Text style={[styles.miniModeText, { color: theme.textMuted }]} numberOfLines={1}>
+                {currentMode.name}
+              </Text>
+            </Animated.View>
+          )}
         </View>
       </View>
 
@@ -79,16 +96,16 @@ export default function POSScreen({ navigation }) {
       {/* <View style={styles.filterRow}>...</View> */}
 
       {currentMode && (
-        <View style={[styles.modeIndicator, { borderColor: theme.cardBorder, marginLeft: PADDING }]}>
+        <Animated.View style={[styles.modeIndicator, { borderColor: theme.cardBorder, marginLeft: PADDING, opacity: expandedSectionOpacity }]}>
           <Feather name="layers" size={12} color={theme.textMuted} />
           <Text style={[styles.modeIndicatorText, { color: theme.textMuted }]}>
             Catálogo: {currentMode.name}
           </Text>
-        </View>
+        </Animated.View>
       )}
 
-      <View style={styles.tabBarWrapper}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabBar}>
+      <Animated.View style={[styles.tabBarWrapper, { height: tabBarHeight, marginBottom: tabBarMargin, opacity: tabBarOpacity }]}>
+        <Animated.ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabBar}>
           {filteredTabs.map(tab => {
             const isActive = activeTabId === tab.id;
             const count = tab.productIds.filter(id => existingIds.includes(id)).length;
@@ -114,15 +131,23 @@ export default function POSScreen({ navigation }) {
             );
           })}
           {/* ManageTabs hidden for POS focus lockdown */}
-        </ScrollView>
-      </View>
+        </Animated.ScrollView>
+      </Animated.View>
       {filteredTabs.length <= 1 && (
-        <Text style={[styles.tabHint, { color: theme.textMuted }]}>
+        <Animated.Text style={[styles.tabHint, { color: theme.textMuted, opacity: tabBarOpacity }]}>
           Creá pestañas para organizar tus productos por categoría
-        </Text>
+        </Animated.Text>
       )}
 
-      <ScrollView contentContainerStyle={{ flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: PADDING, gap: CARD_GAP, paddingTop: 4 }} showsVerticalScrollIndicator={false}>
+      <Animated.ScrollView
+        contentContainerStyle={{ flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: PADDING, gap: CARD_GAP, paddingTop: 4 }}
+        showsVerticalScrollIndicator={false}
+        onScroll={Animated.event(
+          [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+          { useNativeDriver: false }
+        )}
+        scrollEventThrottle={16}
+      >
         {tabProducts.map((product) => (
           <View key={product.id} style={{ width: CARD_SIZE, position: 'relative' }}>
             <TouchableOpacity
@@ -154,7 +179,7 @@ export default function POSScreen({ navigation }) {
         ))}
 
         <View style={{ height: cartCount > 0 ? 100 : 20 }} />
-      </ScrollView>
+      </Animated.ScrollView>
 
       {/* CARRITO FLOTANTE */}
       {cartCount > 0 && (
@@ -212,7 +237,12 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4,
   },
   modeIndicatorText: { fontSize: 11, fontWeight: '600' },
-  tabBarWrapper: { height: 48, marginBottom: 6 },
+  miniMode: {
+    flexDirection: 'row', alignItems: 'center', gap: 4, marginLeft: 8,
+    borderWidth: 1, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2,
+  },
+  miniModeText: { fontSize: 10, fontWeight: '600', maxWidth: 100 },
+  tabBarWrapper: { overflow: 'hidden' },
   tabBar: { paddingHorizontal: 16, alignItems: 'center', gap: 8 },
   tabPill: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
