@@ -25,7 +25,7 @@ describe('Collapsible header constants', () => {
     const height = TAB_BAR_HEIGHT;
 
     // Assert
-    expect(height).toBe(48);
+    expect(height).toBe(38);
   });
 
   it('tab bar margin matches POSScreen tabBarWrapper marginBottom', () => {
@@ -33,7 +33,7 @@ describe('Collapsible header constants', () => {
     const margin = TAB_BAR_MARGIN;
 
     // Assert
-    expect(margin).toBe(6);
+    expect(margin).toBe(4);
   });
 });
 
