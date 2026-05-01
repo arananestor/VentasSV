@@ -7,8 +7,8 @@
  */
 
 export const COLLAPSE_THRESHOLD = 50;
-export const TAB_BAR_HEIGHT = 38;
-export const TAB_BAR_MARGIN = 4;
+export const TAB_BAR_HEIGHT = 48;
+export const TAB_BAR_MARGIN = 6;
 
 export function getInterpolationConfigs() {
   return {
