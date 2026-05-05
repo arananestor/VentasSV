@@ -1,13 +1,14 @@
 import React, { useState } from 'react';
 import {
   View, Text, TouchableOpacity, TextInput, ScrollView,
-  StyleSheet, Alert, Image, Modal,
+  StyleSheet, Image, Modal, Pressable,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import { Feather } from '@expo/vector-icons';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useApp } from '../context/AppContext';
+import useResponsive from '../hooks/useResponsive';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { useTab } from '../context/TabContext';
@@ -17,9 +18,10 @@ import IconColorPicker from '../components/IconColorPicker';
 import { CARD_COLORS, INGREDIENT_COLORS } from '../constants/productConstants';
 
 export default function AddProductScreen({ navigation }) {
-  const { addProduct } = useApp();
+  const { addProduct, showNotif } = useApp();
   const { currentWorker } = useAuth();
   const { theme } = useTheme();
+  const { padding: PADDING } = useResponsive();
   const { tabs, activeTabId, addProductToMultipleTabs } = useTab();
 
   // Tipo de producto
@@ -63,7 +65,7 @@ export default function AddProductScreen({ navigation }) {
 
   const takeProductPhoto = async () => {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
-    if (status !== 'granted') { Alert.alert('', 'Necesitamos la cámara'); return; }
+    if (status !== 'granted') { showNotif('Necesitamos permiso de cámara'); return; }
     const r = await ImagePicker.launchCameraAsync({ allowsEditing: true, aspect: [1, 1], quality: 0.6 });
     if (!r.canceled) setProductPhoto(r.assets[0].uri);
   };
@@ -106,12 +108,12 @@ export default function AddProductScreen({ navigation }) {
   // ── Guardar ──
   const handleSave = async () => {
     if (currentWorker?.role !== 'owner' && currentWorker?.role !== 'co-admin') {
-      Alert.alert('', 'Solo el dueño o encargado puede agregar productos'); return;
+      showNotif('Solo el dueño o encargado puede agregar productos'); return;
     }
-    if (!productType) { Alert.alert('', 'Elegí el tipo de producto'); return; }
-    if (!name.trim()) { Alert.alert('', 'Ponele un nombre'); return; }
-    if (!sizes[0]?.price) { Alert.alert('', 'Agregá al menos un precio'); return; }
-    if (selectedTabs.length === 0) { Alert.alert('', 'Seleccioná al menos una pestaña'); return; }
+    if (!productType) { showNotif('Elegí el tipo de producto'); return; }
+    if (!name.trim()) { showNotif('Ponele un nombre'); return; }
+    if (!sizes[0]?.price) { showNotif('Agregá al menos un precio'); return; }
+    if (selectedTabs.length === 0) { showNotif('Seleccioná al menos una pestaña'); return; }
 
     const newProduct = await addProduct({
       type: productType,
@@ -516,14 +518,10 @@ export default function AddProductScreen({ navigation }) {
 
       {/* PALETA — ingrediente o extra */}
       <Modal visible={showPalette} transparent animationType="fade">
-        <TouchableOpacity
-          style={[styles.paletteOverlay, { backgroundColor: theme.overlay }]}
-          activeOpacity={1}
-          onPress={() => { setShowPalette(false); setPaletteTarget(null); }}
-        >
+        <View style={[styles.paletteOverlay, { backgroundColor: theme.overlay }]}>
+          <Pressable style={StyleSheet.absoluteFill} onPress={() => { setShowPalette(false); setPaletteTarget(null); }} />
           <View
             style={[styles.paletteModal, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}
-            onStartShouldSetResponder={() => true}
           >
             <Text style={[styles.paletteTitle, { color: theme.text }]}>
               {paletteTarget?.type === 'ingredient' ? 'Color del ingrediente' : 'Color del extra'}
@@ -556,7 +554,7 @@ export default function AddProductScreen({ navigation }) {
               })}
             </View>
           </View>
-        </TouchableOpacity>
+        </View>
       </Modal>
 
     </SafeAreaView>
