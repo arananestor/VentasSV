@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
   View, Text, TouchableOpacity, TextInput, ScrollView,
-  StyleSheet, Alert, Image, Modal, FlatList, useWindowDimensions,
+  StyleSheet, Alert, Image, Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
@@ -13,16 +13,13 @@ import { useTheme } from '../context/ThemeContext';
 import { useTab } from '../context/TabContext';
 import ScreenHeader from '../components/ScreenHeader';
 import PrimaryButton from '../components/PrimaryButton';
-import BottomSheetModal from '../components/BottomSheetModal';
-import { FOOD_ICONS, CARD_COLORS, INGREDIENT_COLORS, getIconBtnSize, getIconCols } from '../constants/productConstants';
+import IconColorPicker from '../components/IconColorPicker';
+import { CARD_COLORS, INGREDIENT_COLORS } from '../constants/productConstants';
 
 export default function AddProductScreen({ navigation }) {
   const { addProduct } = useApp();
   const { currentWorker } = useAuth();
   const { theme } = useTheme();
-  const { width: screenWidth } = useWindowDimensions();
-  const ICON_BTN_SIZE = getIconBtnSize(screenWidth);
-  const ICON_COLS_DYN = getIconCols(screenWidth);
   const { tabs, activeTabId, addProductToMultipleTabs } = useTab();
 
   // Tipo de producto
@@ -43,8 +40,7 @@ export default function AddProductScreen({ navigation }) {
   const [maxIngredients, setMaxIngredients] = useState('');
 
   // Modales
-  const [showColorPicker, setShowColorPicker] = useState(false);
-  const [showIconPicker, setShowIconPicker] = useState(false);
+  const [showIconColorPicker, setShowIconColorPicker] = useState(false);
   // Paleta de ingrediente
   const [paletteTarget, setPaletteTarget] = useState(null); // { type: 'ingredient'|'extra', index }
   const [showPalette, setShowPalette] = useState(false);
@@ -272,33 +268,19 @@ export default function AddProductScreen({ navigation }) {
 
         {imageMode === 'icon' && (
           <View style={styles.iconSection}>
-            <View style={[styles.iconPreviewWrap, { backgroundColor: iconBgColor }]}>
+            <TouchableOpacity
+              style={[styles.iconPreviewWrap, { backgroundColor: iconBgColor }]}
+              onPress={() => setShowIconColorPicker(true)}
+              activeOpacity={0.8}
+            >
               {selectedIcon
                 ? <MaterialCommunityIcons name={selectedIcon} size={54} color="#fff" />
                 : <Feather name="image" size={36} color="rgba(255,255,255,0.35)" />
               }
-            </View>
-            <TouchableOpacity
-              style={[styles.pickerRow, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}
-              onPress={() => setShowColorPicker(true)}
-            >
-              <View style={[styles.colorDot, { backgroundColor: iconBgColor }]} />
-              <Text style={[styles.pickerRowText, { color: theme.text }]}>Color de fondo</Text>
-              <Feather name="chevron-right" size={16} color={theme.textMuted} />
             </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.pickerRow, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}
-              onPress={() => setShowIconPicker(true)}
-            >
-              {selectedIcon
-                ? <MaterialCommunityIcons name={selectedIcon} size={20} color={theme.text} />
-                : <Feather name="grid" size={18} color={theme.textSecondary} />
-              }
-              <Text style={[styles.pickerRowText, { color: theme.text }]}>
-                {selectedIcon ? 'Cambiar ícono' : 'Elegir ícono'}
-              </Text>
-              <Feather name="chevron-right" size={16} color={theme.textMuted} />
-            </TouchableOpacity>
+            <Text style={[styles.iconHint, { color: theme.textMuted }]}>
+              Toca para elegir ícono y color
+            </Text>
           </View>
         )}
 
@@ -509,97 +491,28 @@ export default function AddProductScreen({ navigation }) {
         <PrimaryButton label="GUARDAR" onPress={handleSave} />
       </View>
 
-      {/* ICON PICKER — producto */}
-      <BottomSheetModal
-        visible={showIconPicker}
-        onClose={() => setShowIconPicker(false)}
+      <IconColorPicker
+        visible={showIconColorPicker}
+        onClose={() => setShowIconColorPicker(false)}
+        selectedIcon={selectedIcon}
+        selectedColor={iconBgColor}
+        onSelect={(icon, color) => { setSelectedIcon(icon); setIconBgColor(color); }}
         title="ÍCONO DEL PRODUCTO"
-      >
-            <FlatList
-              data={FOOD_ICONS}
-              key={ICON_COLS_DYN}
-              numColumns={ICON_COLS_DYN}
-              keyExtractor={item => item}
-              contentContainerStyle={styles.iconGrid}
-              showsVerticalScrollIndicator={false}
-              renderItem={({ item }) => {
-                const isSelected = selectedIcon === item;
-                return (
-                  <TouchableOpacity
-                    style={[styles.iconGridBtn,
-                      { width: ICON_BTN_SIZE, height: ICON_BTN_SIZE, backgroundColor: isSelected ? iconBgColor : theme.bg },
-                      isSelected && { borderColor: iconBgColor }]}
-                    onPress={() => { setSelectedIcon(item); setShowIconPicker(false); }}
-                  >
-                    <MaterialCommunityIcons name={item} size={26} color={isSelected ? '#fff' : theme.text} />
-                  </TouchableOpacity>
-                );
-              }}
-            />
-      </BottomSheetModal>
+        theme={theme}
+      />
 
-      {/* ICON PICKER — ingrediente */}
-      <BottomSheetModal
+      <IconColorPicker
         visible={showIngredientIconPicker}
-        onClose={() => setShowIngredientIconPicker(false)}
+        onClose={() => { setShowIngredientIconPicker(false); setIconTarget(null); }}
+        selectedIcon={iconTarget !== null ? ingredients[iconTarget]?.icon : null}
+        selectedColor={iconTarget !== null ? ingredients[iconTarget]?.color : theme.accent}
+        onSelect={(icon) => {
+          if (iconTarget !== null) updateIngredient(iconTarget, 'icon', icon);
+        }}
         title="ÍCONO DEL INGREDIENTE"
-      >
-            <FlatList
-              data={FOOD_ICONS}
-              key={ICON_COLS_DYN}
-              numColumns={ICON_COLS_DYN}
-              keyExtractor={item => item}
-              contentContainerStyle={styles.iconGrid}
-              showsVerticalScrollIndicator={false}
-              renderItem={({ item }) => {
-                const curIcon = iconTarget !== null ? ingredients[iconTarget]?.icon : null;
-                const curColor = iconTarget !== null ? ingredients[iconTarget]?.color : theme.accent;
-                const isSelected = curIcon === item;
-                return (
-                  <TouchableOpacity
-                    style={[styles.iconGridBtn,
-                      { width: ICON_BTN_SIZE, height: ICON_BTN_SIZE, backgroundColor: isSelected ? curColor : theme.bg },
-                      isSelected && { borderColor: curColor }]}
-                    onPress={() => {
-                      if (iconTarget !== null) updateIngredient(iconTarget, 'icon', item);
-                      setShowIngredientIconPicker(false);
-                      setIconTarget(null);
-                    }}
-                  >
-                    <MaterialCommunityIcons name={item} size={26} color={isSelected ? '#fff' : theme.text} />
-                  </TouchableOpacity>
-                );
-              }}
-            />
-      </BottomSheetModal>
-
-      {/* COLOR FONDO PRODUCTO */}
-      <Modal visible={showColorPicker} transparent animationType="fade">
-        <TouchableOpacity
-          style={[styles.paletteOverlay, { backgroundColor: theme.overlay }]}
-          activeOpacity={1}
-          onPress={() => setShowColorPicker(false)}
-        >
-          <View
-            style={[styles.paletteModal, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}
-            onStartShouldSetResponder={() => true}
-          >
-            <Text style={[styles.paletteTitle, { color: theme.text }]}>Color de fondo</Text>
-            <View style={styles.paletteGrid}>
-              {CARD_COLORS.map(color => (
-                <TouchableOpacity
-                  key={color}
-                  style={[styles.paletteColor, { backgroundColor: color },
-                    iconBgColor === color && styles.paletteColorSelected]}
-                  onPress={() => { setIconBgColor(color); setShowColorPicker(false); }}
-                >
-                  {iconBgColor === color && <Feather name="check" size={16} color="#fff" />}
-                </TouchableOpacity>
-              ))}
-            </View>
-          </View>
-        </TouchableOpacity>
-      </Modal>
+        theme={theme}
+        hideColors
+      />
 
       {/* PALETA — ingrediente o extra */}
       <Modal visible={showPalette} transparent animationType="fade">
@@ -685,12 +598,6 @@ const styles = StyleSheet.create({
     alignSelf: 'center', width: 96, height: 96,
     borderRadius: 24, alignItems: 'center', justifyContent: 'center',
   },
-  pickerRow: {
-    flexDirection: 'row', alignItems: 'center', gap: 12,
-    borderRadius: 14, paddingHorizontal: 16, paddingVertical: 16, borderWidth: 1,
-  },
-  pickerRowText: { flex: 1, fontSize: 14, fontWeight: '600' },
-  colorDot: { width: 20, height: 20, borderRadius: 10 },
   photoBtns: { flexDirection: 'row', gap: 10 },
   photoBtn: { flex: 1, borderRadius: 14, paddingVertical: 28, alignItems: 'center', gap: 8, borderWidth: 1 },
   photoBtnText: { fontSize: 12, fontWeight: '700' },
@@ -736,13 +643,9 @@ const styles = StyleSheet.create({
   },
   extraColorBtn: { width: 44, height: 44, borderRadius: 22 },
 
+  iconHint: { fontSize: 12, fontWeight: '500', textAlign: 'center', marginTop: 4 },
   // Modales
   bottomBar: { position: 'absolute', bottom: 0, left: 0, right: 0, padding: 16, paddingBottom: 34, borderTopWidth: 1 },
-  iconGrid: { paddingHorizontal: 8, paddingBottom: 40 },
-  iconGridBtn: {
-    borderRadius: 12, alignItems: 'center', justifyContent: 'center', borderWidth: 1.5,
-    margin: 4,
-  },
   paletteOverlay: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   paletteModal: { width: 300, borderRadius: 20, padding: 24, borderWidth: 1 },
   paletteTitle: { fontSize: 16, fontWeight: '800', textAlign: 'center', marginBottom: 20 },
