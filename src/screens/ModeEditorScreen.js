@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import {
   View, Text, TouchableOpacity, ScrollView, StyleSheet, Image, TextInput, Modal,
-  KeyboardAvoidingView, Platform, Animated, PanResponder, LayoutAnimation, useWindowDimensions,
+  KeyboardAvoidingView, Platform, Animated, PanResponder, LayoutAnimation,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
@@ -15,14 +15,13 @@ import ScreenHeader from '../components/ScreenHeader';
 import ThemedTextInput from '../components/ThemedTextInput';
 import PrimaryButton from '../components/PrimaryButton';
 import CenterModal from '../components/CenterModal';
-import BottomSheetModal from '../components/BottomSheetModal';
 import CalendarPicker from '../components/CalendarPicker';
 import TimeWheelPicker from '../components/TimeWheelPicker';
 import { validateModeForm, buildOverridesPatch, reorderTabOrder } from '../utils/modeManagement';
 import { appendScheduledActivation, removeScheduledActivation, isScheduleValid } from '../utils/modeScheduling';
 import { formatDateTimeReadable } from '../utils/formatters';
 import { cycleColor } from '../utils/productEditorLogic';
-import { ICON_CATALOG, CARD_COLORS, INGREDIENT_COLORS, getIconBtnSize, getIconCols } from '../constants/productConstants';
+import { CARD_COLORS, INGREDIENT_COLORS } from '../constants/productConstants';
 import IconColorPicker from '../components/IconColorPicker';
 
 function SwipeRow({ isActive, onToggle, onLongPress, children, theme }) {
@@ -61,9 +60,6 @@ export default function ModeEditorScreen({ route, navigation }) {
   const { workers } = useAuth();
   const { tabs } = useTab();
   const { theme } = useTheme();
-  const { width: screenWidth } = useWindowDimensions();
-  const ICON_BTN_SIZE = getIconBtnSize(screenWidth);
-  const ICON_COLS_DYN = getIconCols(screenWidth);
 
   const mode = modes.find(m => m.id === modeId);
   const [name, setName] = useState(mode?.name || '');
@@ -527,32 +523,18 @@ export default function ModeEditorScreen({ route, navigation }) {
         </TouchableOpacity>
       </Modal>
 
-      {/* Icon picker for ingredient */}
-      <BottomSheetModal visible={showEditIngIconPicker} onClose={() => { setShowEditIngIconPicker(false); setEditIconTarget(null); }} title="ÍCONO DEL INGREDIENTE">
-        <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-          {ICON_CATALOG.map(cat => (
-            <View key={cat.category}>
-              <Text style={{ fontSize: 10, fontWeight: '800', letterSpacing: 2, paddingHorizontal: 16, marginBottom: 8, marginTop: 8, color: theme.textMuted }}>{cat.category}</Text>
-              <View style={{ flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: 8, marginBottom: 8 }}>
-                {cat.icons.map(item => {
-                  const curColor = editIconTarget !== null ? (editProdIngredients[editIconTarget]?.color || INGREDIENT_COLORS[0]) : theme.accent;
-                  const curIcon = editIconTarget !== null ? editProdIngredients[editIconTarget]?.icon : null;
-                  const isSelected = curIcon === item;
-                  return (
-                    <TouchableOpacity key={item} onPress={() => {
-                      if (editIconTarget !== null) setEditProdIngredients(prev => prev.map((p, pi) => pi === editIconTarget ? { ...p, icon: item } : p));
-                      setShowEditIngIconPicker(false); setEditIconTarget(null);
-                    }} style={{ width: ICON_BTN_SIZE, height: ICON_BTN_SIZE, borderRadius: 12, alignItems: 'center', justifyContent: 'center', margin: 4, backgroundColor: isSelected ? curColor : theme.bg, borderWidth: isSelected ? 1.5 : 1, borderColor: isSelected ? curColor : theme.cardBorder }}>
-                      <MaterialCommunityIcons name={item} size={26} color={isSelected ? '#fff' : theme.text} />
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-            </View>
-          ))}
-          <View style={{ height: 40 }} />
-        </ScrollView>
-      </BottomSheetModal>
+      <IconColorPicker
+        visible={showEditIngIconPicker}
+        onClose={() => { setShowEditIngIconPicker(false); setEditIconTarget(null); }}
+        selectedIcon={editIconTarget !== null ? editProdIngredients[editIconTarget]?.icon : null}
+        selectedColor={editIconTarget !== null ? (editProdIngredients[editIconTarget]?.color || INGREDIENT_COLORS[0]) : theme.accent}
+        onSelect={(selectedIcn) => {
+          if (editIconTarget !== null) setEditProdIngredients(prev => prev.map((p, pi) => pi === editIconTarget ? { ...p, icon: selectedIcn } : p));
+        }}
+        title="ÍCONO DEL INGREDIENTE"
+        theme={theme}
+        hideColors
+      />
     </SafeAreaView>
   );
 }

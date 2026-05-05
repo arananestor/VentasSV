@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
   View, Text, TouchableOpacity, TextInput, ScrollView,
-  StyleSheet, Alert, Image, Modal, useWindowDimensions,
+  StyleSheet, Alert, Image, Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
@@ -13,17 +13,13 @@ import { useTheme } from '../context/ThemeContext';
 import { useTab } from '../context/TabContext';
 import ScreenHeader from '../components/ScreenHeader';
 import PrimaryButton from '../components/PrimaryButton';
-import BottomSheetModal from '../components/BottomSheetModal';
 import IconColorPicker from '../components/IconColorPicker';
-import { ICON_CATALOG, CARD_COLORS, INGREDIENT_COLORS, searchIcons, getIconBtnSize, getIconCols } from '../constants/productConstants';
+import { CARD_COLORS, INGREDIENT_COLORS } from '../constants/productConstants';
 
 export default function AddProductScreen({ navigation }) {
   const { addProduct } = useApp();
   const { currentWorker } = useAuth();
   const { theme } = useTheme();
-  const { width: screenWidth } = useWindowDimensions();
-  const ICON_BTN_SIZE = getIconBtnSize(screenWidth);
-  const ICON_COLS_DYN = getIconCols(screenWidth);
   const { tabs, activeTabId, addProductToMultipleTabs } = useTab();
 
   // Tipo de producto
@@ -505,43 +501,18 @@ export default function AddProductScreen({ navigation }) {
         theme={theme}
       />
 
-      {/* ICON PICKER — ingrediente */}
-      <BottomSheetModal
+      <IconColorPicker
         visible={showIngredientIconPicker}
         onClose={() => { setShowIngredientIconPicker(false); setIconTarget(null); }}
+        selectedIcon={iconTarget !== null ? ingredients[iconTarget]?.icon : null}
+        selectedColor={iconTarget !== null ? ingredients[iconTarget]?.color : theme.accent}
+        onSelect={(icon) => {
+          if (iconTarget !== null) updateIngredient(iconTarget, 'icon', icon);
+        }}
         title="ÍCONO DEL INGREDIENTE"
-      >
-        <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-          {ICON_CATALOG.map(cat => (
-            <View key={cat.category}>
-              <Text style={[styles.catHeader, { color: theme.textMuted }]}>{cat.category}</Text>
-              <View style={styles.iconGrid}>
-                {cat.icons.map(item => {
-                  const curIcon = iconTarget !== null ? ingredients[iconTarget]?.icon : null;
-                  const curColor = iconTarget !== null ? ingredients[iconTarget]?.color : theme.accent;
-                  const isSelected = curIcon === item;
-                  return (
-                    <TouchableOpacity
-                      key={item}
-                      style={[styles.iconGridBtn,
-                        { width: ICON_BTN_SIZE, height: ICON_BTN_SIZE, backgroundColor: isSelected ? curColor : theme.bg },
-                        isSelected && { borderColor: curColor }]}
-                      onPress={() => {
-                        if (iconTarget !== null) updateIngredient(iconTarget, 'icon', item);
-                        setShowIngredientIconPicker(false);
-                        setIconTarget(null);
-                      }}
-                    >
-                      <MaterialCommunityIcons name={item} size={26} color={isSelected ? '#fff' : theme.text} />
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-            </View>
-          ))}
-          <View style={{ height: 40 }} />
-        </ScrollView>
-      </BottomSheetModal>
+        theme={theme}
+        hideColors
+      />
 
       {/* PALETA — ingrediente o extra */}
       <Modal visible={showPalette} transparent animationType="fade">
@@ -675,12 +646,6 @@ const styles = StyleSheet.create({
   iconHint: { fontSize: 12, fontWeight: '500', textAlign: 'center', marginTop: 4 },
   // Modales
   bottomBar: { position: 'absolute', bottom: 0, left: 0, right: 0, padding: 16, paddingBottom: 34, borderTopWidth: 1 },
-  catHeader: { fontSize: 10, fontWeight: '800', letterSpacing: 2, paddingHorizontal: 16, marginBottom: 8, marginTop: 8 },
-  iconGrid: { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: 8, marginBottom: 8 },
-  iconGridBtn: {
-    borderRadius: 12, alignItems: 'center', justifyContent: 'center', borderWidth: 1.5,
-    margin: 4,
-  },
   paletteOverlay: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   paletteModal: { width: 300, borderRadius: 20, padding: 24, borderWidth: 1 },
   paletteTitle: { fontSize: 16, fontWeight: '800', textAlign: 'center', marginBottom: 20 },

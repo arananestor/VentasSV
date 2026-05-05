@@ -9,7 +9,7 @@ import BottomSheetModal from './BottomSheetModal';
 import { ICON_CATALOG, CARD_COLORS, searchIcons, getIconBtnSize, getIconCols } from '../constants/productConstants';
 
 export default function IconColorPicker({
-  visible, onClose, selectedIcon, selectedColor, onSelect, title, theme,
+  visible, onClose, selectedIcon, selectedColor, onSelect, title, theme, hideColors,
 }) {
   const { width: screenWidth } = useWindowDimensions();
   const ICON_BTN_SIZE = getIconBtnSize(screenWidth);
@@ -37,28 +37,32 @@ export default function IconColorPicker({
   return (
     <BottomSheetModal visible={visible} onClose={onClose} title={title || 'ÍCONO Y COLOR'}>
       <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-        {/* Preview */}
-        <View style={styles.previewWrap}>
-          <View style={[styles.preview, { backgroundColor: color }]}>
-            {icon
-              ? <MaterialCommunityIcons name={icon} size={40} color="#fff" />
-              : <Feather name="image" size={28} color="rgba(255,255,255,0.35)" />
-            }
-          </View>
-        </View>
+        {!hideColors && (
+          <>
+            {/* Preview */}
+            <View style={styles.previewWrap}>
+              <View style={[styles.preview, { backgroundColor: color }]}>
+                {icon
+                  ? <MaterialCommunityIcons name={icon} size={40} color="#fff" />
+                  : <Feather name="image" size={28} color="rgba(255,255,255,0.35)" />
+                }
+              </View>
+            </View>
 
-        {/* Color row */}
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.colorRow}>
-          {CARD_COLORS.map(c => (
-            <TouchableOpacity
-              key={c}
-              style={[styles.colorBtn, { backgroundColor: c }, color === c && styles.colorBtnSelected]}
-              onPress={() => setColor(c)}
-            >
-              {color === c && <Feather name="check" size={14} color="#fff" />}
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
+            {/* Color row */}
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.colorRow}>
+              {CARD_COLORS.map(c => (
+                <TouchableOpacity
+                  key={c}
+                  style={[styles.colorBtn, { backgroundColor: c }, color === c && styles.colorBtnSelected]}
+                  onPress={() => setColor(c)}
+                >
+                  {color === c && <Feather name="check" size={14} color="#fff" />}
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </>
+        )}
 
         {/* Search */}
         <View style={[styles.searchWrap, { backgroundColor: theme.bg, borderColor: theme.cardBorder }]}>
