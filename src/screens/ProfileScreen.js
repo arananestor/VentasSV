@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import {
-  View, Text, TouchableOpacity, ScrollView, StyleSheet,
+  View, Text, TouchableOpacity, ScrollView, StyleSheet, Pressable,
   TextInput, Modal, Image, Switch,
   KeyboardAvoidingView, Platform, TouchableWithoutFeedback, Keyboard,
 } from 'react-native';
@@ -370,8 +370,8 @@ export default function ProfileScreen({ navigation }) {
             style={[styles.overlay, { backgroundColor: theme.overlay, justifyContent: 'flex-end' }]}
             behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           >
-            <TouchableWithoutFeedback>
-              <View style={[styles.sheet, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+            <Pressable style={StyleSheet.absoluteFill} onPress={resetAddForm} />
+            <View style={[styles.sheet, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
                 <View style={[styles.sheetHandle, { backgroundColor: theme.cardBorder }]} />
 
                 <View style={styles.sheetHeader}>
@@ -486,7 +486,6 @@ export default function ProfileScreen({ navigation }) {
                   <Text style={[styles.sheetBtnText, { color: theme.accentText }]}>AGREGAR EMPLEADO</Text>
                 </TouchableOpacity>
               </View>
-            </TouchableWithoutFeedback>
           </KeyboardAvoidingView>
         </TouchableWithoutFeedback>
       </Modal>
