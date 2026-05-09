@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import {
-  View, Text, TouchableOpacity, ScrollView, StyleSheet, Image, TextInput, Modal,
+  View, Text, TouchableOpacity, ScrollView, StyleSheet, Image, TextInput, Modal, Pressable,
   KeyboardAvoidingView, Platform, Animated, PanResponder, LayoutAnimation,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -507,8 +507,9 @@ export default function ModeEditorScreen({ route, navigation }) {
 
       {/* Ingredient/extra color palette */}
       <Modal visible={showEditPalette} transparent animationType="fade">
-        <TouchableOpacity style={{ flex: 1, backgroundColor: theme.overlay, justifyContent: 'center', paddingHorizontal: 24 }} activeOpacity={1} onPress={() => { setShowEditPalette(false); setEditPaletteTarget(null); }}>
-          <View style={{ backgroundColor: theme.card, borderRadius: 16, padding: 20, borderWidth: 1, borderColor: theme.cardBorder }} onStartShouldSetResponder={() => true}>
+        <View style={{ flex: 1, backgroundColor: theme.overlay, justifyContent: 'center', paddingHorizontal: 24 }}>
+          <Pressable style={StyleSheet.absoluteFill} onPress={() => { setShowEditPalette(false); setEditPaletteTarget(null); }} />
+          <View style={{ backgroundColor: theme.card, borderRadius: 16, padding: 20, borderWidth: 1, borderColor: theme.cardBorder }}>
             <Text style={{ color: theme.text, fontSize: 14, fontWeight: '800', textAlign: 'center', marginBottom: 12 }}>Elegir color</Text>
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, justifyContent: 'center' }}>
               {INGREDIENT_COLORS.map(c => (
@@ -520,7 +521,7 @@ export default function ModeEditorScreen({ route, navigation }) {
               ))}
             </View>
           </View>
-        </TouchableOpacity>
+        </View>
       </Modal>
 
       <IconColorPicker

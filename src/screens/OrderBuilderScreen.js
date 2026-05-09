@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import {
   View, Text, TouchableOpacity, ScrollView, StyleSheet,
-  TextInput, Dimensions, Alert,
+  TextInput,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
@@ -11,14 +11,16 @@ import { useApp } from '../context/AppContext';
 import { getTextColor } from '../utils/colorUtils';
 import { resolveProductPrice } from '../utils/modeResolution';
 import ScreenHeader from '../components/ScreenHeader';
-
-const { width } = Dimensions.get('window');
+import CenterModal from '../components/CenterModal';
+import useResponsive from '../hooks/useResponsive';
 
 export default function OrderBuilderScreen({ route, navigation }) {
   const { product } = route.params;
   const { theme } = useTheme();
   const { addToCart, currentMode } = useApp();
+  const { width } = useResponsive();
   const scrollRef = useRef(null);
+  const [unitToDelete, setUnitToDelete] = useState(null);
 
   const productIngredients = product.ingredients || product.flavors || [];
   const productExtras = product.extras || product.toppings || [];
@@ -196,12 +198,7 @@ export default function OrderBuilderScreen({ route, navigation }) {
                   isAct && { borderColor: theme.accent, borderWidth: 2.5 }]}
                 onPress={() => setActiveIdx(i)}
                 onLongPress={() => {
-                  if (units.length > 1) {
-                    Alert.alert(`Unidad #${u.number}`, '¿Eliminar esta unidad?', [
-                      { text: 'No', style: 'cancel' },
-                      { text: 'Sí', style: 'destructive', onPress: () => removeUnit(i) },
-                    ]);
-                  }
+                  if (units.length > 1) setUnitToDelete(i);
                 }}
               >
                 <View style={styles.unitTabTop}>
@@ -267,7 +264,7 @@ export default function OrderBuilderScreen({ route, navigation }) {
                 return (
                   <TouchableOpacity key={ing.name}
                     style={[styles.ingredientBtn,
-                      { backgroundColor: sel ? ing.color : theme.card, borderColor: sel ? ing.color : theme.cardBorder },
+                      { backgroundColor: sel ? ing.color : theme.card, borderColor: sel ? ing.color : theme.cardBorder, minWidth: (width - 48) / 3 },
                       atLimit && { opacity: 0.4 }]}
                     onPress={() => toggleIngredient(ing)}
                     disabled={!!atLimit}
@@ -299,7 +296,7 @@ export default function OrderBuilderScreen({ route, navigation }) {
                 return (
                   <TouchableOpacity key={ex.name}
                     style={[styles.extraBtn,
-                      { backgroundColor: sel ? selColor : theme.card, borderColor: sel ? selColor : theme.cardBorder }]}
+                      { backgroundColor: sel ? selColor : theme.card, borderColor: sel ? selColor : theme.cardBorder, minWidth: (width - 48) / 2.5 }]}
                     onPress={() => toggleExtra(ex)}
                   >
                     <View style={[styles.extraColorBar, { backgroundColor: selColor }]} />
@@ -363,6 +360,27 @@ export default function OrderBuilderScreen({ route, navigation }) {
           <Text style={[styles.agregarPrice, { color: theme.accentText }]}>${calcTotal().toFixed(2)}</Text>
         </TouchableOpacity>
       </View>
+
+      <CenterModal
+        visible={unitToDelete !== null}
+        onClose={() => setUnitToDelete(null)}
+        title={unitToDelete !== null ? `¿Eliminar unidad #${units[unitToDelete]?.number}?` : ''}
+      >
+        <View style={{ flexDirection: 'row', gap: 10, marginTop: 8 }}>
+          <TouchableOpacity
+            style={{ flex: 1, borderRadius: 12, paddingVertical: 14, alignItems: 'center', borderWidth: 1, borderColor: theme.cardBorder }}
+            onPress={() => setUnitToDelete(null)}
+          >
+            <Text style={{ fontSize: 14, fontWeight: '700', color: theme.textMuted }}>Cancelar</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={{ flex: 1, borderRadius: 12, paddingVertical: 14, alignItems: 'center', backgroundColor: theme.danger || '#D62828' }}
+            onPress={() => { removeUnit(unitToDelete); setUnitToDelete(null); }}
+          >
+            <Text style={{ fontSize: 14, fontWeight: '700', color: '#fff' }}>Eliminar</Text>
+          </TouchableOpacity>
+        </View>
+      </CenterModal>
     </SafeAreaView>
   );
 }
@@ -408,7 +426,6 @@ const styles = StyleSheet.create({
   ingredientBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 8,
     paddingHorizontal: 14, paddingVertical: 12, borderRadius: 14, borderWidth: 1.5,
-    minWidth: (width - 48) / 3,
   },
   ingColorDot: { width: 14, height: 14, borderRadius: 7 },
   ingredientName: { fontSize: 13, fontWeight: '700', flex: 1 },
@@ -416,7 +433,7 @@ const styles = StyleSheet.create({
   extraBtn: {
     flexDirection: 'row', alignItems: 'center',
     paddingVertical: 10, paddingRight: 12, borderRadius: 14, borderWidth: 1,
-    minWidth: (width - 48) / 2.5, overflow: 'hidden',
+    overflow: 'hidden',
   },
   extraColorBar: { width: 4, alignSelf: 'stretch', borderRadius: 2 },
   extraName: { fontSize: 13, fontWeight: '700' },

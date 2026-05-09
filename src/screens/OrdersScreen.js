@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import {
-  View, Text, StyleSheet, ScrollView, TouchableOpacity,
+  View, Text, StyleSheet, ScrollView, TouchableOpacity, Pressable,
   Animated, PanResponder, Dimensions, useWindowDimensions,
   Modal,
 } from 'react-native';
@@ -168,16 +168,9 @@ function CookModal({ sale, visible, onClose, onDone, theme }) {
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <TouchableOpacity
-        style={cookStyles.overlay}
-        activeOpacity={1}
-        onPress={onClose}
-      >
-        <TouchableOpacity
-          style={[cookStyles.sheet, { backgroundColor: theme.bg }]}
-          activeOpacity={1}
-          onPress={() => {}}
-        >
+      <View style={cookStyles.overlay}>
+        <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
+        <View style={[cookStyles.sheet, { backgroundColor: theme.bg }]}>
           <View style={[cookStyles.handle, { backgroundColor: theme.cardBorder }]} />
 
           <View style={[cookStyles.numSection, { borderBottomColor: STATUS.processing.color + '30' }]}>
@@ -321,8 +314,8 @@ function CookModal({ sale, visible, onClose, onDone, theme }) {
               <Text style={[cookStyles.closeLinkText, { color: theme.textMuted }]}>Cerrar sin marcar como listo</Text>
             </TouchableOpacity>
           </View>
-        </TouchableOpacity>
-      </TouchableOpacity>
+        </View>
+      </View>
     </Modal>
   );
 }
@@ -335,12 +328,9 @@ function OrderDetailModal({ sale, visible, onClose, onMove, theme }) {
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <TouchableOpacity
-        style={[detailStyles.overlay, { backgroundColor: 'rgba(0,0,0,0.5)' }]}
-        activeOpacity={1}
-        onPress={onClose}
-      >
-        <TouchableOpacity style={[detailStyles.sheet, { backgroundColor: theme.bg }]} activeOpacity={1} onPress={() => {}}>
+      <View style={[detailStyles.overlay, { backgroundColor: 'rgba(0,0,0,0.5)' }]}>
+        <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
+        <View style={[detailStyles.sheet, { backgroundColor: theme.bg }]}>
           <View style={[detailStyles.handle, { backgroundColor: theme.cardBorder }]} />
           <View style={[detailStyles.header, { borderBottomColor: theme.cardBorder }]}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
@@ -444,8 +434,8 @@ function OrderDetailModal({ sale, visible, onClose, onMove, theme }) {
             )}
             <View style={{ height: 40 }} />
           </ScrollView>
-        </TouchableOpacity>
-      </TouchableOpacity>
+        </View>
+      </View>
     </Modal>
   );
 }
