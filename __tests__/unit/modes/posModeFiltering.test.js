@@ -1,6 +1,6 @@
 import { resolveVisibleProducts } from '../../../src/utils/modeResolution';
 
-// Replicates the HomeScreen pipeline: resolveVisibleProducts → tab filter
+// Replicates the POSScreen pipeline: resolveVisibleProducts → tab filter
 
 const getTabProducts = (products, activeTab, mode) => {
   const active = resolveVisibleProducts(products, mode);
@@ -14,7 +14,7 @@ const products = [
   { id: 'p3', name: 'Tamal' },
 ];
 
-describe('homeScreen mode filtering pipeline', () => {
+describe('POSScreen mode filtering pipeline', () => {
   it('default tab with empty productIds shows all active products', () => {
     // Arrange
     const tab = { id: 'default', productIds: [] };

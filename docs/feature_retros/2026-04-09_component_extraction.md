@@ -14,7 +14,7 @@ Extracted 8 reusable components + 2 utility files from 13 screens with duplicate
 
 ### PR 2 — Form (merged)
 - ThemedTextInput, CenterModal, BottomSheetModal
-- Updated 5 screens: ManageTabs, AddProduct, HomeScreen, ProfileScreen, BusinessConfig
+- Updated 5 screens: ManageTabs, AddProduct, POSScreen, ProfileScreen, BusinessConfig
 
 ### PR 3 — Display
 - StatusBadge, InfoCard

@@ -52,10 +52,10 @@ Some logic currently lives inside React components (useState callbacks, inline h
 
 ### Utility files to create:
 
-1. **`src/utils/pinLogic.js`** — PIN accumulation, verification trigger at 4 digits, delete logic, dots display. Used by: PinEntryScreen, PinKeypadModal, HomeScreen
-2. **`src/utils/cartLogic.js`** — Cart total calculation, add/remove item logic, clear cart. Used by: AppContext, HomeScreen
+1. **`src/utils/pinLogic.js`** — PIN accumulation, verification trigger at 4 digits, delete logic, dots display. Used by: PinEntryScreen, PinKeypadModal, POSScreen
+2. **`src/utils/cartLogic.js`** — Cart total calculation, add/remove item logic, clear cart. Used by: AppContext, POSScreen
 3. **`src/utils/salesLogic.js`** — Today's sales filter, order number formatting, sale status transitions, change calculation, change label. Used by: AppContext, SalesScreen, PaymentScreen
-4. **`src/utils/workerLogic.js`** — Login matching, PIN validation, isAdmin check, owner detection, remove worker guard, verify owner PIN. Used by: AuthContext, HomeScreen, ProfileScreen
+4. **`src/utils/workerLogic.js`** — Login matching, PIN validation, isAdmin check, owner detection, remove worker guard, verify owner PIN. Used by: AuthContext, POSScreen, ProfileScreen
 5. **`src/utils/orderLogic.js`** — Order status filtering, status transitions (next/prev), unit structure validation. Used by: OrdersScreen
 6. **`src/utils/uiLogic.js`** — StatusBadge size variants, dot color resolution, avatar initial extraction, puesto display formatting. Used by: various display components
 7. **`src/utils/validationLogic.js`** — Product name validation, price validation, WhatsApp number validation, bank config completeness. Used by: AddProductScreen, BusinessConfigScreen

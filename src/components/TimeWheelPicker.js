@@ -1,5 +1,5 @@
-import React, { useRef } from 'react';
-import { View, Text, ScrollView, StyleSheet } from 'react-native';
+import React, { useRef, useEffect } from 'react';
+import { View, Text, Animated, PanResponder, StyleSheet } from 'react-native';
 import { useTheme } from '../context/ThemeContext';
 
 const ITEM_H = 40;
@@ -7,25 +7,34 @@ const VISIBLE = 3;
 
 function WheelColumn({ items, selected, onSelect }) {
   const { theme } = useTheme();
-  const ref = useRef(null);
+  const offsetY = useRef(new Animated.Value(-selected * ITEM_H)).current;
+  const startY = useRef(0);
+  const currentIdx = useRef(selected);
 
-  const handleEnd = (e) => {
-    const idx = Math.round(e.nativeEvent.contentOffset.y / ITEM_H);
-    if (idx >= 0 && idx < items.length) onSelect(idx);
-  };
+  useEffect(() => {
+    currentIdx.current = selected;
+    offsetY.setValue(-selected * ITEM_H);
+  }, [selected]);
+
+  const clamp = (idx) => Math.max(0, Math.min(items.length - 1, idx));
+
+  const responder = useRef(PanResponder.create({
+    onStartShouldSetPanResponder: () => true,
+    onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dy) > 5,
+    onPanResponderGrant: () => { startY.current = -currentIdx.current * ITEM_H; },
+    onPanResponderMove: (_, g) => { offsetY.setValue(startY.current + g.dy); },
+    onPanResponderRelease: (_, g) => {
+      const raw = startY.current + g.dy;
+      const idx = clamp(Math.round(-raw / ITEM_H));
+      currentIdx.current = idx;
+      Animated.spring(offsetY, { toValue: -idx * ITEM_H, useNativeDriver: true, speed: 20, bounciness: 4 }).start();
+      onSelect(idx);
+    },
+  })).current;
 
   return (
-    <View style={styles.column}>
-      <ScrollView
-        ref={ref}
-        nestedScrollEnabled
-        showsVerticalScrollIndicator={false}
-        snapToInterval={ITEM_H}
-        decelerationRate="fast"
-        contentContainerStyle={{ paddingVertical: ITEM_H }}
-        onMomentumScrollEnd={handleEnd}
-        contentOffset={{ x: 0, y: selected * ITEM_H }}
-      >
+    <View style={styles.column} {...responder.panHandlers}>
+      <Animated.View style={{ transform: [{ translateY: Animated.add(offsetY, new Animated.Value(ITEM_H)) }] }}>
         {items.map((item, i) => {
           const isSel = i === selected;
           return (
@@ -36,7 +45,7 @@ function WheelColumn({ items, selected, onSelect }) {
             </View>
           );
         })}
-      </ScrollView>
+      </Animated.View>
     </View>
   );
 }

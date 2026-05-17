@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import {
-  View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  Animated, PanResponder, Dimensions, useWindowDimensions,
+  View, Text, StyleSheet, ScrollView, TouchableOpacity, Pressable,
+  Animated, PanResponder, useWindowDimensions,
   Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -9,8 +9,7 @@ import { Feather } from '@expo/vector-icons';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useApp } from '../context/AppContext';
 import { useTheme } from '../context/ThemeContext';
-
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
+import useResponsive from '../hooks/useResponsive';
 const STATUS = {
   new:        { label: 'NUEVOS',     color: '#F77F00' },
   processing: { label: 'EN PROCESO', color: '#4361EE' },
@@ -51,7 +50,7 @@ const toastStyles = StyleSheet.create({
   wrap: {
     position: 'absolute', bottom: 100, alignSelf: 'center',
     paddingHorizontal: 20, paddingVertical: 12, borderRadius: 24,
-    zIndex: 9999, maxWidth: SCREEN_WIDTH * 0.8,
+    zIndex: 9999, maxWidth: 320,
     shadowColor: '#000', shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.2, shadowRadius: 8, elevation: 10,
   },
@@ -168,16 +167,9 @@ function CookModal({ sale, visible, onClose, onDone, theme }) {
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <TouchableOpacity
-        style={cookStyles.overlay}
-        activeOpacity={1}
-        onPress={onClose}
-      >
-        <TouchableOpacity
-          style={[cookStyles.sheet, { backgroundColor: theme.bg }]}
-          activeOpacity={1}
-          onPress={() => {}}
-        >
+      <View style={cookStyles.overlay}>
+        <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
+        <View style={[cookStyles.sheet, { backgroundColor: theme.bg }]}>
           <View style={[cookStyles.handle, { backgroundColor: theme.cardBorder }]} />
 
           <View style={[cookStyles.numSection, { borderBottomColor: STATUS.processing.color + '30' }]}>
@@ -321,8 +313,8 @@ function CookModal({ sale, visible, onClose, onDone, theme }) {
               <Text style={[cookStyles.closeLinkText, { color: theme.textMuted }]}>Cerrar sin marcar como listo</Text>
             </TouchableOpacity>
           </View>
-        </TouchableOpacity>
-      </TouchableOpacity>
+        </View>
+      </View>
     </Modal>
   );
 }
@@ -335,12 +327,9 @@ function OrderDetailModal({ sale, visible, onClose, onMove, theme }) {
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <TouchableOpacity
-        style={[detailStyles.overlay, { backgroundColor: 'rgba(0,0,0,0.5)' }]}
-        activeOpacity={1}
-        onPress={onClose}
-      >
-        <TouchableOpacity style={[detailStyles.sheet, { backgroundColor: theme.bg }]} activeOpacity={1} onPress={() => {}}>
+      <View style={[detailStyles.overlay, { backgroundColor: 'rgba(0,0,0,0.5)' }]}>
+        <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
+        <View style={[detailStyles.sheet, { backgroundColor: theme.bg }]}>
           <View style={[detailStyles.handle, { backgroundColor: theme.cardBorder }]} />
           <View style={[detailStyles.header, { borderBottomColor: theme.cardBorder }]}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
@@ -444,14 +433,14 @@ function OrderDetailModal({ sale, visible, onClose, onMove, theme }) {
             )}
             <View style={{ height: 40 }} />
           </ScrollView>
-        </TouchableOpacity>
-      </TouchableOpacity>
+        </View>
+      </View>
     </Modal>
   );
 }
 
 // ─── TARJETA PRINCIPAL CON SWIPE ─────────────────────────
-function OrderCard({ sale, theme, onTap, onSwipe, onToast }) {
+function OrderCard({ sale, theme, screenWidth, onTap, onSwipe, onToast }) {
   const [elapsed, setElapsed] = useState('');
   const swipeAnim = useRef(new Animated.Value(0)).current;
   const cardRef = useRef(null);
@@ -487,22 +476,22 @@ function OrderCard({ sale, theme, onTap, onSwipe, onToast }) {
     },
     onPanResponderMove: (_, gs) => {
       if (!isSwiping.current) return;
-      const max = SCREEN_WIDTH * 0.45;
+      const max = screenWidth * 0.45;
       const clamped = Math.max(-max, Math.min(max, gs.dx));
       swipeAnim.setValue(clamped);
     },
     onPanResponderRelease: (_, gs) => {
       isSwiping.current = false;
-      const threshold = SCREEN_WIDTH * 0.28;
+      const threshold = screenWidth * 0.28;
       if (gs.dx > threshold && nextStatus) {
         // Swipe derecha → avanzar estado
-        Animated.timing(swipeAnim, { toValue: SCREEN_WIDTH, duration: 200, useNativeDriver: false }).start(() => {
+        Animated.timing(swipeAnim, { toValue: screenWidth, duration: 200, useNativeDriver: false }).start(() => {
           swipeAnim.setValue(0);
           onSwipe(sale, nextStatus);
         });
       } else if (gs.dx < -threshold && prevStatus) {
         // Swipe izquierda → retroceder estado
-        Animated.timing(swipeAnim, { toValue: -SCREEN_WIDTH, duration: 200, useNativeDriver: false }).start(() => {
+        Animated.timing(swipeAnim, { toValue: -screenWidth, duration: 200, useNativeDriver: false }).start(() => {
           swipeAnim.setValue(0);
           onSwipe(sale, prevStatus);
         });
@@ -518,7 +507,7 @@ function OrderCard({ sale, theme, onTap, onSwipe, onToast }) {
 
   // Color de reveal según dirección
   const revealColor = swipeAnim.interpolate({
-    inputRange: [-SCREEN_WIDTH * 0.45, 0, SCREEN_WIDTH * 0.45],
+    inputRange: [-screenWidth * 0.45, 0, screenWidth * 0.45],
     outputRange: [prevColor || '#888', 'transparent', nextColor || '#888'],
     extrapolate: 'clamp',
   });
@@ -673,6 +662,7 @@ export default function OrdersScreen() {
   const { getTodaySales, updateSaleStatus } = useApp();
   const { theme } = useTheme();
   const { width, height } = useWindowDimensions();
+  const { width: screenWidth } = useResponsive();
   const isLandscape = width > height;
 
   const sales = getTodaySales().reverse();
@@ -749,6 +739,7 @@ export default function OrdersScreen() {
               key={s.id}
               sale={s}
               theme={theme}
+              screenWidth={screenWidth}
               onTap={handleTap}
               onSwipe={handleSwipe}
               onToast={showToast}

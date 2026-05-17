@@ -11,7 +11,7 @@ Rename completo de "Modo/Modos" a "Catálogo/Catálogos" en toda la UI visible. 
 
 - **ManageModesScreen.js** — rename strings, worker bubbles con foto/initial, tips informativos (no UpsellCards), ActionPill con Animated.spring, borde izquierdo verde para activo, snackbar con message contextual
 - **ModeEditorScreen.js** — rename strings, fix decimal input (priceInputs raw string state, parseFloat solo al guardar), keyboardType decimal-pad, snackbar con message
-- **HomeScreen.js** — "Catálogo:" en vez de "Modo:" en el indicador
+- **POSScreen.js** — "Catálogo:" en vez de "Modo:" en el indicador
 - **ProfileScreen.js** — "Catálogos" con subtítulo "Crear, editar y programar catálogos"
 - **AppContext.js** — error messages renombrados a "catálogo", snackbar soporta campo message
 - **modeManagement.js** — error message renombrado a "catálogo"

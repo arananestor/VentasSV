@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, Modal, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, Modal, TouchableOpacity, Pressable, StyleSheet } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useTheme } from '../context/ThemeContext';
 
@@ -9,6 +9,7 @@ export default function BottomSheetModal({ visible, onClose, title, children }) 
   return (
     <Modal visible={visible} transparent animationType="slide">
       <View style={[styles.overlay, { backgroundColor: theme.overlay }]}>
+        <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
         <View style={[styles.sheet, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
           <View style={styles.header}>
             <Text style={[styles.title, { color: theme.text }]}>{title}</Text>

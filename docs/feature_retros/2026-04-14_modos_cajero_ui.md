@@ -5,12 +5,12 @@
 
 ## Resumen
 
-El cajero ahora ve productos filtrados y precios resueltos según el Modo activo. Las tabs se ordenan según tabOrder del Modo. Un indicador compacto muestra el nombre del Modo activo en HomeScreen.
+El cajero ahora ve productos filtrados y precios resueltos según el Modo activo. Las tabs se ordenan según tabOrder del Modo. Un indicador compacto muestra el nombre del Modo activo en POSScreen.
 
 ## Cambios por archivo
 
 - **src/utils/modeResolution.js** — nuevo: `resolveVisibleProducts`, `resolveProductPrice`, `resolveTabOrder`. Funciones puras.
-- **src/screens/HomeScreen.js** — productos filtrados por `resolveVisibleProducts`, tabs por `resolveTabOrder`, precios con `resolveProductPrice`. Indicador de Modo (pill). Cleanup de logs [MODOS-F1 VERIFY].
+- **src/screens/POSScreen.js** — productos filtrados por `resolveVisibleProducts`, tabs por `resolveTabOrder`, precios con `resolveProductPrice`. Indicador de Modo (pill). Cleanup de logs [MODOS-F1 VERIFY].
 - **src/screens/OrderBuilderScreen.js** — `calcTotal` y selector de sizes usan `resolveProductPrice`.
 - **src/context/AppContext.js** — cleanup de logs [MODOS-F1 VERIFY].
 

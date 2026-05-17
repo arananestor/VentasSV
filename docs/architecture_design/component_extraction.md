@@ -56,12 +56,12 @@ Extract 8 core reusable components + 2 utility files. Split into 3 PRs to keep e
 - Replaces: Duplicated styled TextInput pattern
 
 ### CenterModal
-- Used in: 4+ screens (HomeScreen admin PIN, ManageTabs, Profile)
+- Used in: 4+ screens (POSScreen admin PIN, ManageTabs, Profile)
 - Props: visible, onClose, title, children
 - Replaces: Duplicated overlay + centered card pattern
 
 ### BottomSheetModal
-- Used in: 3+ screens (HomeScreen cart, AddProduct)
+- Used in: 3+ screens (POSScreen cart, AddProduct)
 - Props: visible, onClose, title, children
 - Replaces: Duplicated bottom sheet overlay pattern
 
@@ -70,7 +70,7 @@ Extract 8 core reusable components + 2 utility files. Split into 3 PRs to keep e
 ## PR 3 — Display Components
 
 ### StatusBadge
-- Used in: 5+ screens (SaleDetail, Sales, HomeScreen, ManageTabs)
+- Used in: 5+ screens (SaleDetail, Sales, POSScreen, ManageTabs)
 - Props: label, color, size (small/medium)
 - Replaces: Badge/status indicator pattern
 

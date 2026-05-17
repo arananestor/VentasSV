@@ -1,5 +1,5 @@
 /**
- * HomeScreen — pure logic tests (no component rendering)
+ * POSScreen — pure logic tests (no component rendering)
  * Tests PIN authorization rules and keypad logic
  * using real functions from workerLogic, pinLogic
  */
@@ -26,7 +26,7 @@ const workers = [
   { id: '1', role: 'worker', pin: '5678', name: 'Ana' },
 ];
 
-describe('HomeScreen PIN authorization rules', () => {
+describe('POSScreen PIN authorization rules', () => {
 
   describe('isAdmin', () => {
     it('owner es admin', () => {
@@ -140,7 +140,7 @@ describe('HomeScreen PIN authorization rules', () => {
   });
 });
 
-describe('HomeScreen PIN keypad logic', () => {
+describe('POSScreen PIN keypad logic', () => {
 
   describe('appendDigit', () => {
     it('agrega dígito al PIN vacío', () => {

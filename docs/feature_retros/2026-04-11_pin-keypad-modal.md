@@ -6,14 +6,14 @@
 
 ## Changes
 
-1. **PinKeypadModal component** — extracted from HomeScreen's inline PIN modal (~100 lines of JSX + state + animation). Props: visible, onClose, onVerify, title, subtitle. Manages pin/error/shake internally.
-2. **HomeScreen cleanup** — removed adminPin, adminPinError, shakeAnim state, handlePinPress, handlePinDelete, shakePin, closeAdminPin functions, and 53 lines of inline modal JSX. Replaced with single `<PinKeypadModal />` tag.
+1. **PinKeypadModal component** — extracted from POSScreen's inline PIN modal (~100 lines of JSX + state + animation). Props: visible, onClose, onVerify, title, subtitle. Manages pin/error/shake internally.
+2. **POSScreen cleanup** — removed adminPin, adminPinError, shakeAnim state, handlePinPress, handlePinDelete, shakePin, closeAdminPin functions, and 53 lines of inline modal JSX. Replaced with single `<PinKeypadModal />` tag.
 3. **ProfileScreen bug fix** — removed dead state (ownerPinInput, ownerPinError) and dead function (handleOwnerPinVerify). Connected existing requireOwnerPin logic to PinKeypadModal. Non-owner users can now complete admin actions in ProfileScreen.
 
 ## What went well
 
 - Architecture design doc (PR #19) defined exact changes — zero ambiguity during implementation
-- HomeScreen went from ~100 lines of PIN code to 7 lines (import + component)
+- POSScreen went from ~100 lines of PIN code to 7 lines (import + component)
 - ProfileScreen bug was a silent failure — requireOwnerPin set showOwnerPin=true but nothing rendered. Now it works.
 - 21 new tests cover component props, internal state, verification flow, and both consumers
 

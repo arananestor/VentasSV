@@ -23,7 +23,7 @@ make dev-clear         # Start with cache cleared
 make tunnel            # Expo with tunnel (restrictive networks)
 
 # Testing
-npm test               # Run all tests (707 tests, 49 suites — must be 0 failures)
+npm test               # Run all tests (760 tests, 52 suites — must be 0 failures)
 npm run test:unit      # Unit tests only (__tests__/unit/)
 npm run test:integration  # Integration tests only (__tests__/integration/)
 npm run test:coverage  # Coverage report (70% threshold)
@@ -38,6 +38,14 @@ make update m='msg'    # OTA update to production
 ## Architecture
 
 **Provider chain:** App.js → SafeAreaProvider → ThemeProvider → AuthProvider → AppProvider → TabProvider → NavigationContainer → AppNavigator
+
+**Established Architecture Patterns:**
+
+- Responsive layout: `useResponsive` hook in `src/hooks/useResponsive.js` returns reactive primitives (width, height, isTablet, isLandscape, padding, gap, columns, gridCardSize, layout, fontSize). Mandatory for any screen with dynamic width-based computations. Current consumers: POSScreen, AddProductScreen, OrderBuilderScreen, SelectWorkerScreen, OrdersScreen.
+- Modal backdrops: Pressable plus StyleSheet.absoluteFill is the single accepted pattern. Reference: `src/components/CenterModal.js`. Consumers: CenterModal, BottomSheetModal, ModeEditorScreen modal, OrdersScreen modal, ProfileScreen modal.
+- Bottom sheets: `src/components/BottomSheetModal.js` for non-destructive sheets. Consumers: CartSheet, SimpleProductSheet.
+- Icon and color picker: `src/components/IconColorPicker.js` unifies icon catalog and color selection in one searchable categorized grid. Source of icons and helpers: `src/constants/productConstants.js` (ICON_CATALOG with 11 categories, searchIcons, getIconCols, getIconBtnSize).
+- User feedback API: showSnack for persistent post-sale snackbar, showNotif for informational toast of 2 to 3 seconds, CenterModal for destructive confirmations with explicit button. All exposed from AppContext.
 
 **State management:** React Context API (no Redux). Four contexts:
 
@@ -66,11 +74,11 @@ make update m='msg'    # OTA update to production
 ## Testing
 
 - Runner: jest-expo. Config in package.json `jest` field
-- Unit tests (`__tests__/unit/`): auth, businessConfig, cart, displayComponents, formComponents, homeScreen, migration, pinEntry, pinKeypadModal, productPermissions, products, roleConfig, geoLogic, itemsLogic, salesMigration, saleDetailItems, salesListSummary, cookModalItems, ticketPrinter, ticketMessage, transferMessage, ids, entityEnvelope, schemaMigrationV4, qentasClient, requiresQentasLogic, upsellCardLogic, businessConfigQentasFields, modes/modeModel, modes/schemaMigrationV5, modes/repositoryModes, modes/modeManagementLogic, modes/modeResolution, modes/homeScreenModeFiltering, modes/orderBuilderPricing, modes/modeManagement, modes/modeScheduling, modes/modeEditorLogic, modes/modeAutoActivation, modes/modeProductEditorLogic, sales, selectWorker, setup, snackbar, tabs, theme, workers
+- Unit tests (`__tests__/unit/`): auth, businessConfig, cart, displayComponents, formComponents, posScreen, migration, pinEntry, pinKeypadModal, productPermissions, products, roleConfig, geoLogic, itemsLogic, salesMigration, saleDetailItems, salesListSummary, cookModalItems, ticketPrinter, ticketMessage, transferMessage, ids, entityEnvelope, schemaMigrationV4, qentasClient, requiresQentasLogic, upsellCardLogic, businessConfigQentasFields, modes/modeModel, modes/schemaMigrationV5, modes/repositoryModes, modes/modeManagementLogic, modes/modeResolution, modes/posModeFiltering, modes/orderBuilderPricing, modes/modeManagement, modes/modeScheduling, modes/modeEditorLogic, modes/modeAutoActivation, modes/modeProductEditorLogic, collapsibleHeader, iconCatalog, responsive, sales, selectWorker, setup, snackbar, tabs, theme, workers
 - Integration tests (`__tests__/integration/`): payment, orders
 - Mocks in `__mocks__/` for AsyncStorage, vector-icons, safe-area-context
 - Coverage threshold: 70% on branches, functions, lines, statements
-- **Rule: 707 tests (minimum), 0 failures before any merge. No exceptions.**
+- **Rule: 760 tests (minimum), 0 failures before any merge. No exceptions.**
 - **AAA Pattern (mandatory):** Every test must follow Arrange-Act-Assert. The Act step must call a real function imported from `src/`. Never reimplement logic in tests. Comments `// Arrange`, `// Act`, `// Assert` are required in every test block.
 
 ## Repository
@@ -130,7 +138,7 @@ docs/feature_retros/       ← retrospectives after each merge
 - After each merge: create `docs/feature_retros/[date]_[name].md`
 - Always read existing docs before starting work
 
-Architecture design docs are REQUIRED before starting any major feature. Feature retros are REQUIRED after every merge to develop. No exceptions.
+Architecture design docs are REQUIRED before starting any major feature. Feature retros are REQUIRED after every merge to develop. No exceptions. Retros are living documents — if a subsequent PR reveals a retro claimed something was fixed but wasn't, the retro must be corrected in that same PR.
 
 ## Development Rules — No Exceptions
 
@@ -152,7 +160,15 @@ Architecture design docs are REQUIRED before starting any major feature. Feature
 - **Role changes require global grep**: Any PR that modifies role logic must include `grep -r "role ===" src/` output in the PR description to verify no orphaned role checks exist. (Source: PRs #13, #16 — `role === 'admin'` bug appeared twice)
 - **Reuse estimation requires diff analysis**: Before extracting a component for reuse, count actual consumers at the diff level, not by visual similarity. (Source: PR #10-12 retro — StatusBadge/InfoCard had less reuse than estimated)
 - **CLAUDE.md must be verified on every PR**: Before opening any PR, read CLAUDE.md and update test counts, suite lists, and priority status if they have changed. This file is the primary context source — if it drifts, all future work drifts with it.
+- **Retros must reflect reality**: If a subsequent PR reveals a retro claimed something was fixed but wasn't, the retro must be corrected in that same PR. Retros are living documents, not static snapshots.
+- **Execution PRs must complete entire design doc sections**: Before opening a PR, verify every item in the referenced design doc section is fully addressed. If a section says X and Y must change, both X and Y ship in the same PR. No partial implementations.
+- **Global impact analysis is mandatory**: Before considering any change complete, grep the entire repo for every modified export, constant, function name, or file path. Update ALL consumers. No orphaned references, no runtime crashes from missed imports. This applies to renames, API changes, constant migrations, and any refactor.
 - **Verification logs**: Execution PRs should include temporary `[FASE VERIFY]` console.log blocks (marked `TODO(cleanup-next-pr)`) to confirm infrastructure changes at boot. The PR immediately following must remove them.
+- **Design doc decision rule**: A separate design doc PR is required when the change involves architectural decisions, schema migrations, new patterns, multi-module impact, or UX trade-offs worth debating before code. Housekeeping, local refactors, doc updates, and scoped bug fixes go in a single PR with a rich description. When in doubt, default to separating. (Source: PR #73 sync cycle)
+- **Release cadence**: Every 10 PRs merged to develop, open a release PR develop → main. The release PR carries no commits of its own — it only promotes the accumulated work. The next release after PR #74 will be at the PR #84 mark. (Source: PR #73 sync cycle)
+- **Polish phase patterns are mandatory project-wide**: Alert.alert is forbidden — use showNotif for informational messages, CenterModal for destructive confirmations. Dimensions.get('window') at module level is forbidden — use the useResponsive hook. Modal backdrops must use Pressable plus StyleSheet.absoluteFill, never TouchableOpacity as overlay. (Source: PRs #70, #72)
+- **Animation restrictions in ScrollView contexts**: Only transform and opacity may animate, always with useNativeDriver: true. Animating height, margin, or padding inside a ScrollView is forbidden. (Source: collapsibleHeader.js, PR #63)
+- **react-native-reanimated is blocked**: It requires full babel plugin config and native rebuild, incompatible with the current pinned setup. Do not propose it as a solution.
 
 ## UI Conventions
 
@@ -176,23 +192,21 @@ Before adding any feature, ask: **Does this help a business owner in El Salvador
 
 ## Current Priority — Beta v0.1
 
-1. ~~Merge fix/revert-react-version → develop~~ ✅ Done
-2. ~~Merge develop → main~~ (Nestor decides when)
-3. ~~GitHub Actions CI/CD~~ ✅ Done (PR #7)
-4. ~~Extract PinKeypadModal as reusable component~~ ✅ Done (PR #20)
-5. ProfileScreen fixes — custom shift modal, compact summary, camera vs gallery
-6. Sales date picker + historical CSV export with full columns
-7. Verify static map + geo URI flow in SaleDetailScreen
-8. Onboarding — solo vs team → configure available tools → lazy loading
-9. Owner dashboard — live orders, daily sales, active team
-10. Cash register close — for fixed devices on shift change
-11. ~~Role interfaces — tab filtering by role/puesto~~ ✅ Done (PR #24)
-12. ~~Sale model refactor Fase A — items[], migration v2→v3~~ ✅ Done
-13. ~~Sale model refactor Fase B — consumers read items[]~~ ✅ Done
-14. ~~Sale model refactor Fase C — ticket, WhatsApp, transfer~~ ✅ Done
-15. ~~Foundation Fase F1 — UUIDs, device identity, entity envelope, repository~~ ✅ Done
-16. ~~Foundation Fase F2 — Qentas client stub, RequiresQentas, UpsellCard~~ ✅ Done
-17. ~~Modos de operación — foundation~~ ✅ Done
-18. ~~Modos de operación — cashier view respects active mode~~ ✅ Done
-19. ~~Modos de operación — owner management + scheduling~~ ✅ Done
-20. Role-specific screens — motorista (entregas), camarero (mesas)
+**Active priorities:**
+
+1. Release develop → main on PR #74 cycle, every 10 PRs thereafter
+2. ProfileScreen fixes — custom shift modal, compact summary, camera vs gallery
+3. Sales date picker + historical CSV export with full columns
+4. Verify static map + geo URI flow in SaleDetailScreen
+5. Onboarding — solo vs team → configure available tools → lazy loading
+6. Owner dashboard — live orders, daily sales, active team
+7. Cash register close — for fixed devices on shift change
+8. Role-specific screens — motorista (entregas), camarero (mesas)
+
+**Completed milestones:**
+
+- ~~Foundation: revert React version, GitHub Actions CI/CD (PR #7), Extract PinKeypadModal (PR #20), Role interfaces tab filtering (PR #24)~~
+- ~~Sale model refactor: Fase A items[] migration v2→v3, Fase B consumers read items[], Fase C ticket WhatsApp transfer~~
+- ~~Foundation sync-ready: F1 UUIDs and entity envelope, F2 Qentas client stub with RequiresQentas and UpsellCard~~
+- ~~Modos de operación: foundation, cashier view respects active mode, owner management with scheduling~~
+- ~~Polish phase: POS collapsible header (PR #63), CartSheet extracted (PR #61), SimpleProductSheet extracted (PR #62), AddProduct responsive and redesign (PRs #64 #68), OrderBuilder responsive and redesign (PRs #69 #70), Icon catalog categories with unified IconColorPicker (PR #67), Header gap fix (PR #66), Global Alert.alert and Dimensions.get cleanup with BottomSheetModal backdrop fix (PRs #70 #72)~~

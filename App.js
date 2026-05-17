@@ -14,7 +14,7 @@ import { TabProvider } from './src/context/TabContext';
 import SetupScreen from './src/screens/SetupScreen';
 import SelectWorkerScreen from './src/screens/SelectWorkerScreen';
 import PinEntryScreen from './src/screens/PinEntryScreen';
-import HomeScreen from './src/screens/HomeScreen';
+import POSScreen from './src/screens/POSScreen';
 import OrderBuilderScreen from './src/screens/OrderBuilderScreen';
 import PaymentScreen from './src/screens/PaymentScreen';
 import AddProductScreen from './src/screens/AddProductScreen';
@@ -34,7 +34,7 @@ const Tab = createBottomTabNavigator();
 function HomeStack() {
   return (
     <Stack.Navigator screenOptions={{ headerShown: false, animation: 'slide_from_right' }}>
-      <Stack.Screen name="HomeMain" component={HomeScreen} />
+      <Stack.Screen name="HomeMain" component={POSScreen} />
       <Stack.Screen name="OrderBuilder" component={OrderBuilderScreen} />
       <Stack.Screen name="Payment" component={PaymentScreen} />
       <Stack.Screen name="AddProduct" component={AddProductScreen} />
@@ -64,6 +64,21 @@ function ProfileStack() {
       <Stack.Screen name="AddProduct" component={AddProductScreen} />
     </Stack.Navigator>
   );
+}
+
+function ComingSoonPlaceholder({ icon, title }) {
+  const { theme } = useTheme();
+  return (
+    <View style={{ flex: 1, backgroundColor: theme.bg, alignItems: 'center', justifyContent: 'center', gap: 12 }}>
+      <MaterialCommunityIcons name={icon} size={48} color={theme.textMuted} />
+      <Text style={{ fontSize: 18, fontWeight: '800', letterSpacing: 3, color: theme.text }}>{title}</Text>
+      <Text style={{ fontSize: 13, fontWeight: '600', color: theme.textMuted }}>PRÓXIMAMENTE</Text>
+    </View>
+  );
+}
+
+function ComandasPlaceholder() {
+  return <ComingSoonPlaceholder icon="clipboard-list-outline" title="COMANDAS" />;
 }
 
 function MainTabs() {
@@ -103,7 +118,7 @@ function MainTabs() {
       {allowedTabs.includes('Comandas') && (
         <Tab.Screen
           name="Comandas"
-          component={OrdersScreen}
+          component={ComandasPlaceholder}
           options={{
             tabBarIcon: ({ color }) => (
               <MaterialCommunityIcons name="clipboard-list-outline" size={24} color={color} />
