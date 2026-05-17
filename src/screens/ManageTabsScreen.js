@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
 import {
-  View, Text, TouchableOpacity, ScrollView, StyleSheet, Alert,
+  View, Text, TouchableOpacity, ScrollView, StyleSheet,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTab } from '../context/TabContext';
 import { useTheme } from '../context/ThemeContext';
+import { useApp } from '../context/AppContext';
 import ScreenHeader from '../components/ScreenHeader';
 import PrimaryButton from '../components/PrimaryButton';
 import CenterModal from '../components/CenterModal';
@@ -19,32 +20,31 @@ const TAB_COLORS = [
 export default function ManageTabsScreen({ navigation }) {
   const { tabs, addTab, updateTab, deleteTab } = useTab();
   const { theme } = useTheme();
+  const { showNotif } = useApp();
   const [showAdd, setShowAdd] = useState(false);
   const [showEdit, setShowEdit] = useState(null);
   const [name, setName] = useState('');
   const [type, setType] = useState('fixed');
   const [color, setColor] = useState('#FFFFFF');
+  const [tabToDelete, setTabToDelete] = useState(null);
 
   const handleAdd = async () => {
-    if (!name.trim()) { Alert.alert('', 'Ponele un nombre'); return; }
+    if (!name.trim()) { showNotif('Ponele un nombre'); return; }
     await addTab(name.trim(), type, color);
     setShowAdd(false);
     resetForm();
   };
 
   const handleUpdate = async () => {
-    if (!name.trim()) { Alert.alert('', 'Ponele un nombre'); return; }
+    if (!name.trim()) { showNotif('Ponele un nombre'); return; }
     await updateTab(showEdit, { name: name.trim(), type, color });
     setShowEdit(null);
     resetForm();
   };
 
   const handleDelete = (tab) => {
-    if (tab.id === 'default') { Alert.alert('', 'No podés eliminar la pestaña principal'); return; }
-    Alert.alert('Eliminar', `¿Eliminar "${tab.name}"?`, [
-      { text: 'No', style: 'cancel' },
-      { text: 'Sí', style: 'destructive', onPress: () => deleteTab(tab.id) },
-    ]);
+    if (tab.id === 'default') { showNotif('No podés eliminar la pestaña principal'); return; }
+    setTabToDelete(tab);
   };
 
   const openEdit = (tab) => {
@@ -178,6 +178,30 @@ export default function ManageTabsScreen({ navigation }) {
         title="EDITAR PESTAÑA"
       >
         {renderForm(handleUpdate, 'GUARDAR')}
+      </CenterModal>
+
+      <CenterModal
+        visible={tabToDelete !== null}
+        onClose={() => setTabToDelete(null)}
+        title="¿Eliminar pestaña?"
+      >
+        <Text style={{ color: theme.textSecondary, fontSize: 14, textAlign: 'center', marginBottom: 16 }}>
+          Se eliminará "{tabToDelete?.name}"
+        </Text>
+        <View style={{ flexDirection: 'row', gap: 10 }}>
+          <TouchableOpacity
+            style={{ flex: 1, borderRadius: 12, paddingVertical: 14, alignItems: 'center', borderWidth: 1, borderColor: theme.cardBorder }}
+            onPress={() => setTabToDelete(null)}
+          >
+            <Text style={{ fontSize: 14, fontWeight: '700', color: theme.textMuted }}>Cancelar</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={{ flex: 1, borderRadius: 12, paddingVertical: 14, alignItems: 'center', backgroundColor: '#D62828' }}
+            onPress={() => { deleteTab(tabToDelete.id); setTabToDelete(null); }}
+          >
+            <Text style={{ fontSize: 14, fontWeight: '700', color: '#fff' }}>Eliminar</Text>
+          </TouchableOpacity>
+        </View>
       </CenterModal>
     </SafeAreaView>
   );
