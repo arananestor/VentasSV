@@ -1,33 +1,31 @@
 import React from 'react';
 import {
   View, Text, TouchableOpacity, ScrollView,
-  StyleSheet, StatusBar, Image, Dimensions,
+  StyleSheet, StatusBar, Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useAuth, PUESTO_ICONS } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
-
-const { width } = Dimensions.get('window');
-const CARD_GAP  = 14;
-const PADDING   = 20;
-const CARD_SIZE = (width - (PADDING * 2) - CARD_GAP) / 2;
+import useResponsive from '../hooks/useResponsive';
 
 export default function SelectWorkerScreen({ navigation }) {
   const { workers } = useAuth();
   const { theme }   = useTheme();
+  const { width, padding: PADDING, gap: CARD_GAP } = useResponsive();
+  const CARD_SIZE = (width - (PADDING * 2) - CARD_GAP) / 2;
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.bg }]}>
       <StatusBar barStyle={theme.statusBar} backgroundColor={theme.bg} />
 
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingHorizontal: PADDING }]}>
         <Text style={[styles.logo, { color: theme.text }]}>VENTASSV</Text>
         <Text style={[styles.subtitle, { color: theme.textSecondary }]}>¿Quién trabaja hoy?</Text>
       </View>
 
       <ScrollView
-        contentContainerStyle={styles.grid}
+        contentContainerStyle={[styles.grid, { paddingHorizontal: PADDING, gap: CARD_GAP }]}
         showsVerticalScrollIndicator={false}
       >
         {workers.map((worker) => {
@@ -40,7 +38,7 @@ export default function SelectWorkerScreen({ navigation }) {
               key={worker.id}
               style={[
                 styles.workerCard,
-                { backgroundColor: theme.card, borderColor: theme.cardBorder },
+                { width: CARD_SIZE, backgroundColor: theme.card, borderColor: theme.cardBorder },
                 isDueno && { borderColor: theme.accent, borderWidth: 1.5 },
               ]}
               activeOpacity={0.8}
@@ -87,18 +85,16 @@ export default function SelectWorkerScreen({ navigation }) {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   header: {
-    paddingHorizontal: PADDING, paddingTop: 48,
-    paddingBottom: 32, alignItems: 'center',
+    paddingTop: 48, paddingBottom: 32, alignItems: 'center',
   },
   logo:     { fontSize: 32, fontWeight: '900', letterSpacing: 8 },
   subtitle: { fontSize: 16, fontWeight: '600', marginTop: 10 },
   grid: {
     flexDirection: 'row', flexWrap: 'wrap',
-    paddingHorizontal: PADDING, gap: CARD_GAP,
     paddingBottom: 60, justifyContent: 'center',
   },
   workerCard: {
-    width: CARD_SIZE, borderRadius: 22, paddingVertical: 28,
+    borderRadius: 22, paddingVertical: 28,
     alignItems: 'center', borderWidth: 1, gap: 12,
   },
   workerPhoto:   { width: 72, height: 72, borderRadius: 36, resizeMode: 'cover' },

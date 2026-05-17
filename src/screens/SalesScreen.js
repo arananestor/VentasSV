@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   View, Text, ScrollView, StyleSheet,
-  TouchableOpacity, Linking, Alert,
+  TouchableOpacity, Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
@@ -50,7 +50,7 @@ const buildCSV = (sales) => {
 };
 
 export default function SalesScreen({ navigation }) {
-  const { getTodaySales } = useApp();
+  const { getTodaySales, showNotif } = useApp();
   const { theme } = useTheme();
 
   const sales = getTodaySales().reverse();
@@ -81,12 +81,12 @@ export default function SalesScreen({ navigation }) {
 
   const handleExportCSV = async () => {
     if (sales.length === 0) {
-      Alert.alert('Sin ventas', 'No hay ventas del día para exportar.');
+      showNotif('No hay ventas del día para exportar');
       return;
     }
     const withGeo = sales.filter(s => s.geo?.latitude != null).length;
     if (withGeo === 0) {
-      Alert.alert('Sin ubicaciones', 'Ninguna venta del día tiene ubicación registrada.');
+      showNotif('Ninguna venta tiene ubicación registrada');
       return;
     }
     try {
@@ -96,7 +96,7 @@ export default function SalesScreen({ navigation }) {
       await FileSystem.writeAsStringAsync(path, buildCSV(sales));
       await Sharing.shareAsync(path);
     } catch (e) {
-      Alert.alert('Error', e.message || 'No se pudo generar el archivo.');
+      showNotif(e.message || 'No se pudo generar el archivo');
     } finally {
       setExporting(false);
     }
