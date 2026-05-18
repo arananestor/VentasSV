@@ -9,9 +9,21 @@ import { methodLabel } from './formatters';
 
 export function formatShiftSummaryMessage(summary, worker, businessName) {
   const lines = [];
+  const sep = '--------------------------------';
 
-  if (businessName) lines.push(businessName);
-  lines.push(`Resumen de turno — ${worker?.name || 'Empleado'}`);
+  lines.push('VENTASSV — Resumen de Turno');
+  lines.push('');
+
+  if (businessName) lines.push(`Negocio: ${businessName}`);
+  lines.push(`Empleado: ${worker?.name || 'Empleado'} · ${worker?.puesto || 'Cajero'}`);
+
+  if (summary.shiftSales && summary.shiftSales.length > 0) {
+    const firstSale = summary.shiftSales[0];
+    const d = new Date(firstSale.timestamp);
+    lines.push(`Fecha: ${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`);
+  }
+
+  lines.push(`Turno: ${summary.durationLabel}`);
   lines.push('');
 
   if (summary.ticketCount === 0) {
@@ -19,24 +31,54 @@ export function formatShiftSummaryMessage(summary, worker, businessName) {
     return lines.join('\n');
   }
 
-  lines.push(`Duración: ${summary.durationLabel}`);
-  lines.push(`Total del turno: $${summary.total.toFixed(2)}`);
+  lines.push(sep);
+  lines.push('TOTALES');
+  lines.push(`Total turno: $${summary.total.toFixed(2)}`);
   lines.push(`Tickets: ${summary.ticketCount}`);
   lines.push('');
 
   const methods = Object.entries(summary.byMethod);
   if (methods.length > 0) {
-    lines.push('Desglose por método:');
+    lines.push('Metodos de pago:');
     methods.forEach(([method, amount]) => {
       lines.push(`  ${methodLabel(method)}: $${amount.toFixed(2)}`);
     });
     lines.push('');
   }
 
-  if (summary.topProducts.length > 0) {
-    lines.push('Más vendidos:');
-    summary.topProducts.forEach(p => {
-      lines.push(`  ${p.name} x${p.units}`);
+  lines.push(sep);
+  lines.push('DETALLE DE VENTAS');
+
+  const tickets = summary.shiftSales || [];
+  tickets.forEach(sale => {
+    lines.push('');
+    const time = new Date(sale.timestamp);
+    const hh = String(time.getHours()).padStart(2, '0');
+    const mm = String(time.getMinutes()).padStart(2, '0');
+    lines.push(`Ticket #${sale.orderNumber || sale.id?.slice(-4)} — ${hh}:${mm}`);
+
+    (sale.items || []).forEach(item => {
+      const qty = item.quantity || 1;
+      const name = item.product?.name || item.name || 'Producto';
+      const size = item.size?.name ? ` · ${item.size.name}` : '';
+      lines.push(`  ${qty}x ${name}${size}`);
+      if (item.extras?.length > 0) {
+        lines.push(`      + ${item.extras.map(e => e.name).join(', ')}`);
+      }
+      if (item.note) {
+        lines.push(`      Nota: ${item.note}`);
+      }
+    });
+
+    lines.push(`  Pago: ${methodLabel(sale.paymentMethod || 'cash')} · $${(sale.total || 0).toFixed(2)}`);
+  });
+
+  if (summary.productsSummary && summary.productsSummary.length > 0) {
+    lines.push('');
+    lines.push(sep);
+    lines.push('MAS VENDIDOS');
+    summary.productsSummary.forEach(p => {
+      lines.push(`  ${p.units}x ${p.name}`);
     });
   }
 

@@ -13,7 +13,7 @@ export function computeShiftSummary({ shiftStartedAt, sales, workerId, now }) {
       ticketCount: 0,
       total: 0,
       byMethod: {},
-      topProducts: [],
+      productsSummary: [],
     };
   }
 
@@ -44,10 +44,9 @@ export function computeShiftSummary({ shiftStartedAt, sales, workerId, now }) {
     });
   });
 
-  const topProducts = Object.entries(productMap)
+  const productsSummary = Object.entries(productMap)
     .map(([name, units]) => ({ name, units }))
-    .sort((a, b) => b.units - a.units)
-    .slice(0, 3);
+    .sort((a, b) => b.units - a.units);
 
   return {
     durationMs,
@@ -55,7 +54,8 @@ export function computeShiftSummary({ shiftStartedAt, sales, workerId, now }) {
     ticketCount: shiftSales.length,
     total,
     byMethod,
-    topProducts,
+    productsSummary,
+    shiftSales,
   };
 }
 

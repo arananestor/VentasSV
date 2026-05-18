@@ -9,6 +9,8 @@ const BASE_TIME = '2026-05-18T08:00:00.000Z';
 const LATER_TIME = '2026-05-18T11:24:00.000Z'; // 3h 24min later
 
 const makeSale = (overrides) => ({
+  id: 'sale-' + Math.random(),
+  orderNumber: '0001',
   timestamp: '2026-05-18T09:00:00.000Z',
   total: 10,
   paymentMethod: 'cash',
@@ -31,7 +33,7 @@ describe('computeShiftSummary', () => {
     expect(result.ticketCount).toBe(0);
     expect(result.total).toBe(0);
     expect(result.byMethod).toEqual({});
-    expect(result.topProducts).toEqual([]);
+    expect(result.productsSummary).toEqual([]);
   });
 
   it('excludes sales before shift start', () => {
@@ -102,7 +104,7 @@ describe('computeShiftSummary', () => {
     expect(result.total).toBe(50);
   });
 
-  it('topProducts sorts descending by units and limits to 3', () => {
+  it('productsSummary sorts descending by units without truncation', () => {
     // Arrange
     const sales = [
       makeSale({ items: [
@@ -121,14 +123,29 @@ describe('computeShiftSummary', () => {
     const result = computeShiftSummary(input);
 
     // Assert
-    expect(result.topProducts).toHaveLength(3);
-    expect(result.topProducts[0].units).toBeGreaterThanOrEqual(result.topProducts[1].units);
-    expect(result.topProducts[1].units).toBeGreaterThanOrEqual(result.topProducts[2].units);
-    expect(result.topProducts[0].units).toBe(4);
-    expect(result.topProducts[2].units).toBe(3);
-    const names = result.topProducts.map(p => p.name);
+    expect(result.productsSummary.length).toBe(4);
+    expect(result.productsSummary[0].units).toBeGreaterThanOrEqual(result.productsSummary[1].units);
+    expect(result.productsSummary[1].units).toBeGreaterThanOrEqual(result.productsSummary[2].units);
+    const names = result.productsSummary.map(p => p.name);
     expect(names).toContain('A');
+    expect(names).toContain('B');
+    expect(names).toContain('C');
     expect(names).toContain('D');
+  });
+
+  it('productsSummary includes all products when more than 3', () => {
+    // Arrange
+    const items = ['P1','P2','P3','P4','P5','P6','P7'].map(n => ({
+      product: { name: n }, units: [{}], quantity: 1,
+    }));
+    const sales = [makeSale({ items })];
+    const input = { shiftStartedAt: BASE_TIME, sales, workerId: 'w1', now: LATER_TIME };
+
+    // Act
+    const result = computeShiftSummary(input);
+
+    // Assert
+    expect(result.productsSummary.length).toBe(7);
   });
 
   it('durationLabel formats hours and minutes for >= 1 hour', () => {
@@ -167,5 +184,19 @@ describe('computeShiftSummary', () => {
 
     // Assert
     expect(result.durationMs).toBe(3 * 60 * 60 * 1000 + 24 * 60 * 1000);
+  });
+
+  it('shiftSales contains the filtered sales array', () => {
+    // Arrange
+    const s1 = makeSale({ timestamp: '2026-05-18T09:00:00.000Z' });
+    const s2 = makeSale({ timestamp: '2026-05-18T07:00:00.000Z' }); // before shift
+    const input = { shiftStartedAt: BASE_TIME, sales: [s1, s2], workerId: 'w1', now: LATER_TIME };
+
+    // Act
+    const result = computeShiftSummary(input);
+
+    // Assert
+    expect(result.shiftSales).toHaveLength(1);
+    expect(result.shiftSales[0].id).toBe(s1.id);
   });
 });

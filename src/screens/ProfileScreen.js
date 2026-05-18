@@ -118,8 +118,8 @@ export default function ProfileScreen({ navigation }) {
 
         <CompactSummaryBand
           shiftStartedAt={shiftStartedAt}
+          sales={sales}
           currentWorker={currentWorker}
-          isOwnerView={currentWorker?.role === 'owner' && deviceType === 'fixed'}
         />
 
         {/* TARJETA DE PERFIL */}

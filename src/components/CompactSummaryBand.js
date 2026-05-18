@@ -1,45 +1,44 @@
-import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, AppState } from 'react-native';
 import { useTheme } from '../context/ThemeContext';
 import { useApp } from '../context/AppContext';
 import { computeShiftSummary } from '../utils/shiftSummary';
 
-export default function CompactSummaryBand({ shiftStartedAt, currentWorker, isOwnerView }) {
+function formatLiveDuration(shiftStartedAt, now) {
+  if (!shiftStartedAt) return '—';
+  const ms = new Date(now).getTime() - new Date(shiftStartedAt).getTime();
+  if (ms < 0) return '—';
+  const totalMin = Math.floor(ms / 60000);
+  const h = Math.floor(totalMin / 60);
+  const m = totalMin % 60;
+  return h > 0 ? `${h}h ${m}min` : `${m}min`;
+}
+
+export default function CompactSummaryBand({ shiftStartedAt, sales, currentWorker }) {
   const { theme } = useTheme();
-  const { sales } = useApp();
+  const [now, setNow] = useState(new Date().toISOString());
 
-  if (!shiftStartedAt && !isOwnerView) return null;
-
-  let summary;
-  if (isOwnerView) {
-    const today = new Date().toDateString();
-    const todaySales = sales.filter(s => new Date(s.timestamp).toDateString() === today);
-    summary = computeShiftSummary({
-      shiftStartedAt: new Date(new Date().toDateString()).toISOString(),
-      sales: todaySales,
-      workerId: null,
+  useEffect(() => {
+    const interval = setInterval(() => setNow(new Date().toISOString()), 60000);
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active') setNow(new Date().toISOString());
     });
-    // Include all today's sales for owner regardless of workerId
-    summary.ticketCount = todaySales.length;
-    summary.total = todaySales.reduce((sum, s) => sum + (s.total || 0), 0);
-  } else {
-    summary = computeShiftSummary({
-      shiftStartedAt,
-      sales,
-      workerId: currentWorker?.id,
-    });
-  }
+    return () => { clearInterval(interval); sub.remove(); };
+  }, []);
 
-  const startTime = shiftStartedAt
-    ? new Date(shiftStartedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })
-    : '—';
+  if (!shiftStartedAt) return null;
+
+  const summary = computeShiftSummary({
+    shiftStartedAt,
+    sales,
+    workerId: currentWorker?.id,
+    now,
+  });
 
   return (
     <View style={[styles.band, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
       <View style={styles.cell}>
-        <Text style={[styles.label, { color: theme.textMuted }]}>
-          {isOwnerView ? 'VENTAS DÍA' : 'VENTAS HOY'}
-        </Text>
+        <Text style={[styles.label, { color: theme.textMuted }]}>VENTAS HOY</Text>
         <Text style={[styles.value, { color: theme.text }]}>${summary.total.toFixed(2)}</Text>
       </View>
       <View style={[styles.divider, { backgroundColor: theme.cardBorder }]} />
@@ -49,12 +48,8 @@ export default function CompactSummaryBand({ shiftStartedAt, currentWorker, isOw
       </View>
       <View style={[styles.divider, { backgroundColor: theme.cardBorder }]} />
       <View style={styles.cell}>
-        <Text style={[styles.label, { color: theme.textMuted }]}>
-          {isOwnerView ? 'DÍA DESDE' : 'TURNO DESDE'}
-        </Text>
-        <Text style={[styles.value, { color: theme.text }]}>
-          {isOwnerView ? '00:00' : startTime}
-        </Text>
+        <Text style={[styles.label, { color: theme.textMuted }]}>TURNO</Text>
+        <Text style={[styles.value, { color: theme.text }]}>{formatLiveDuration(shiftStartedAt, now)}</Text>
       </View>
     </View>
   );

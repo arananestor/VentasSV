@@ -6,7 +6,7 @@ import {
 import { Feather } from '@expo/vector-icons';
 import { useTheme } from '../context/ThemeContext';
 import { useApp } from '../context/AppContext';
-import { methodLabel } from '../utils/formatters';
+import { methodLabel, formatTime } from '../utils/formatters';
 import { formatShiftSummaryMessage, shareShiftSummary } from '../utils/shareShiftSummary';
 
 export default function ShiftSummaryModal({
@@ -23,6 +23,11 @@ export default function ShiftSummaryModal({
     if (!ok) showNotif('No se pudo compartir el resumen');
   };
 
+  const ticketsToShow = hasSummary ? (summary.shiftSales || []) : [];
+  const showAll = ticketsToShow.length <= 4;
+  const visibleTickets = showAll ? ticketsToShow : ticketsToShow.slice(0, 3);
+  const remainingCount = ticketsToShow.length - 3;
+
   return (
     <Modal visible={visible} transparent animationType="fade">
       <View style={[styles.overlay, { backgroundColor: theme.overlay }]}>
@@ -34,8 +39,11 @@ export default function ShiftSummaryModal({
               {worker?.photo ? (
                 <Image source={{ uri: worker.photo }} style={styles.avatar} />
               ) : (
-                <View style={[styles.avatar, { backgroundColor: worker?.color || theme.accent, alignItems: 'center', justifyContent: 'center' }]}>
-                  <Text style={{ color: '#fff', fontSize: 18, fontWeight: '900' }}>
+                <View style={[styles.avatar, {
+                  backgroundColor: worker?.role === 'owner' ? theme.accent : (worker?.color || '#1C1C1E'),
+                  alignItems: 'center', justifyContent: 'center',
+                }]}>
+                  <Text style={{ color: worker?.role === 'owner' ? theme.accentText : '#fff', fontSize: 18, fontWeight: '900' }}>
                     {worker?.name?.charAt(0)?.toUpperCase() || '?'}
                   </Text>
                 </View>
@@ -91,11 +99,48 @@ export default function ShiftSummaryModal({
                   </View>
                 )}
 
-                {/* Top products */}
-                {summary.topProducts.length > 0 && (
+                {/* Ticket detail */}
+                {visibleTickets.length > 0 && (
                   <View style={styles.section}>
-                    <Text style={[styles.sectionTitle, { color: theme.textMuted }]}>MÁS VENDIDOS</Text>
-                    {summary.topProducts.map(p => (
+                    <Text style={[styles.detailTitle, { color: theme.textMuted }]}>DETALLE DEL TURNO</Text>
+                    {visibleTickets.map((sale, idx) => (
+                      <View key={sale.id || idx} style={[styles.ticketCard, { backgroundColor: theme.bg, borderColor: theme.cardBorder }]}>
+                        <View style={styles.ticketHeader}>
+                          <Text style={[styles.ticketNum, { color: theme.text }]}>#{sale.orderNumber || sale.id?.slice(-4)}</Text>
+                          <Text style={[styles.ticketTime, { color: theme.textMuted }]}>{formatTime(sale.timestamp)}</Text>
+                        </View>
+                        {(sale.items || []).map((item, ii) => (
+                          <View key={ii} style={styles.ticketItem}>
+                            <Text style={[styles.ticketItemText, { color: theme.text }]}>
+                              {item.quantity || 1}x {item.product?.name || item.name}{item.size?.name ? ` · ${item.size.name}` : ''}
+                            </Text>
+                            {item.extras?.length > 0 && (
+                              <Text style={[styles.ticketExtra, { color: theme.textMuted }]}>
+                                + {item.extras.map(e => e.name).join(', ')}
+                              </Text>
+                            )}
+                            {item.note ? (
+                              <Text style={[styles.ticketExtra, { color: theme.textMuted }]}>Nota: {item.note}</Text>
+                            ) : null}
+                          </View>
+                        ))}
+                        <View style={[styles.ticketFooter, { borderTopColor: theme.cardBorder }]}>
+                          <Text style={[styles.ticketMethod, { color: theme.textMuted }]}>{methodLabel(sale.paymentMethod || 'cash')}</Text>
+                          <Text style={[styles.ticketTotal, { color: theme.text }]}>${(sale.total || 0).toFixed(2)}</Text>
+                        </View>
+                      </View>
+                    ))}
+                    {!showAll && (
+                      <Text style={[styles.moreTickets, { color: theme.textMuted }]}>+ {remainingCount} tickets más</Text>
+                    )}
+                  </View>
+                )}
+
+                {/* Top products */}
+                {summary.productsSummary.length > 0 && (
+                  <View style={[styles.section, { borderTopWidth: 1, borderTopColor: theme.cardBorder, paddingTop: 12 }]}>
+                    <Text style={[styles.detailTitle, { color: theme.textMuted }]}>MÁS VENDIDOS</Text>
+                    {summary.productsSummary.slice(0, 3).map(p => (
                       <View key={p.name} style={styles.productRow}>
                         <Text style={[styles.productName, { color: theme.text }]}>{p.name}</Text>
                         <Text style={[styles.productUnits, { color: theme.textMuted }]}>x{p.units}</Text>
@@ -150,10 +195,21 @@ const styles = StyleSheet.create({
   gridItem: { flex: 1, borderRadius: 14, padding: 14, borderWidth: 1, alignItems: 'center' },
   gridValue: { fontSize: 20, fontWeight: '900', marginTop: 4 },
   section: { marginBottom: 14 },
-  sectionTitle: { fontSize: 9, fontWeight: '800', letterSpacing: 2, marginBottom: 8 },
+  detailTitle: { fontSize: 10, fontWeight: '500', letterSpacing: 2.5, marginBottom: 8 },
   methodRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 6 },
   methodName: { flex: 1, fontSize: 14, fontWeight: '600' },
   methodAmount: { fontSize: 14, fontWeight: '800' },
+  ticketCard: { borderRadius: 12, padding: 12, borderWidth: 1, marginBottom: 8 },
+  ticketHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 },
+  ticketNum: { fontSize: 13, fontWeight: '800' },
+  ticketTime: { fontSize: 12, fontWeight: '500' },
+  ticketItem: { marginBottom: 4 },
+  ticketItemText: { fontSize: 13, fontWeight: '600' },
+  ticketExtra: { fontSize: 11, fontWeight: '500', marginLeft: 16, marginTop: 1 },
+  ticketFooter: { flexDirection: 'row', justifyContent: 'space-between', borderTopWidth: 1, paddingTop: 8, marginTop: 6 },
+  ticketMethod: { fontSize: 12, fontWeight: '500' },
+  ticketTotal: { fontSize: 13, fontWeight: '800' },
+  moreTickets: { textAlign: 'center', fontSize: 12, fontWeight: '600', paddingVertical: 6 },
   productRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 4 },
   productName: { fontSize: 14, fontWeight: '600' },
   productUnits: { fontSize: 13, fontWeight: '700' },
