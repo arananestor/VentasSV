@@ -10,23 +10,30 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { useAuth, PUESTOS, PUESTO_ICONS, generatePin } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
+import { useApp } from '../context/AppContext';
 import CenterModal from '../components/CenterModal';
 import ThemedTextInput from '../components/ThemedTextInput';
 import PinKeypadModal from '../components/PinKeypadModal';
+import CompactSummaryBand from '../components/CompactSummaryBand';
+import PhotoPickerSheet from '../components/PhotoPickerSheet';
+import ShiftSummaryModal from '../components/ShiftSummaryModal';
+import { computeShiftSummary } from '../utils/shiftSummary';
 
 export default function ProfileScreen({ navigation }) {
   const {
-    currentWorker, workers, deviceType,
+    currentWorker, workers, deviceType, shiftStartedAt,
     verifyOwnerPin, isAdmin, switchWorker,
     addWorker, removeWorker, updateWorkerPhoto,
   } = useAuth();
   const { theme, isDark, toggleTheme } = useTheme();
+  const { sales, showNotif } = useApp();
 
   const iAmAdmin = isAdmin(currentWorker);
 
   // Modales
   const [showProfileDetail, setShowProfileDetail] = useState(false);
   const [showSwitchModal, setShowSwitchModal]     = useState(false);
+  const [showPhotoPicker, setShowPhotoPicker]     = useState(false);
   const [showDeleteModal, setShowDeleteModal]     = useState(false);
   const [workerToDelete, setWorkerToDelete]       = useState(null);
 
@@ -73,19 +80,17 @@ export default function ProfileScreen({ navigation }) {
     setShowPuestoList(false); setAddError('');
   };
 
-  const handlePhotoPress = async () => {
-    const opts = { allowsEditing: true, aspect: [1, 1], quality: 0.6 };
-    if (Platform.OS === 'ios') {
-      const { ImagePickerAssets } = await ImagePicker.launchImageLibraryAsync(opts);
-    }
-    const result = await ImagePicker.launchImageLibraryAsync(opts);
+  const onPickFromCamera = async () => {
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== 'granted') { showNotif('Permiso de cámara denegado'); return; }
+    const result = await ImagePicker.launchCameraAsync({ allowsEditing: true, aspect: [1, 1], quality: 0.6 });
     if (!result.canceled) await updateWorkerPhoto(currentWorker.id, result.assets[0].uri);
   };
 
-  const handleCameraPress = async () => {
-    const { status } = await ImagePicker.requestCameraPermissionsAsync();
-    if (status !== 'granted') return;
-    const result = await ImagePicker.launchCameraAsync({ allowsEditing: true, aspect: [1,1], quality: 0.6 });
+  const onPickFromGallery = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') { showNotif('Permiso de galería denegado'); return; }
+    const result = await ImagePicker.launchImageLibraryAsync({ allowsEditing: true, aspect: [1, 1], quality: 0.6 });
     if (!result.canceled) await updateWorkerPhoto(currentWorker.id, result.assets[0].uri);
   };
 
@@ -110,6 +115,12 @@ export default function ProfileScreen({ navigation }) {
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
+
+        <CompactSummaryBand
+          shiftStartedAt={shiftStartedAt}
+          currentWorker={currentWorker}
+          isOwnerView={currentWorker?.role === 'owner' && deviceType === 'fixed'}
+        />
 
         {/* TARJETA DE PERFIL */}
         <View style={[styles.profileCard, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
@@ -138,21 +149,13 @@ export default function ProfileScreen({ navigation }) {
             </View>
           </TouchableOpacity>
 
-          {/* Botón cámara separado */}
-          <View style={styles.photoActions}>
-            <TouchableOpacity
-              style={[styles.photoBtn, { backgroundColor: theme.bg, borderColor: theme.cardBorder }]}
-              onPress={handleCameraPress}
-            >
-              <Feather name="camera" size={14} color={theme.textMuted} />
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.photoBtn, { backgroundColor: theme.bg, borderColor: theme.cardBorder }]}
-              onPress={handlePhotoPress}
-            >
-              <Feather name="image" size={14} color={theme.textMuted} />
-            </TouchableOpacity>
-          </View>
+          <TouchableOpacity
+            style={[styles.photoBtn, { backgroundColor: theme.bg, borderColor: theme.cardBorder }]}
+            onPress={() => setShowPhotoPicker(true)}
+          >
+            <Feather name="camera" size={13} color={theme.textMuted} />
+            <Text style={[styles.photoBtnLabel, { color: theme.textMuted }]}>Cambiar foto</Text>
+          </TouchableOpacity>
         </View>
 
         {/* OPCIONES */}
@@ -294,42 +297,14 @@ export default function ProfileScreen({ navigation }) {
       </CenterModal>
 
       {/* ── MODAL: CAMBIAR TURNO / CERRAR SESIÓN ─────── */}
-      <CenterModal
+      <ShiftSummaryModal
         visible={showSwitchModal}
         onClose={() => setShowSwitchModal(false)}
-      >
-        <View style={{ alignItems: 'center' }}>
-          <View style={[styles.confirmIconWrap, { backgroundColor: theme.bg }]}>
-            <Feather
-              name={deviceType === 'fixed' ? 'users' : 'log-out'}
-              size={24} color={theme.text}
-            />
-          </View>
-          <Text style={[styles.confirmTitle, { color: theme.text }]}>
-            {deviceType === 'fixed' ? 'CAMBIAR TURNO' : 'CERRAR SESIÓN'}
-          </Text>
-          <Text style={[styles.confirmSub, { color: theme.textMuted }]}>
-            {deviceType === 'fixed'
-              ? `${currentWorker?.name} va a cerrar su turno.\nOtro empleado podrá entrar con su PIN.`
-              : `Vas a salir de tu turno.\n¿Seguro que querés continuar?`
-            }
-          </Text>
-          <TouchableOpacity
-            style={[styles.confirmBtn, { backgroundColor: theme.accent }]}
-            onPress={handleSwitchConfirm}
-          >
-            <Text style={[styles.confirmBtnText, { color: theme.accentText }]}>
-              {deviceType === 'fixed' ? 'CAMBIAR TURNO' : 'SALIR'}
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.confirmCancel}
-            onPress={() => setShowSwitchModal(false)}
-          >
-            <Text style={[styles.confirmCancelText, { color: theme.textMuted }]}>Cancelar</Text>
-          </TouchableOpacity>
-        </View>
-      </CenterModal>
+        onConfirm={handleSwitchConfirm}
+        worker={currentWorker}
+        summary={computeShiftSummary({ shiftStartedAt, sales, workerId: currentWorker?.id })}
+        deviceType={deviceType}
+      />
 
       {/* ── MODAL: ELIMINAR EMPLEADO ──────────────────── */}
       <CenterModal
@@ -502,6 +477,13 @@ export default function ProfileScreen({ navigation }) {
         }}
       />
 
+      <PhotoPickerSheet
+        visible={showPhotoPicker}
+        onClose={() => setShowPhotoPicker(false)}
+        onPickFromCamera={onPickFromCamera}
+        onPickFromGallery={onPickFromGallery}
+      />
+
     </SafeAreaView>
   );
 }
@@ -528,8 +510,11 @@ const styles = StyleSheet.create({
   profileName:       { fontSize: 16, fontWeight: '800' },
   puestoBadge:       { flexDirection: 'row', alignItems: 'center', gap: 5, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3, marginTop: 5, alignSelf: 'flex-start' },
   puestoText:        { fontSize: 9, fontWeight: '800', letterSpacing: 2 },
-  photoActions:      { flexDirection: 'row', gap: 6 },
-  photoBtn:          { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center', borderWidth: 1 },
+  photoBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    paddingHorizontal: 12, paddingVertical: 8, borderRadius: 12, borderWidth: 1,
+  },
+  photoBtnLabel: { fontSize: 11, fontWeight: '600' },
 
   // Grupos
   group:    { marginTop: 12 },
