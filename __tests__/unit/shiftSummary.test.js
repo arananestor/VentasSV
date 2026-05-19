@@ -15,7 +15,7 @@ const makeSale = (overrides) => ({
   total: 10,
   paymentMethod: 'cash',
   workerId: 'w1',
-  items: [{ product: { name: 'Pupusa' }, units: [{}], quantity: 1 }],
+  items: [{ productName: 'Pupusa', units: [{}], quantity: 1 }],
   ...overrides,
 });
 
@@ -108,13 +108,13 @@ describe('computeShiftSummary', () => {
     // Arrange
     const sales = [
       makeSale({ items: [
-        { product: { name: 'A' }, units: [{}, {}], quantity: 2 },
-        { product: { name: 'B' }, units: [{}], quantity: 1 },
+        { productName: 'A', units: [{}, {}], quantity: 2 },
+        { productName: 'B', units: [{}], quantity: 1 },
       ]}),
       makeSale({ items: [
-        { product: { name: 'C' }, units: [{}, {}, {}], quantity: 3 },
-        { product: { name: 'D' }, units: [{}, {}, {}, {}], quantity: 4 },
-        { product: { name: 'A' }, units: [{}, {}], quantity: 2 },
+        { productName: 'C', units: [{}, {}, {}], quantity: 3 },
+        { productName: 'D', units: [{}, {}, {}, {}], quantity: 4 },
+        { productName: 'A', units: [{}, {}], quantity: 2 },
       ]}),
     ];
     const input = { shiftStartedAt: BASE_TIME, sales, workerId: 'w1', now: LATER_TIME };
@@ -136,7 +136,7 @@ describe('computeShiftSummary', () => {
   it('productsSummary includes all products when more than 3', () => {
     // Arrange
     const items = ['P1','P2','P3','P4','P5','P6','P7'].map(n => ({
-      product: { name: n }, units: [{}], quantity: 1,
+      productName: n, units: [{}], quantity: 1,
     }));
     const sales = [makeSale({ items })];
     const input = { shiftStartedAt: BASE_TIME, sales, workerId: 'w1', now: LATER_TIME };
@@ -184,6 +184,18 @@ describe('computeShiftSummary', () => {
 
     // Assert
     expect(result.durationMs).toBe(3 * 60 * 60 * 1000 + 24 * 60 * 1000);
+  });
+
+  it('productsSummary uses productName field from sale items', () => {
+    // Arrange
+    const sales = [makeSale({ items: [{ productName: 'Pupusa revuelta', units: [{}, {}], quantity: 2 }] })];
+    const input = { shiftStartedAt: BASE_TIME, sales, workerId: 'w1', now: LATER_TIME };
+
+    // Act
+    const result = computeShiftSummary(input);
+
+    // Assert
+    expect(result.productsSummary[0].name).toBe('Pupusa revuelta');
   });
 
   it('shiftSales contains the filtered sales array', () => {

@@ -38,7 +38,7 @@ export function computeShiftSummary({ shiftStartedAt, sales, workerId, now }) {
   const productMap = {};
   shiftSales.forEach(s => {
     (s.items || []).forEach(item => {
-      const name = item.product?.name || item.name || 'Producto';
+      const name = item.productName || item.name || 'Producto';
       const units = (item.units?.length) || item.quantity || 1;
       productMap[name] = (productMap[name] || 0) + units;
     });

@@ -7,7 +7,7 @@ import { Feather } from '@expo/vector-icons';
 import { useTheme } from '../context/ThemeContext';
 import { useApp } from '../context/AppContext';
 import { methodLabel, formatTime } from '../utils/formatters';
-import { formatShiftSummaryMessage, shareShiftSummary } from '../utils/shareShiftSummary';
+import { shareShiftSummary } from '../utils/shareShiftSummary';
 
 export default function ShiftSummaryModal({
   visible, onClose, onConfirm, worker, summary, deviceType, businessName,
@@ -18,8 +18,7 @@ export default function ShiftSummaryModal({
   const hasSummary = summary && summary.durationMs !== null;
 
   const handleShare = async () => {
-    const msg = formatShiftSummaryMessage(summary, worker, businessName);
-    const ok = await shareShiftSummary(msg);
+    const ok = await shareShiftSummary(summary.shiftSales || [], worker, businessName);
     if (!ok) showNotif('No se pudo compartir el resumen');
   };
 
@@ -112,16 +111,8 @@ export default function ShiftSummaryModal({
                         {(sale.items || []).map((item, ii) => (
                           <View key={ii} style={styles.ticketItem}>
                             <Text style={[styles.ticketItemText, { color: theme.text }]}>
-                              {item.quantity || 1}x {item.product?.name || item.name}{item.size?.name ? ` · ${item.size.name}` : ''}
+                              {item.quantity || 1}x {item.productName || item.name || 'Producto'}{item.size ? ` · ${item.size}` : ''}
                             </Text>
-                            {item.extras?.length > 0 && (
-                              <Text style={[styles.ticketExtra, { color: theme.textMuted }]}>
-                                + {item.extras.map(e => e.name).join(', ')}
-                              </Text>
-                            )}
-                            {item.note ? (
-                              <Text style={[styles.ticketExtra, { color: theme.textMuted }]}>Nota: {item.note}</Text>
-                            ) : null}
                           </View>
                         ))}
                         <View style={[styles.ticketFooter, { borderTopColor: theme.cardBorder }]}>
