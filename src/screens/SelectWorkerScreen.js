@@ -47,8 +47,8 @@ export default function SelectWorkerScreen({ navigation }) {
               {worker.photo ? (
                 <Image source={{ uri: worker.photo }} style={styles.workerPhoto} />
               ) : (
-                <View style={[styles.workerAvatar, { backgroundColor: worker.color || theme.accent }]}>
-                  <Text style={[styles.workerInitial, { color: isDueno ? theme.accentText : '#000' }]}>
+                <View style={[styles.workerAvatar, { backgroundColor: isDueno ? theme.accent : (worker.color || '#1C1C1E') }]}>
+                  <Text style={[styles.workerInitial, { color: isDueno ? theme.accentText : '#fff' }]}>
                     {worker.name.charAt(0).toUpperCase()}
                   </Text>
                 </View>

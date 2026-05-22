@@ -106,7 +106,7 @@ export default function PaymentScreen({ route, navigation }) {
 
     setCompleting(false);
     showSnack({ sales: [sale], total: sale.total, waNumber });
-    navigation.popToTop();
+    navigation.reset({ index: 0, routes: [{ name: 'HomeMain' }] });
   };
 
   const handleAmountTap = () => {

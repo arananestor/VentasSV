@@ -23,7 +23,7 @@ make dev-clear         # Start with cache cleared
 make tunnel            # Expo with tunnel (restrictive networks)
 
 # Testing
-npm test               # Run all tests (760 tests, 52 suites — must be 0 failures)
+npm test               # Run all tests (797 tests, 55 suites — must be 0 failures)
 npm run test:unit      # Unit tests only (__tests__/unit/)
 npm run test:integration  # Integration tests only (__tests__/integration/)
 npm run test:coverage  # Coverage report (70% threshold)
@@ -43,9 +43,11 @@ make update m='msg'    # OTA update to production
 
 - Responsive layout: `useResponsive` hook in `src/hooks/useResponsive.js` returns reactive primitives (width, height, isTablet, isLandscape, padding, gap, columns, gridCardSize, layout, fontSize). Mandatory for any screen with dynamic width-based computations. Current consumers: POSScreen, AddProductScreen, OrderBuilderScreen, SelectWorkerScreen, OrdersScreen.
 - Modal backdrops: Pressable plus StyleSheet.absoluteFill is the single accepted pattern. Reference: `src/components/CenterModal.js`. Consumers: CenterModal, BottomSheetModal, ModeEditorScreen modal, OrdersScreen modal, ProfileScreen modal.
+- Owner avatar treatment: when rendering any worker avatar (initial circle), use backgroundColor based on role with `worker.role === 'owner' ? theme.accent : (worker.color || '#1C1C1E')`, and initial color with `worker.role === 'owner' ? theme.accentText : '#fff'`. Consumers using this pattern: ProfileScreen, SelectWorkerScreen, ManageModesScreen. The owner is the only worker with the theme accent color treatment.
 - Bottom sheets: `src/components/BottomSheetModal.js` for non-destructive sheets. Consumers: CartSheet, SimpleProductSheet.
 - Icon and color picker: `src/components/IconColorPicker.js` unifies icon catalog and color selection in one searchable categorized grid. Source of icons and helpers: `src/constants/productConstants.js` (ICON_CATALOG with 11 categories, searchIcons, getIconCols, getIconBtnSize).
 - User feedback API: showSnack for persistent post-sale snackbar, showNotif for informational toast of 2 to 3 seconds, CenterModal for destructive confirmations with explicit button. All exposed from AppContext.
+- Photo picker: `src/components/PhotoPickerSheet.js` wraps BottomSheetModal with two options (Tomar foto / Elegir de galería). Handles requestCameraPermissionsAsync and requestMediaLibraryPermissionsAsync internally. Current consumer: ProfileScreen. Pending migration to AddProductScreen, PaymentScreen, ModeEditorScreen, BusinessConfigScreen (see Active priorities).
 
 **State management:** React Context API (no Redux). Four contexts:
 
@@ -74,11 +76,11 @@ make update m='msg'    # OTA update to production
 ## Testing
 
 - Runner: jest-expo. Config in package.json `jest` field
-- Unit tests (`__tests__/unit/`): auth, businessConfig, cart, displayComponents, formComponents, posScreen, migration, pinEntry, pinKeypadModal, productPermissions, products, roleConfig, geoLogic, itemsLogic, salesMigration, saleDetailItems, salesListSummary, cookModalItems, ticketPrinter, ticketMessage, transferMessage, ids, entityEnvelope, schemaMigrationV4, qentasClient, requiresQentasLogic, upsellCardLogic, businessConfigQentasFields, modes/modeModel, modes/schemaMigrationV5, modes/repositoryModes, modes/modeManagementLogic, modes/modeResolution, modes/posModeFiltering, modes/orderBuilderPricing, modes/modeManagement, modes/modeScheduling, modes/modeEditorLogic, modes/modeAutoActivation, modes/modeProductEditorLogic, collapsibleHeader, iconCatalog, responsive, sales, selectWorker, setup, snackbar, tabs, theme, workers
+- Unit tests (`__tests__/unit/`): auth, businessConfig, cart, displayComponents, formComponents, posScreen, migration, pinEntry, pinKeypadModal, productPermissions, products, roleConfig, geoLogic, itemsLogic, salesMigration, saleDetailItems, salesListSummary, cookModalItems, ticketPrinter, ticketMessage, transferMessage, ids, entityEnvelope, schemaMigrationV4, qentasClient, requiresQentasLogic, upsellCardLogic, businessConfigQentasFields, modes/modeModel, modes/schemaMigrationV5, modes/repositoryModes, modes/modeManagementLogic, modes/modeResolution, modes/posModeFiltering, modes/orderBuilderPricing, modes/modeManagement, modes/modeScheduling, modes/modeEditorLogic, modes/modeAutoActivation, modes/modeProductEditorLogic, collapsibleHeader, iconCatalog, responsive, sales, salesCsv, shareShiftSummary, shiftSummary, selectWorker, setup, snackbar, tabs, theme, workers
 - Integration tests (`__tests__/integration/`): payment, orders
 - Mocks in `__mocks__/` for AsyncStorage, vector-icons, safe-area-context
 - Coverage threshold: 70% on branches, functions, lines, statements
-- **Rule: 760 tests (minimum), 0 failures before any merge. No exceptions.**
+- **Rule: 797 tests (minimum), 0 failures before any merge. No exceptions.**
 - **AAA Pattern (mandatory):** Every test must follow Arrange-Act-Assert. The Act step must call a real function imported from `src/`. Never reimplement logic in tests. Comments `// Arrange`, `// Act`, `// Assert` are required in every test block.
 
 ## Repository
@@ -169,6 +171,8 @@ Architecture design docs are REQUIRED before starting any major feature. Feature
 - **Polish phase patterns are mandatory project-wide**: Alert.alert is forbidden — use showNotif for informational messages, CenterModal for destructive confirmations. Dimensions.get('window') at module level is forbidden — use the useResponsive hook. Modal backdrops must use Pressable plus StyleSheet.absoluteFill, never TouchableOpacity as overlay. (Source: PRs #70, #72)
 - **Animation restrictions in ScrollView contexts**: Only transform and opacity may animate, always with useNativeDriver: true. Animating height, margin, or padding inside a ScrollView is forbidden. (Source: collapsibleHeader.js, PR #63)
 - **react-native-reanimated is blocked**: It requires full babel plugin config and native rebuild, incompatible with the current pinned setup. Do not propose it as a solution.
+- **Architect carry-over check**: Before passing a new instruction block to Claude Code, the architect must verify that all previously identified fixes from earlier discussions have been committed. If a block was prepared but Nestor pivoted to a new issue before executing it, include those pending fixes in the next block. Pending fixes never get silently dropped when focus shifts. (Source: PR #76 fourth refinement, missed carry-over of PinEntryScreen fix)
+- **Retros are written from reality, not from prediction**: Architect instructions describe what the executor should do and instruct the executor to write the retro at the end based on what actually happened during execution — including unexpected bugs, dependency issues, route changes, mid-flight decisions, things that worked first try vs things that needed iteration. Architect may suggest baseline structure and minimum points to cover; never dictate retro content verbatim. (Source: PR #76 process observation by Nestor)
 
 ## UI Conventions
 
@@ -196,12 +200,14 @@ Before adding any feature, ask: **Does this help a business owner in El Salvador
 
 1. Release develop → main on PR #74 cycle, every 10 PRs thereafter
 2. ProfileScreen fixes — custom shift modal, compact summary, camera vs gallery
-3. Sales date picker + historical CSV export with full columns
-4. Verify static map + geo URI flow in SaleDetailScreen
-5. Onboarding — solo vs team → configure available tools → lazy loading
-6. Owner dashboard — live orders, daily sales, active team
-7. Cash register close — for fixed devices on shift change
-8. Role-specific screens — motorista (entregas), camarero (mesas)
+3. Owner mode toggle — operativo vs administrativo (base del sistema de roles, operativo es superset de administrativo)
+4. Sales date picker + historical CSV export with full columns
+5. Verify static map + geo URI flow in SaleDetailScreen
+6. Onboarding — solo vs team → configure available tools → lazy loading
+7. Owner dashboard — live orders, daily sales, active team
+8. Cash register close — for fixed devices on shift change
+9. Photo picker global migration — AddProductScreen, PaymentScreen, ModeEditorScreen, BusinessConfigScreen consume PhotoPickerSheet
+10. Role-specific screens — motorista (entregas), camarero (mesas)
 
 **Completed milestones:**
 

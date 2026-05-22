@@ -8,6 +8,7 @@ import { Feather } from '@expo/vector-icons';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { methodLabel } from '../utils/formatters';
 import { getSaleSummary } from '../utils/itemsLogic';
+import { buildSalesCSV } from '../utils/salesCsv';
 import ScreenHeader from '../components/ScreenHeader';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
@@ -20,34 +21,6 @@ import {
 
 const WA_COLOR = '#25D366';
 
-const buildCSV = (sales) => {
-  const header = [
-    'No. Pedido', 'Hora', 'Producto', 'Tamaño',
-    'Cantidad', 'Total', 'Método de pago', 'Cajero',
-    'Latitud', 'Longitud', 'Precisión (m)',
-  ].join(',');
-
-  const rows = sales.map(s => {
-    const hora = new Date(s.timestamp).toLocaleTimeString('es-SV', {
-      hour: '2-digit', minute: '2-digit', second: '2-digit',
-    });
-    return [
-      `#${s.orderNumber || s.id.slice(-4)}`,
-      hora,
-      `"${s.productName}"`,
-      `"${s.size}"`,
-      s.quantity,
-      s.total.toFixed(2),
-      s.paymentMethod === 'cash' ? 'Efectivo' : 'Transferencia',
-      `"${s.workerName || ''}"`,
-      s.geo?.latitude ?? '',
-      s.geo?.longitude ?? '',
-      s.geo?.accuracy != null ? Math.round(s.geo.accuracy) : '',
-    ].join(',');
-  });
-
-  return [header, ...rows].join('\n');
-};
 
 export default function SalesScreen({ navigation }) {
   const { getTodaySales, showNotif } = useApp();
@@ -93,7 +66,7 @@ export default function SalesScreen({ navigation }) {
       setExporting(true);
       const today = new Date().toISOString().slice(0, 10);
       const path = FileSystem.documentDirectory + `ventas_${today}.csv`;
-      await FileSystem.writeAsStringAsync(path, buildCSV(sales));
+      await FileSystem.writeAsStringAsync(path, buildSalesCSV(sales));
       await Sharing.shareAsync(path);
     } catch (e) {
       showNotif(e.message || 'No se pudo generar el archivo');
