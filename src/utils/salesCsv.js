@@ -14,6 +14,25 @@ export function formatCSVCell(value) {
   return str;
 }
 
+export function collectNotes(item) {
+  const parts = [];
+  const globalNote = (item.note || '').trim();
+  if (globalNote) parts.push(globalNote);
+
+  const units = item.units || [];
+  units.forEach((u, i) => {
+    const uNote = (u.note || '').trim();
+    if (!uNote) return;
+    if (units.length > 1) {
+      parts.push(`U${i + 1}: ${uNote}`);
+    } else if (parts.length === 0) {
+      parts.push(uNote);
+    }
+  });
+
+  return parts.join(' | ');
+}
+
 const HEADER = [
   'No. Pedido', 'Fecha', 'Hora', 'Producto', 'Tamaño',
   'Cantidad', 'Extras', 'Nota', 'Subtotal item',
@@ -41,17 +60,17 @@ export function buildSalesCSV(sales) {
 
     items.forEach(item => {
       const extras = (item.extras || [])
-        .map(e => typeof e === 'string' ? e : (e?.name || ''))
+        .map(e => (typeof e === 'string' ? e : (e?.name || '')).trim())
         .filter(Boolean)
         .join(', ');
 
       const row = [
         orderNum, fecha, hora,
         item.productName || item.name || '',
-        item.size || '',
+        (item.size || '').trim(),
         item.quantity || 1,
         extras,
-        item.note || '',
+        collectNotes(item),
         (item.subtotal || item.total || 0).toFixed(2),
         method, totalVenta, cajero,
         lat, lon, acc,

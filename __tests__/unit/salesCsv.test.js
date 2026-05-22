@@ -3,7 +3,7 @@
  * Tests formatCSVCell and buildSalesCSV using real functions from src/utils/salesCsv
  */
 
-import { formatCSVCell, buildSalesCSV } from '../../src/utils/salesCsv';
+import { formatCSVCell, collectNotes, buildSalesCSV } from '../../src/utils/salesCsv';
 
 const makeSale = (overrides) => ({
   id: 'sale-1',
@@ -198,5 +198,99 @@ describe('buildSalesCSV', () => {
 
     // Assert
     expect(csv).toContain('Transferencia');
+  });
+
+  it('trims size and extras in output', () => {
+    // Arrange
+    const sale = makeSale({
+      items: [{ productName: 'Pupusa', size: 'Lata ', quantity: 1, extras: [' Jalea piña '], note: '', subtotal: 5 }],
+    });
+
+    // Act
+    const csv = buildSalesCSV([sale]);
+
+    // Assert
+    expect(csv).toContain('Lata');
+    expect(csv).not.toContain('Lata ');
+    expect(csv).toContain('Jalea piña');
+  });
+});
+
+describe('collectNotes', () => {
+  it('returns item.note when present and no units', () => {
+    // Arrange
+    const item = { note: 'con chile', units: [] };
+
+    // Act
+    const result = collectNotes(item);
+
+    // Assert
+    expect(result).toBe('con chile');
+  });
+
+  it('returns unit note without prefix when single unit and no global note', () => {
+    // Arrange
+    const item = { note: '', units: [{ note: 'sin cebolla' }] };
+
+    // Act
+    const result = collectNotes(item);
+
+    // Assert
+    expect(result).toBe('sin cebolla');
+  });
+
+  it('returns prefixed unit notes when multiple units', () => {
+    // Arrange
+    const item = { note: '', units: [{ note: 'extra queso' }, { note: 'sin sal' }] };
+
+    // Act
+    const result = collectNotes(item);
+
+    // Assert
+    expect(result).toBe('U1: extra queso | U2: sin sal');
+  });
+
+  it('combines global note with prefixed unit notes', () => {
+    // Arrange
+    const item = { note: 'urgente', units: [{ note: 'extra queso' }, { note: 'sin sal' }] };
+
+    // Act
+    const result = collectNotes(item);
+
+    // Assert
+    expect(result).toBe('urgente | U1: extra queso | U2: sin sal');
+  });
+
+  it('returns empty string when no notes anywhere', () => {
+    // Arrange
+    const item = { note: '', units: [{ note: '' }, { note: '' }] };
+
+    // Act
+    const result = collectNotes(item);
+
+    // Assert
+    expect(result).toBe('');
+  });
+
+  it('trims notes and discards whitespace-only notes', () => {
+    // Arrange
+    const item = { note: '  ', units: [{ note: '  algo  ' }] };
+
+    // Act
+    const result = collectNotes(item);
+
+    // Assert
+    expect(result).toBe('algo');
+  });
+
+  it('handles missing units gracefully', () => {
+    // Arrange
+    const item = { note: 'test' };
+
+    // Act
+    const result = collectNotes(item);
+
+    // Assert
+    expect(result).toBe('test');
   });
 });

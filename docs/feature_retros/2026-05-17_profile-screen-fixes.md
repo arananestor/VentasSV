@@ -63,3 +63,24 @@ Tres problemas descubiertos durante testing en device que el design doc no antic
 - Shape mismatch entre módulos puede pasar inadvertido cuando hay un fallback string literal que nunca lanza error. La función parecía funcionar porque devolvía *algo*, pero ese algo era `'Producto'` para todo. Esto confirma la importancia del test `productsSummary uses productName field` que se agregó explícitamente.
 - Las funciones locales como buildCSV dentro de screens son difíciles de testear y fáciles de olvidar al migrar el modelo de datos. Extraerlas a utilities con tests propios las hace visibles y verificables.
 - La regla "Retros are written from reality" codificada en CLAUDE.md en este mismo commit refleja que el proceso de documentar post-facto es más valioso que pre-dictar el retro desde el plan.
+
+## Cuarto refinement commit
+
+Dos bugs y una mejora de datos que el design doc original no podía haber anticipado porque requirieron probar la app en device con datos reales.
+
+**PinEntryScreen avatar** — El fix de owner avatar en SelectWorkerScreen (segundo commit) no se propagó a PinEntryScreen. La causa fue un carry-over perdido: el architect identificó el patrón en la discusión pero el focus cambió antes de que se ejecutara. Al hacer `grep -rn "worker.color || theme.accent" src/` encontré la única ocurrencia restante en PinEntryScreen.js línea 62. El fix fue idéntico al de SelectWorkerScreen: `worker.role === 'owner' ? theme.accent : (worker.color || '#1C1C1E')` para backgroundColor, `worker.role === 'owner' ? theme.accentText : '#fff'` para el color del texto. Un segundo grep más amplio (`backgroundColor.*worker.*color`) confirmó que SelectWorkerScreen ya estaba correcto y no había otros consumers fuera del patrón.
+
+**Notas por unidad en CSV** — OrderBuilderScreen tiene un campo "NOTA DEL PEDIDO" que, cuando hay 1 sola unidad, se guarda en `units[0].note`, no en `cartItem.note`. buildSaleItem en itemsLogic.js solo lee `cartItem.note`, así que la nota de la UI se perdía silenciosamente en el CSV. La decisión fue resolver en el punto de consumo (salesCsv.js) con un helper `collectNotes(item)` que recorre tanto `item.note` como `item.units[].note`, en lugar de modificar buildSaleItem — cambiar el shape histórico de los sale items podría romper consumers downstream que asumen la estructura actual, y SaleDetailScreen ya muestra las unit notes correctamente leyendo directamente de units[].
+
+El helper collectNotes implementa lógica de merge: nota global primero, luego notas por unidad con prefijo `U1:`, `U2:` cuando hay múltiples unidades, o sin prefijo cuando hay una sola unidad y no hay nota global. Partes unidas por ` | `.
+
+Aprovechando el commit, se agregó trim a `item.size` y a los nombres de extras en el CSV. En pruebas de device el CSV mostraba "Lata " y "Jalea piña " con espacios trailing — el trim va en salesCsv.js al momento de armar la fila, no en buildSaleItem.
+
+**Lo que requirió iteración:**
+- El primer test de collectNotes con trim falló: el caso de prueba tenía 2 units pero esperaba output sin prefijo. Con 2 units, collectNotes correctamente aplica `U1:` prefix. Ajusté el test a 1 unit para probar el trim sin prefix.
+- El grep de `backgroundColor.*worker.*color` también mostró CartSheet y ShiftSummaryModal, pero ambos ya usan el patrón role-first correctamente (verificado visualmente).
+
+**Lecciones:**
+- El patrón de carry-over perdido es un riesgo real cuando el architect prepara instrucciones pero el focus cambia antes de la ejecución. La regla "Architect carry-over check" codificada en CLAUDE.md previene que esto se repita.
+- Las notas en OrderBuilderScreen viven en `units[0].note` porque cada unidad puede tener su propia nota — es un feature, no un bug del modelo. El mismatch está en buildSaleItem que solo lee `cartItem.note` (el campo global). El helper collectNotes es la capa correcta para reconciliar ambos en el momento de exportar sin alterar el modelo de persistencia.
+- El trim de strings en el CSV es defensivo y barato — aplicarlo en el punto de salida (CSV generation) es mejor que en el punto de entrada (buildSaleItem) porque no afecta la visualización en pantalla donde los espacios pueden ser intencionales.
