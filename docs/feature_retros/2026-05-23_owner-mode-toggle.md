@@ -30,3 +30,13 @@ El mismo PR incluye housekeeping de CLAUDE.md: Skills mapping table (que quedó 
 - El design doc anticipó que AppNavigator.js podría necesitar cambios para propagación reactiva. En realidad la lógica está en App.js y ya era reactiva. Leer el código antes de asumir es siempre más barato que codificar un fix innecesario.
 - El commit del Skills mapping table se perdió entre PR #77 (donde se hizo como segundo commit) y develop (donde se eliminó al mergear). El housekeeping se resolvió aplicándolo nuevamente en este PR — costo cero, pero la lección es que commits sobre archivos compartidos (CLAUDE.md) en branches de design docs son frágiles si el branch se re-crea.
 - Workers pre-PR sin ownerMode se tratan como operativo sin escribir nada al storage. Esta decisión de no-migración es deliberada: la primera vez que el owner cambia su modo, setOwnerMode escribe el campo. Hasta entonces, el field simplemente no existe y el código lo lee como undefined → default operativo.
+
+## Segundo commit — rediseño del modal de cambio de modo
+
+Al probar en device, el modal de confirmación tenía tres problemas visuales: el título "¿CAMBIAR A MODO ADMINISTRATIVO?" con letterSpacing 3 se desbordaba del ancho del modal en pantallas chicas, el texto del botón "CAMBIAR A ADMINISTRATIVO" igualmente se cortaba o wrapeaba, y la estructura visual general (título arriba vía prop title + texto + botón largo) no seguía el patrón establecido por el modal "ELIMINAR EMPLEADO" del mismo archivo.
+
+La solución fue seguir exactamente la estructura del modal ELIMINAR EMPLEADO: ícono en círculo arriba (refresh-cw en lugar de trash-2), título corto centrado ("MODO ADMINISTRATIVO" / "MODO OPERATIVO" — el destino, no la pregunta), sub-mensaje explicativo, y botón primario con texto corto "CAMBIAR". Se eliminó el prop title del CenterModal y todo el contenido se movió dentro de children con el wrapper alignItems center.
+
+La decisión de acortar el botón de "CAMBIAR A ADMINISTRATIVO" a solo "CAMBIAR" es correcta en este contexto: dentro de un modal que ya tiene ícono + título + sub-mensaje describiendo completamente la acción, el botón solo necesita confirmar. El contexto visual carga la semántica. Fuera de un modal (botón standalone), el texto sí necesita auto-describirse porque no hay contexto alrededor.
+
+El cambio fue puramente visual — cero lógica tocada, tests pasaron sin ajustes (801 tests, 0 failures). La ejecución fue directa: copiar la estructura del modal ELIMINAR EMPLEADO, cambiar ícono/título/sub/botón, eliminar prop title. Sin iteración necesaria.

@@ -330,32 +330,35 @@ export default function ProfileScreen({ navigation }) {
       <CenterModal
         visible={showModeModal}
         onClose={() => setShowModeModal(false)}
-        title={(currentWorker?.ownerMode || 'operativo') === 'operativo'
-          ? '¿CAMBIAR A MODO ADMINISTRATIVO?'
-          : '¿CAMBIAR A MODO OPERATIVO?'}
       >
-        <Text style={{ color: theme.textMuted, fontSize: 14, textAlign: 'center', marginBottom: 20, lineHeight: 20 }}>
-          {(currentWorker?.ownerMode || 'operativo') === 'operativo'
-            ? 'Vas a ocultar Venta y Comandas. Podés volver a operativo cuando quieras desde tu perfil.'
-            : 'Vas a habilitar Venta y Comandas. Podés volver a administrativo cuando quieras desde tu perfil.'}
-        </Text>
-        <TouchableOpacity
-          style={[styles.confirmBtn, { backgroundColor: theme.accent }]}
-          onPress={() => {
-            const dest = (currentWorker?.ownerMode || 'operativo') === 'operativo' ? 'administrativo' : 'operativo';
-            setOwnerMode(dest);
-            setShowModeModal(false);
-          }}
-        >
-          <Text style={[styles.confirmBtnText, { color: theme.accentText }]}>
+        <View style={{ alignItems: 'center' }}>
+          <View style={[styles.confirmIconWrap, { backgroundColor: theme.bg }]}>
+            <Feather name="refresh-cw" size={24} color={theme.text} />
+          </View>
+          <Text style={[styles.confirmTitle, { color: theme.text }]}>
             {(currentWorker?.ownerMode || 'operativo') === 'operativo'
-              ? 'CAMBIAR A ADMINISTRATIVO'
-              : 'CAMBIAR A OPERATIVO'}
+              ? 'MODO ADMINISTRATIVO'
+              : 'MODO OPERATIVO'}
           </Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.confirmCancel} onPress={() => setShowModeModal(false)}>
-          <Text style={[styles.confirmCancelText, { color: theme.textMuted }]}>Cancelar</Text>
-        </TouchableOpacity>
+          <Text style={[styles.confirmSub, { color: theme.textMuted }]}>
+            {(currentWorker?.ownerMode || 'operativo') === 'operativo'
+              ? 'Vas a ocultar Venta y Comandas. Podés volver a operativo cuando quieras desde tu perfil.'
+              : 'Vas a habilitar Venta y Comandas. Podés volver a administrativo cuando quieras desde tu perfil.'}
+          </Text>
+          <TouchableOpacity
+            style={[styles.confirmBtn, { backgroundColor: theme.accent }]}
+            onPress={() => {
+              const dest = (currentWorker?.ownerMode || 'operativo') === 'operativo' ? 'administrativo' : 'operativo';
+              setOwnerMode(dest);
+              setShowModeModal(false);
+            }}
+          >
+            <Text style={[styles.confirmBtnText, { color: theme.accentText }]}>CAMBIAR</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.confirmCancel} onPress={() => setShowModeModal(false)}>
+            <Text style={[styles.confirmCancelText, { color: theme.textMuted }]}>Cancelar</Text>
+          </TouchableOpacity>
+        </View>
       </CenterModal>
 
       {/* ── MODAL: CAMBIAR TURNO / CERRAR SESIÓN ─────── */}
