@@ -1,13 +1,35 @@
-import { ALL_TABS, PUESTO_TABS, getTabsForWorker } from '../../src/utils/roleConfig';
+import { ALL_TABS, ADMIN_ONLY_TABS, PUESTO_TABS, getTabsForWorker } from '../../src/utils/roleConfig';
 
 describe('getTabsForWorker', () => {
-  it('owner gets all 4 tabs', () => {
+  it('owner operativo gets all 4 tabs', () => {
+    // Arrange
+    const worker = { id: 'owner', role: 'owner', puesto: 'Dueño', ownerMode: 'operativo' };
+    // Act
+    const tabs = getTabsForWorker(worker);
+    // Assert
+    expect(tabs).toEqual(['Venta', 'Comandas', 'Ventas', 'Perfil']);
+  });
+
+  it('owner without ownerMode defaults to all tabs (operativo)', () => {
     // Arrange
     const worker = { id: 'owner', role: 'owner', puesto: 'Dueño' };
     // Act
     const tabs = getTabsForWorker(worker);
     // Assert
     expect(tabs).toEqual(['Venta', 'Comandas', 'Ventas', 'Perfil']);
+  });
+
+  it('owner administrativo gets only admin tabs', () => {
+    // Arrange
+    const worker = { id: 'owner', role: 'owner', puesto: 'Dueño', ownerMode: 'administrativo' };
+    // Act
+    const tabs = getTabsForWorker(worker);
+    // Assert
+    expect(tabs).toEqual(ADMIN_ONLY_TABS);
+    expect(tabs).toContain('Perfil');
+    expect(tabs).not.toContain('Venta');
+    expect(tabs).not.toContain('Comandas');
+    expect(tabs).not.toContain('Ventas');
   });
 
   it('co-admin gets all 4 tabs', () => {
@@ -154,6 +176,20 @@ describe('ALL_TABS', () => {
   it('correct order', () => {
     // Arrange / Act / Assert
     expect(ALL_TABS).toEqual(['Venta', 'Comandas', 'Ventas', 'Perfil']);
+  });
+});
+
+describe('ADMIN_ONLY_TABS', () => {
+  it('contains Perfil', () => {
+    // Arrange / Act / Assert
+    expect(ADMIN_ONLY_TABS).toContain('Perfil');
+  });
+
+  it('is a subset of ALL_TABS', () => {
+    // Arrange / Act
+    const invalid = ADMIN_ONLY_TABS.filter(t => !ALL_TABS.includes(t));
+    // Assert
+    expect(invalid).toHaveLength(0);
   });
 });
 
