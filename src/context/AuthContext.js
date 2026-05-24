@@ -60,6 +60,7 @@ export function AuthProvider({ children }) {
       dui: '',
       photo: null,
       color: '#1C1C1E',
+      ownerMode: 'operativo',
       createdAt: new Date().toISOString(),
     };
     const newWorkers = [owner];
@@ -145,11 +146,20 @@ export function AuthProvider({ children }) {
     return { success: true };
   };
 
+  const setOwnerMode = async (mode) => {
+    if (!currentWorker || currentWorker.role !== 'owner') return;
+    if (mode !== 'operativo' && mode !== 'administrativo') return;
+    const newWorkers = workers.map(w => w.id === currentWorker.id ? { ...w, ownerMode: mode } : w);
+    setWorkers(newWorkers);
+    await repository.save('workers', newWorkers);
+    setCurrentWorker(prev => ({ ...prev, ownerMode: mode }));
+  };
+
   return (
     <AuthContext.Provider value={{
       isSetup, currentWorker, workers, deviceType, shiftStartedAt,
       setupOwner, loginWithPin, logout, switchWorker,
-      verifyOwnerPin, isAdmin,
+      verifyOwnerPin, isAdmin, setOwnerMode,
       addWorker, removeWorker, resetWorkerPin, updateWorkerPhoto,
     }}>
       {children}

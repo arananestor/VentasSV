@@ -23,7 +23,7 @@ make dev-clear         # Start with cache cleared
 make tunnel            # Expo with tunnel (restrictive networks)
 
 # Testing
-npm test               # Run all tests (797 tests, 55 suites — must be 0 failures)
+npm test               # Run all tests (801 tests, 55 suites — must be 0 failures)
 npm run test:unit      # Unit tests only (__tests__/unit/)
 npm run test:integration  # Integration tests only (__tests__/integration/)
 npm run test:coverage  # Coverage report (70% threshold)
@@ -44,10 +44,22 @@ make update m='msg'    # OTA update to production
 - Responsive layout: `useResponsive` hook in `src/hooks/useResponsive.js` returns reactive primitives (width, height, isTablet, isLandscape, padding, gap, columns, gridCardSize, layout, fontSize). Mandatory for any screen with dynamic width-based computations. Current consumers: POSScreen, AddProductScreen, OrderBuilderScreen, SelectWorkerScreen, OrdersScreen.
 - Modal backdrops: Pressable plus StyleSheet.absoluteFill is the single accepted pattern. Reference: `src/components/CenterModal.js`. Consumers: CenterModal, BottomSheetModal, ModeEditorScreen modal, OrdersScreen modal, ProfileScreen modal.
 - Owner avatar treatment: when rendering any worker avatar (initial circle), use backgroundColor based on role with `worker.role === 'owner' ? theme.accent : (worker.color || '#1C1C1E')`, and initial color with `worker.role === 'owner' ? theme.accentText : '#fff'`. Consumers using this pattern: ProfileScreen, SelectWorkerScreen, ManageModesScreen. The owner is the only worker with the theme accent color treatment.
+- Owner work mode: when `worker.role === 'owner'`, the field `ownerMode` (`'operativo'` or `'administrativo'`) controls visible tabs via `getTabsForWorker` in `src/utils/roleConfig.js`. Operativo is a superset of administrativo (administrative tabs + operational tabs + future role-specific tabs). Administrativo shows only administrative tabs (currently only Profile; future Owner Dashboard joins this set). Default is operativo. Workers without the field are treated as operativo (no formal migration). Toggle exposed in ProfileScreen with mandatory confirmation modal.
 - Bottom sheets: `src/components/BottomSheetModal.js` for non-destructive sheets. Consumers: CartSheet, SimpleProductSheet.
 - Icon and color picker: `src/components/IconColorPicker.js` unifies icon catalog and color selection in one searchable categorized grid. Source of icons and helpers: `src/constants/productConstants.js` (ICON_CATALOG with 11 categories, searchIcons, getIconCols, getIconBtnSize).
 - User feedback API: showSnack for persistent post-sale snackbar, showNotif for informational toast of 2 to 3 seconds, CenterModal for destructive confirmations with explicit button. All exposed from AppContext.
 - Photo picker: `src/components/PhotoPickerSheet.js` wraps BottomSheetModal with two options (Tomar foto / Elegir de galería). Handles requestCameraPermissionsAsync and requestMediaLibraryPermissionsAsync internally. Current consumer: ProfileScreen. Pending migration to AddProductScreen, PaymentScreen, ModeEditorScreen, BusinessConfigScreen (see Active priorities).
+- Skills mapping (architect orchestration): The architect invokes specialized skills according to this table at the corresponding phase of work. Process, not goodwill.
+
+  | Fase del trabajo | Skill | Cuándo invocar |
+  |---|---|---|
+  | Discovery técnico de feature | engineering:architecture | Antes del design doc, si la feature tiene decisiones arquitectónicas reales (schema, auth, navigation, modelos de datos) |
+  | Discovery de UX y microcopy | design:ux-copy | Cuando el design doc define texto en pantalla (labels, errores, descripciones, CTAs) |
+  | Pre-merge del execution PR | engineering:code-review | Después de que Code abra el PR, antes de que Nestor mergee |
+  | Test strategy | engineering:testing-strategy | Cuando la feature toca lógica crítica (auth, pagos, datos sensibles, migraciones) |
+  | Cierre de semana | engineering:standup | Resumen de PRs mergeados + próximos pasos |
+  | Pre-beta pública | design:accessibility-review | Antes de release a usuarios reales |
+  | Auditoría periódica | engineering:tech-debt | Cada 20 a 30 PRs |
 
 **State management:** React Context API (no Redux). Four contexts:
 
@@ -80,7 +92,7 @@ make update m='msg'    # OTA update to production
 - Integration tests (`__tests__/integration/`): payment, orders
 - Mocks in `__mocks__/` for AsyncStorage, vector-icons, safe-area-context
 - Coverage threshold: 70% on branches, functions, lines, statements
-- **Rule: 797 tests (minimum), 0 failures before any merge. No exceptions.**
+- **Rule: 801 tests (minimum), 0 failures before any merge. No exceptions.**
 - **AAA Pattern (mandatory):** Every test must follow Arrange-Act-Assert. The Act step must call a real function imported from `src/`. Never reimplement logic in tests. Comments `// Arrange`, `// Act`, `// Assert` are required in every test block.
 
 ## Repository
@@ -173,6 +185,8 @@ Architecture design docs are REQUIRED before starting any major feature. Feature
 - **react-native-reanimated is blocked**: It requires full babel plugin config and native rebuild, incompatible with the current pinned setup. Do not propose it as a solution.
 - **Architect carry-over check**: Before passing a new instruction block to Claude Code, the architect must verify that all previously identified fixes from earlier discussions have been committed. If a block was prepared but Nestor pivoted to a new issue before executing it, include those pending fixes in the next block. Pending fixes never get silently dropped when focus shifts. (Source: PR #76 fourth refinement, missed carry-over of PinEntryScreen fix)
 - **Retros are written from reality, not from prediction**: Architect instructions describe what the executor should do and instruct the executor to write the retro at the end based on what actually happened during execution — including unexpected bugs, dependency issues, route changes, mid-flight decisions, things that worked first try vs things that needed iteration. Architect may suggest baseline structure and minimum points to cover; never dictate retro content verbatim. (Source: PR #76 process observation by Nestor)
+- **Skills orchestration rule**: The architect must follow the skills-mapping table in CLAUDE.md (Established Architecture Patterns → Skills mapping) and announce at the top of every instruction block: which skills were invoked, which were evaluated and discarded with reason, and which will be invoked pre-merge. Nestor can audit at any time with "¿qué skills usaste para esto?". Process, not goodwill. (Source: PR #78 architect process formalization)
+- **Design docs born from ADR include Alternatives Considered**: When a design doc is produced after invoking engineering:architecture, the document must include sections "Alternatives Considered" with the options evaluated (table of dimensions per option) and "Trade-off Analysis" with reasoning. The Problem/Solution/Changes/Rules/Verification format of the repo extends — it does not replace — the ADR rigor. Without these sections the ADR is wasted. (Source: PR #78 ADR-to-design-doc preservation)
 
 ## UI Conventions
 
@@ -201,13 +215,14 @@ Before adding any feature, ask: **Does this help a business owner in El Salvador
 1. Release develop → main on PR #74 cycle, every 10 PRs thereafter
 2. ProfileScreen fixes — custom shift modal, compact summary, camera vs gallery
 3. Owner mode toggle — operativo vs administrativo (base del sistema de roles, operativo es superset de administrativo)
-4. Sales date picker + historical CSV export with full columns
-5. Verify static map + geo URI flow in SaleDetailScreen
-6. Onboarding — solo vs team → configure available tools → lazy loading
-7. Owner dashboard — live orders, daily sales, active team
-8. Cash register close — for fixed devices on shift change
-9. Photo picker global migration — AddProductScreen, PaymentScreen, ModeEditorScreen, BusinessConfigScreen consume PhotoPickerSheet
-10. Role-specific screens — motorista (entregas), camarero (mesas)
+4. Co-admin permissions matrix — define qué ve y qué no ve el co-admin (datos financieros agregados, configuración del negocio, gestión de catálogos, gestión de equipo)
+5. Sales date picker + historical CSV export with full columns
+6. Verify static map + geo URI flow in SaleDetailScreen
+7. Onboarding — solo vs team → configure available tools → lazy loading
+8. Owner dashboard — live orders, daily sales, active team
+9. Cash register close — for fixed devices on shift change
+10. Photo picker global migration — AddProductScreen, PaymentScreen, ModeEditorScreen, BusinessConfigScreen consume PhotoPickerSheet
+11. Role-specific screens — motorista (entregas), camarero (mesas)
 
 **Completed milestones:**
 

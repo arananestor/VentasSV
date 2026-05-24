@@ -22,7 +22,7 @@ import { computeShiftSummary } from '../utils/shiftSummary';
 export default function ProfileScreen({ navigation }) {
   const {
     currentWorker, workers, deviceType, shiftStartedAt,
-    verifyOwnerPin, isAdmin, switchWorker,
+    verifyOwnerPin, isAdmin, switchWorker, setOwnerMode,
     addWorker, removeWorker, updateWorkerPhoto,
   } = useAuth();
   const { theme, isDark, toggleTheme } = useTheme();
@@ -33,6 +33,7 @@ export default function ProfileScreen({ navigation }) {
   // Modales
   const [showProfileDetail, setShowProfileDetail] = useState(false);
   const [showSwitchModal, setShowSwitchModal]     = useState(false);
+  const [showModeModal, setShowModeModal]         = useState(false);
   const [showPhotoPicker, setShowPhotoPicker]     = useState(false);
   const [showDeleteModal, setShowDeleteModal]     = useState(false);
   const [workerToDelete, setWorkerToDelete]       = useState(null);
@@ -210,6 +211,35 @@ export default function ProfileScreen({ navigation }) {
           <View style={[styles.row, styles.rowLast, { backgroundColor: theme.card, borderColor: theme.cardBorder, opacity: 0 }]} />
         </View>
 
+        {/* MODO DE TRABAJO — solo owner */}
+        {currentWorker?.role === 'owner' && (
+          <View>
+            <Text style={[styles.sectionLabel, { color: theme.textMuted }]}>MODO DE TRABAJO</Text>
+            <View style={[styles.modeCard, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.modeValue, { color: theme.text }]}>
+                  {(currentWorker.ownerMode || 'operativo') === 'operativo' ? 'Operativo' : 'Administrativo'}
+                </Text>
+                <Text style={[styles.modeDesc, { color: theme.textMuted }]}>
+                  {(currentWorker.ownerMode || 'operativo') === 'operativo'
+                    ? 'Trabajás en el negocio: vendés, atendés y administrás.'
+                    : 'Administrás sin atender ventas.'}
+                </Text>
+              </View>
+              <TouchableOpacity
+                style={[styles.modeBtn, { borderColor: theme.cardBorder }]}
+                onPress={() => setShowModeModal(true)}
+              >
+                <Text style={[styles.modeBtnText, { color: theme.textSecondary }]}>
+                  {(currentWorker.ownerMode || 'operativo') === 'operativo'
+                    ? 'Cambiar a administrativo'
+                    : 'Cambiar a operativo'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+
         {/* SECCIÓN ADMIN */}
         {iAmAdmin && (
           <View>
@@ -292,6 +322,41 @@ export default function ProfileScreen({ navigation }) {
             onPress={() => setShowProfileDetail(false)}
           >
             <Text style={[styles.detailCloseBtnText, { color: theme.textMuted }]}>Cerrar</Text>
+          </TouchableOpacity>
+        </View>
+      </CenterModal>
+
+      {/* ── MODAL: CAMBIAR MODO ─────────────────────── */}
+      <CenterModal
+        visible={showModeModal}
+        onClose={() => setShowModeModal(false)}
+      >
+        <View style={{ alignItems: 'center' }}>
+          <View style={[styles.confirmIconWrap, { backgroundColor: theme.bg }]}>
+            <Feather name="refresh-cw" size={24} color={theme.text} />
+          </View>
+          <Text style={[styles.confirmTitle, { color: theme.text }]}>
+            {(currentWorker?.ownerMode || 'operativo') === 'operativo'
+              ? 'MODO ADMINISTRATIVO'
+              : 'MODO OPERATIVO'}
+          </Text>
+          <Text style={[styles.confirmSub, { color: theme.textMuted }]}>
+            {(currentWorker?.ownerMode || 'operativo') === 'operativo'
+              ? 'Vas a ocultar Venta y Comandas. Podés volver a operativo cuando quieras desde tu perfil.'
+              : 'Vas a habilitar Venta y Comandas. Podés volver a administrativo cuando quieras desde tu perfil.'}
+          </Text>
+          <TouchableOpacity
+            style={[styles.confirmBtn, { backgroundColor: theme.accent }]}
+            onPress={() => {
+              const dest = (currentWorker?.ownerMode || 'operativo') === 'operativo' ? 'administrativo' : 'operativo';
+              setOwnerMode(dest);
+              setShowModeModal(false);
+            }}
+          >
+            <Text style={[styles.confirmBtnText, { color: theme.accentText }]}>CAMBIAR</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.confirmCancel} onPress={() => setShowModeModal(false)}>
+            <Text style={[styles.confirmCancelText, { color: theme.textMuted }]}>Cancelar</Text>
           </TouchableOpacity>
         </View>
       </CenterModal>
@@ -530,6 +595,14 @@ const styles = StyleSheet.create({
   rowSub:   { fontSize: 12, fontWeight: '500', marginTop: 1 },
 
   sectionLabel: { fontSize: 10, fontWeight: '800', letterSpacing: 3, marginTop: 24, marginBottom: 8 },
+  modeCard: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    borderRadius: 16, padding: 16, borderWidth: 1, marginBottom: 8,
+  },
+  modeValue: { fontSize: 18, fontWeight: '900', marginBottom: 4 },
+  modeDesc: { fontSize: 12, fontWeight: '500', lineHeight: 18 },
+  modeBtn: { borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10, borderWidth: 1 },
+  modeBtnText: { fontSize: 11, fontWeight: '700', textAlign: 'center' },
 
   // Worker cards
   workerCard:    { borderWidth: 1, padding: 14, marginTop: -1 },
