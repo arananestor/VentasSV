@@ -23,6 +23,7 @@ import { formatDateTimeReadable } from '../utils/formatters';
 import { cycleColor } from '../utils/productEditorLogic';
 import { CARD_COLORS, INGREDIENT_COLORS } from '../constants/productConstants';
 import IconColorPicker from '../components/IconColorPicker';
+import useCan from '../hooks/useCan';
 
 function SwipeRow({ isActive, onToggle, onLongPress, children, theme }) {
   const pan = useRef(new Animated.Value(0)).current;
@@ -60,6 +61,7 @@ export default function ModeEditorScreen({ route, navigation }) {
   const { workers } = useAuth();
   const { tabs } = useTab();
   const { theme } = useTheme();
+  const canEdit = useCan('edit-catalogs');
 
   const mode = modes.find(m => m.id === modeId);
   const [name, setName] = useState(mode?.name || '');
@@ -230,6 +232,11 @@ export default function ModeEditorScreen({ route, navigation }) {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.bg }]}>
       <ScreenHeader title={`EDITAR: ${mode.name}`} onBack={() => navigation.goBack()} />
+      {!canEdit && (
+        <View style={{ alignSelf: 'flex-start', marginLeft: 16, marginBottom: 4, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, backgroundColor: theme.bg }}>
+          <Text style={{ fontSize: 10, fontWeight: '800', letterSpacing: 2, color: theme.textMuted }}>CONSULTA</Text>
+        </View>
+      )}
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
 
@@ -341,7 +348,7 @@ export default function ModeEditorScreen({ route, navigation }) {
           </TouchableOpacity>
 
           <View style={{ height: 24 }} />
-          <PrimaryButton label="GUARDAR CAMBIOS" onPress={handleSave} />
+          {canEdit && <PrimaryButton label="GUARDAR CAMBIOS" onPress={handleSave} />}
           <View style={{ height: 40 }} />
         </ScrollView>
       </KeyboardAvoidingView>

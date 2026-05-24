@@ -8,6 +8,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import { Feather } from '@expo/vector-icons';
 import { useTheme } from '../context/ThemeContext';
+import useCan from '../hooks/useCan';
 import ScreenHeader from '../components/ScreenHeader';
 import PrimaryButton from '../components/PrimaryButton';
 import ThemedTextInput from '../components/ThemedTextInput';
@@ -18,6 +19,7 @@ import {
 
 export default function BusinessConfigScreen({ navigation }) {
   const { theme } = useTheme();
+  const canEdit = useCan('edit-business-config');
 
   const [bank, setBank]       = useState('');
   const [holder, setHolder]   = useState('');
@@ -60,6 +62,29 @@ export default function BusinessConfigScreen({ navigation }) {
 
   const bankComplete = !!(bank.trim() && holder.trim() && account.trim());
   const waComplete   = waNumber.replace(/\D/g, '').length >= 8;
+
+  if (!canEdit) {
+    return (
+      <SafeAreaView style={[styles.container, { backgroundColor: theme.bg }]}>
+        <ScreenHeader title="CONFIGURACIÓN" onBack={() => navigation.goBack()} />
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 32 }}>
+          <View style={{ width: 56, height: 56, borderRadius: 28, backgroundColor: theme.bg, alignItems: 'center', justifyContent: 'center', marginBottom: 16, borderWidth: 1, borderColor: theme.cardBorder }}>
+            <Feather name="lock" size={24} color={theme.text} />
+          </View>
+          <Text style={{ fontSize: 14, fontWeight: '900', letterSpacing: 3, color: theme.text, textAlign: 'center', marginBottom: 8 }}>SOLO PARA EL DUEÑO</Text>
+          <Text style={{ fontSize: 14, fontWeight: '500', color: theme.textMuted, textAlign: 'center', lineHeight: 20, marginBottom: 24 }}>
+            Esta sección es privada del dueño. Volvé a tu perfil para seguir trabajando.
+          </Text>
+          <TouchableOpacity
+            style={{ backgroundColor: theme.accent, borderRadius: 14, paddingVertical: 16, paddingHorizontal: 32, alignItems: 'center' }}
+            onPress={() => navigation.goBack()}
+          >
+            <Text style={{ color: theme.accentText, fontSize: 15, fontWeight: '900', letterSpacing: 2 }}>VOLVER AL PERFIL</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   if (!loaded) {
     return (

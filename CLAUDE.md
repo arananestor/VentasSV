@@ -23,7 +23,7 @@ make dev-clear         # Start with cache cleared
 make tunnel            # Expo with tunnel (restrictive networks)
 
 # Testing
-npm test               # Run all tests (801 tests, 55 suites — must be 0 failures)
+npm test               # Run all tests (825 tests, 56 suites — must be 0 failures)
 npm run test:unit      # Unit tests only (__tests__/unit/)
 npm run test:integration  # Integration tests only (__tests__/integration/)
 npm run test:coverage  # Coverage report (70% threshold)
@@ -45,6 +45,7 @@ make update m='msg'    # OTA update to production
 - Modal backdrops: Pressable plus StyleSheet.absoluteFill is the single accepted pattern. Reference: `src/components/CenterModal.js`. Consumers: CenterModal, BottomSheetModal, ModeEditorScreen modal, OrdersScreen modal, ProfileScreen modal.
 - Owner avatar treatment: when rendering any worker avatar (initial circle), use backgroundColor based on role with `worker.role === 'owner' ? theme.accent : (worker.color || '#1C1C1E')`, and initial color with `worker.role === 'owner' ? theme.accentText : '#fff'`. Consumers using this pattern: ProfileScreen, SelectWorkerScreen, ManageModesScreen. The owner is the only worker with the theme accent color treatment.
 - Owner work mode: when `worker.role === 'owner'`, the field `ownerMode` (`'operativo'` or `'administrativo'`) controls visible tabs via `getTabsForWorker` in `src/utils/roleConfig.js`. Operativo is a superset of administrativo (administrative tabs + operational tabs + future role-specific tabs). Administrativo shows only administrative tabs (currently only Profile; future Owner Dashboard joins this set). Default is operativo. Workers without the field are treated as operativo (no formal migration). Toggle exposed in ProfileScreen with mandatory confirmation modal.
+- Co-admin permissions matrix: declarative system in `src/utils/permissions.js`. PERMISSIONS constant maps role to allowed actions. `can(worker, action)` is a pure function. `useCan(action)` is the React hook consuming AuthContext (`src/hooks/useCan.js`). Restricted screens use useCan to filter UI or show defensive empty states. Co-admin has full operational permissions (POS, orders, day sales, shift sharing, catalog read-only, basic employee info) and zero administrative permissions (business config, edit catalogs, owner mode toggle, historical data, employee sensitive data, employee management). Pattern documented in `docs/architecture_design/co_admin_permissions_matrix.md`.
 - Bottom sheets: `src/components/BottomSheetModal.js` for non-destructive sheets. Consumers: CartSheet, SimpleProductSheet.
 - Icon and color picker: `src/components/IconColorPicker.js` unifies icon catalog and color selection in one searchable categorized grid. Source of icons and helpers: `src/constants/productConstants.js` (ICON_CATALOG with 11 categories, searchIcons, getIconCols, getIconBtnSize).
 - User feedback API: showSnack for persistent post-sale snackbar, showNotif for informational toast of 2 to 3 seconds, CenterModal for destructive confirmations with explicit button. All exposed from AppContext.
@@ -88,11 +89,11 @@ make update m='msg'    # OTA update to production
 ## Testing
 
 - Runner: jest-expo. Config in package.json `jest` field
-- Unit tests (`__tests__/unit/`): auth, businessConfig, cart, displayComponents, formComponents, posScreen, migration, pinEntry, pinKeypadModal, productPermissions, products, roleConfig, geoLogic, itemsLogic, salesMigration, saleDetailItems, salesListSummary, cookModalItems, ticketPrinter, ticketMessage, transferMessage, ids, entityEnvelope, schemaMigrationV4, qentasClient, requiresQentasLogic, upsellCardLogic, businessConfigQentasFields, modes/modeModel, modes/schemaMigrationV5, modes/repositoryModes, modes/modeManagementLogic, modes/modeResolution, modes/posModeFiltering, modes/orderBuilderPricing, modes/modeManagement, modes/modeScheduling, modes/modeEditorLogic, modes/modeAutoActivation, modes/modeProductEditorLogic, collapsibleHeader, iconCatalog, responsive, sales, salesCsv, shareShiftSummary, shiftSummary, selectWorker, setup, snackbar, tabs, theme, workers
+- Unit tests (`__tests__/unit/`): auth, businessConfig, cart, displayComponents, formComponents, posScreen, migration, pinEntry, pinKeypadModal, productPermissions, products, roleConfig, geoLogic, itemsLogic, salesMigration, saleDetailItems, salesListSummary, cookModalItems, ticketPrinter, ticketMessage, transferMessage, ids, entityEnvelope, schemaMigrationV4, qentasClient, requiresQentasLogic, upsellCardLogic, businessConfigQentasFields, modes/modeModel, modes/schemaMigrationV5, modes/repositoryModes, modes/modeManagementLogic, modes/modeResolution, modes/posModeFiltering, modes/orderBuilderPricing, modes/modeManagement, modes/modeScheduling, modes/modeEditorLogic, modes/modeAutoActivation, modes/modeProductEditorLogic, collapsibleHeader, iconCatalog, permissions, responsive, sales, salesCsv, shareShiftSummary, shiftSummary, selectWorker, setup, snackbar, tabs, theme, workers
 - Integration tests (`__tests__/integration/`): payment, orders
 - Mocks in `__mocks__/` for AsyncStorage, vector-icons, safe-area-context
 - Coverage threshold: 70% on branches, functions, lines, statements
-- **Rule: 801 tests (minimum), 0 failures before any merge. No exceptions.**
+- **Rule: 825 tests (minimum), 0 failures before any merge. No exceptions.**
 - **AAA Pattern (mandatory):** Every test must follow Arrange-Act-Assert. The Act step must call a real function imported from `src/`. Never reimplement logic in tests. Comments `// Arrange`, `// Act`, `// Assert` are required in every test block.
 
 ## Repository
@@ -187,6 +188,7 @@ Architecture design docs are REQUIRED before starting any major feature. Feature
 - **Retros are written from reality, not from prediction**: Architect instructions describe what the executor should do and instruct the executor to write the retro at the end based on what actually happened during execution — including unexpected bugs, dependency issues, route changes, mid-flight decisions, things that worked first try vs things that needed iteration. Architect may suggest baseline structure and minimum points to cover; never dictate retro content verbatim. (Source: PR #76 process observation by Nestor)
 - **Skills orchestration rule**: The architect must follow the skills-mapping table in CLAUDE.md (Established Architecture Patterns → Skills mapping) and announce at the top of every instruction block: which skills were invoked, which were evaluated and discarded with reason, and which will be invoked pre-merge. Nestor can audit at any time with "¿qué skills usaste para esto?". Process, not goodwill. (Source: PR #78 architect process formalization)
 - **Design docs born from ADR include Alternatives Considered**: When a design doc is produced after invoking engineering:architecture, the document must include sections "Alternatives Considered" with the options evaluated (table of dimensions per option) and "Trade-off Analysis" with reasoning. The Problem/Solution/Changes/Rules/Verification format of the repo extends — it does not replace — the ADR rigor. Without these sections the ADR is wasted. (Source: PR #78 ADR-to-design-doc preservation)
+- **New restricted features must register their action in the permissions matrix**: When introducing a feature that should be restricted by role (financial data, configuration, employee management), the action must be added to `src/utils/permissions.js` with explicit role assignments, and the consuming screen must invoke `useCan(action)`. Adding a feature without registering its permission means defaulting to "everyone sees it" — the inverse of secure-by-default. (Source: PR #80 co-admin permissions matrix)
 
 ## UI Conventions
 
@@ -213,16 +215,13 @@ Before adding any feature, ask: **Does this help a business owner in El Salvador
 **Active priorities:**
 
 1. Release develop → main on PR #74 cycle, every 10 PRs thereafter
-2. ProfileScreen fixes — custom shift modal, compact summary, camera vs gallery
-3. Owner mode toggle — operativo vs administrativo (base del sistema de roles, operativo es superset de administrativo)
-4. Co-admin permissions matrix — define qué ve y qué no ve el co-admin (datos financieros agregados, configuración del negocio, gestión de catálogos, gestión de equipo)
-5. Sales date picker + historical CSV export with full columns
-6. Verify static map + geo URI flow in SaleDetailScreen
-7. Onboarding — solo vs team → configure available tools → lazy loading
-8. Owner dashboard — live orders, daily sales, active team
-9. Cash register close — for fixed devices on shift change
-10. Photo picker global migration — AddProductScreen, PaymentScreen, ModeEditorScreen, BusinessConfigScreen consume PhotoPickerSheet
-11. Role-specific screens — motorista (entregas), camarero (mesas)
+2. Sales date picker + historical CSV export with full columns
+3. Verify static map + geo URI flow in SaleDetailScreen
+4. Onboarding — solo vs team → configure available tools → lazy loading
+5. Owner dashboard — live orders, daily sales, active team
+6. Cash register close — for fixed devices on shift change
+7. Photo picker global migration — AddProductScreen, PaymentScreen, ModeEditorScreen, BusinessConfigScreen consume PhotoPickerSheet
+8. Role-specific screens — motorista (entregas), camarero (mesas)
 
 **Completed milestones:**
 
@@ -231,3 +230,6 @@ Before adding any feature, ask: **Does this help a business owner in El Salvador
 - ~~Foundation sync-ready: F1 UUIDs and entity envelope, F2 Qentas client stub with RequiresQentas and UpsellCard~~
 - ~~Modos de operación: foundation, cashier view respects active mode, owner management with scheduling~~
 - ~~Polish phase: POS collapsible header (PR #63), CartSheet extracted (PR #61), SimpleProductSheet extracted (PR #62), AddProduct responsive and redesign (PRs #64 #68), OrderBuilder responsive and redesign (PRs #69 #70), Icon catalog categories with unified IconColorPicker (PR #67), Header gap fix (PR #66), Global Alert.alert and Dimensions.get cleanup with BottomSheetModal backdrop fix (PRs #70 #72)~~
+- ~~ProfileScreen fixes: shift summary modal, compact band, unified photo picker, iOS photo bug fix, CSV export, owner avatar harmony (PR #76)~~
+- ~~Owner mode toggle: operativo vs administrativo with confirmation modal (PR #78)~~
+- ~~Co-admin permissions matrix: declarative can(worker, action) with useCan hook, restricted screens with defensive empty states (PR #80)~~

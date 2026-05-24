@@ -22,6 +22,7 @@ import {
 const WA_COLOR = '#25D366';
 
 
+// TODO: condicionar con useCan('view-historical-sales') cuando se agregue date picker histórico
 export default function SalesScreen({ navigation }) {
   const { getTodaySales, showNotif } = useApp();
   const { theme } = useTheme();
