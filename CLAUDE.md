@@ -14,6 +14,8 @@ React Native 0.81.5, Expo ~54.0.33, React 19.1.0, AsyncStorage, React Navigation
 
 **BLOCKED:** @testing-library/react-native is NOT installed — incompatible with React 19.1.0. Component UI tests use pure JS logic only, no component rendering.
 
+**BLOCKED:** react-native-reanimated is NOT installed — requires full babel plugin config and native rebuild, incompatible with the current pinned setup. Do not propose it as a solution.
+
 ## Commands
 
 ```bash
@@ -37,9 +39,11 @@ make update m='msg'    # OTA update to production
 
 ## Architecture
 
-**Provider chain:** App.js → SafeAreaProvider → ThemeProvider → AuthProvider → AppProvider → TabProvider → NavigationContainer → AppNavigator
+### Provider Chain
 
-**Established Architecture Patterns:**
+App.js → SafeAreaProvider → ThemeProvider → AuthProvider → AppProvider → TabProvider → NavigationContainer → AppNavigator
+
+### Established Architecture Patterns
 
 - Responsive layout: `useResponsive` hook in `src/hooks/useResponsive.js` returns reactive primitives (width, height, isTablet, isLandscape, padding, gap, columns, gridCardSize, layout, fontSize). Mandatory for any screen with dynamic width-based computations. Current consumers: POSScreen, AddProductScreen, OrderBuilderScreen, SelectWorkerScreen, OrdersScreen.
 - Modal backdrops: Pressable plus StyleSheet.absoluteFill is the single accepted pattern. Reference: `src/components/CenterModal.js`. Consumers: CenterModal, BottomSheetModal, ModeEditorScreen modal, OrdersScreen modal, ProfileScreen modal.
@@ -62,25 +66,33 @@ make update m='msg'    # OTA update to production
   | Pre-beta pública | design:accessibility-review | Antes de release a usuarios reales |
   | Auditoría periódica | engineering:tech-debt | Cada 20 a 30 PRs |
 
-**State management:** React Context API (no Redux). Four contexts:
+### State Management
+
+React Context API (no Redux). Four contexts:
 
 - `src/context/AppContext.js` — Single source of truth: products, sales, cart, order numbers, snackbar, Qentas hooks (placeholder)
 - `src/context/AuthContext.js` — Role hierarchy, 4-digit PIN auth, worker management, schema versioning v2, migration v1→v2
 - `src/context/TabContext.js` — Product tab/category organization
 - `src/context/ThemeContext.js` — Light/dark mode tokens
 
-**Navigation:**
+### Navigation
+
 - No worker: Setup → SelectWorker → PinEntry
 - With worker: MainTabs (Venta | Comandas | Ventas | Perfil)
 - HomeStack: HomeMain → OrderBuilder → Payment → AddProduct → ManageTabs
 - SalesStack: SalesMain → SaleDetail
 - ProfileStack: ProfileMain → BusinessConfig
 
-**Data persistence:** AsyncStorage via repository layer (src/data/repository.js). Schema versioning unified in `ventasv_schema_version` (current v5). Migrations: v1→v2 (AuthContext), v2→v3 (salesMigration.js items[]), v3→v4 (schemaMigrationV4.js entity envelope), v4→v5 (schemaMigrationV5.js Modes). All entities have UUID v4 IDs (newId from src/utils/ids.js) and sync envelope (accountId, deviceId, syncState, serverUpdatedAt).
+### Data Persistence
 
-**Role system:** owner → co-admin → worker (positions: Cajero, Cocinero, Motorista, Camarero)
+AsyncStorage via repository layer (src/data/repository.js). Schema versioning unified in `ventasv_schema_version` (current v5). Migrations: v1→v2 (AuthContext), v2→v3 (salesMigration.js items[]), v3→v4 (schemaMigrationV4.js entity envelope), v4→v5 (schemaMigrationV5.js Modes). All entities have UUID v4 IDs (newId from src/utils/ids.js) and sync envelope (accountId, deviceId, syncState, serverUpdatedAt).
 
-**Auth rules:**
+### Role System
+
+owner → co-admin → worker (positions: Cajero, Cocinero, Motorista, Camarero)
+
+### Auth Rules
+
 - PIN exactly 4 digits
 - deviceType: fixed = SelectWorker on shift close; personal = direct logout
 - Owner can view worker PINs but CANNOT enter their profiles
@@ -155,21 +167,6 @@ docs/feature_retros/       ← retrospectives after each merge
 
 Architecture design docs are REQUIRED before starting any major feature. Feature retros are REQUIRED after every merge to develop. No exceptions. Retros are living documents — if a subsequent PR reveals a retro claimed something was fixed but wasn't, the retro must be corrected in that same PR.
 
-## Development Rules — No Exceptions
-
-- NEVER touch files directly on main
-- NEVER update React or native deps without full compatibility verification
-- Tests: 0 failures before any merge
-- Commits in English, format `type(scope): description`
-- UI always in Spanish, code in English
-- KeyboardAvoidingView on every screen with inputs
-- Pills/cards always adaptive to content (no fixed width)
-- No native Alert — always custom modals
-- Architecture design doc BEFORE major features
-- Feature retro AFTER merge
-- Always give Nestor complete, detailed steps for each PR
-- Tests: AAA pattern mandatory — Arrange (input), Act (call real function from src/), Assert (verify output). No exceptions.
-
 ## Process Rules — Learned from Retros
 
 - **Role changes require global grep**: Any PR that modifies role logic must include `grep -r "role ===" src/` output in the PR description to verify no orphaned role checks exist. (Source: PRs #13, #16 — `role === 'admin'` bug appeared twice)
@@ -183,7 +180,6 @@ Architecture design docs are REQUIRED before starting any major feature. Feature
 - **Release cadence**: Every 10 PRs merged to develop, open a release PR develop → main. The release PR carries no commits of its own — it only promotes the accumulated work. The next release after PR #74 will be at the PR #84 mark. (Source: PR #73 sync cycle)
 - **Polish phase patterns are mandatory project-wide**: Alert.alert is forbidden — use showNotif for informational messages, CenterModal for destructive confirmations. Dimensions.get('window') at module level is forbidden — use the useResponsive hook. Modal backdrops must use Pressable plus StyleSheet.absoluteFill, never TouchableOpacity as overlay. (Source: PRs #70, #72)
 - **Animation restrictions in ScrollView contexts**: Only transform and opacity may animate, always with useNativeDriver: true. Animating height, margin, or padding inside a ScrollView is forbidden. (Source: collapsibleHeader.js, PR #63)
-- **react-native-reanimated is blocked**: It requires full babel plugin config and native rebuild, incompatible with the current pinned setup. Do not propose it as a solution.
 - **Architect carry-over check**: Before passing a new instruction block to Claude Code, the architect must verify that all previously identified fixes from earlier discussions have been committed. If a block was prepared but Nestor pivoted to a new issue before executing it, include those pending fixes in the next block. Pending fixes never get silently dropped when focus shifts. (Source: PR #76 fourth refinement, missed carry-over of PinEntryScreen fix)
 - **Retros are written from reality, not from prediction**: Architect instructions describe what the executor should do and instruct the executor to write the retro at the end based on what actually happened during execution — including unexpected bugs, dependency issues, route changes, mid-flight decisions, things that worked first try vs things that needed iteration. Architect may suggest baseline structure and minimum points to cover; never dictate retro content verbatim. (Source: PR #76 process observation by Nestor)
 - **Skills orchestration rule**: The architect must follow the skills-mapping table in CLAUDE.md (Established Architecture Patterns → Skills mapping) and announce at the top of every instruction block: which skills were invoked, which were evaluated and discarded with reason, and which will be invoked pre-merge. Nestor can audit at any time with "¿qué skills usaste para esto?". Process, not goodwill. (Source: PR #78 architect process formalization)
@@ -198,6 +194,8 @@ Architecture design docs are REQUIRED before starting any major feature. Feature
 - Timestamps as ISO strings
 - SVG icons via react-native-svg-transformer (metro.config.js)
 - Receipt printing via expo-print; ticket sharing via WhatsApp
+- KeyboardAvoidingView on every screen with inputs
+- Pills/cards always adaptive to content (no fixed width)
 
 ## Decision Filter
 
@@ -214,14 +212,14 @@ Before adding any feature, ask: **Does this help a business owner in El Salvador
 
 **Active priorities:**
 
-1. Release develop → main on PR #74 cycle, every 10 PRs thereafter
-2. Sales date picker + historical CSV export with full columns
-3. Verify static map + geo URI flow in SaleDetailScreen
-4. Onboarding — solo vs team → configure available tools → lazy loading
-5. Owner dashboard — live orders, daily sales, active team
-6. Cash register close — for fixed devices on shift change
-7. Photo picker global migration — AddProductScreen, PaymentScreen, ModeEditorScreen, BusinessConfigScreen consume PhotoPickerSheet
-8. Role-specific screens — motorista (entregas), camarero (mesas)
+1. Sales date picker + historical CSV export with full columns
+2. Verify static map + geo URI flow in SaleDetailScreen
+3. Onboarding — solo vs team → configure available tools → lazy loading
+4. Owner dashboard — live orders, daily sales, active team
+5. Cash register close — for fixed devices on shift change
+6. Photo picker global migration — AddProductScreen, PaymentScreen, ModeEditorScreen, BusinessConfigScreen consume PhotoPickerSheet
+7. Role-specific screens — motorista (entregas), camarero (mesas)
+8. Catalog system redesign execution — PRs #83 (Foundation: model + scheduling logic), #84 (UI components + CatalogDetailScreen), #85 (Integration: ManageModesScreen refactor + active banner + navigation). Implements docs/architecture_design/catalog_system_redesign.md.
 
 **Completed milestones:**
 
