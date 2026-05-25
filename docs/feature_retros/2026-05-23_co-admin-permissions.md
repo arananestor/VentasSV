@@ -33,3 +33,13 @@ Sistema declarativo de permisos centralizado en src/utils/permissions.js con 18 
 - ManageModesScreen ya tenía un check `canManageModesLocally(currentWorker)` que retornaba un empty state para non-owners. Pero ese check es más restrictivo que el nuevo: el co-admin PUEDE ver catálogos (view-catalogs: true) pero NO puede editarlos. El check viejo bloqueaba completamente al co-admin. Ahora el co-admin pasa ese check (es admin) pero los controles de edición se filtran con useCan('edit-catalogs').
 - El test `can() does not mutate PERMISSIONS` es trivial pero importante: si alguien en el futuro agrega lógica que muta el objeto compartido (como delete de keys), el test lo atrapa.
 - El primer intento del conditional en ProfileScreen para el catálogos row era demasiado complejo con tres branches. Lo simplifiqué a: siempre mostrar el row de catálogos si canViewCatalogs, cambiar solo el subtexto según canEditCatalogs.
+
+## Segundo commit — read-only completo en ModeEditorScreen
+
+El primer commit ocultó el botón GUARDAR CAMBIOS con `{canEdit && ...}` pero dejó todos los TextInputs y TouchableOpacity de acciones interactuables. El co-admin veía el badge CONSULTA pero los inputs invitaban a editar — contradicción visible detectada en code-review pre-merge.
+
+El fix usa un wrapper View con `pointerEvents={canEdit ? 'auto' : 'none'}` y `opacity: canEdit ? 1 : 0.55` que envuelve TODO el contenido editable dentro del ScrollView. Esto bloquea toda interacción interna en un solo paso sin necesidad de agregar `editable={false}` a cada TextInput individual ni `disabled` a cada TouchableOpacity. La ScrollView misma queda fuera del wrapper para que el scroll siga funcionando. El botón GUARDAR CAMBIOS también queda fuera del wrapper (ya condicionado con canEdit).
+
+La opacity 0.55 es un feedback visual limpio: el co-admin entiende inmediatamente que el contenido está deshabilitado sin necesidad de microcopy adicional. El patrón pointerEvents='none' es nativo de React Native y no introduce dependencias.
+
+La ejecución fue directa — abrir el View wrapper antes del primer ThemedTextInput, cerrarlo antes del botón GUARDAR. Sin iteración necesaria.

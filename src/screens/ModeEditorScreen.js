@@ -239,6 +239,7 @@ export default function ModeEditorScreen({ route, navigation }) {
       )}
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+          <View pointerEvents={canEdit ? 'auto' : 'none'} style={{ opacity: canEdit ? 1 : 0.55 }}>
 
           <ThemedTextInput label="NOMBRE" value={name} onChangeText={v => { setName(v); setNameError(''); }} placeholder="Nombre del catálogo" error={nameError} />
           <ThemedTextInput label="DESCRIPCIÓN" value={desc} onChangeText={setDesc} placeholder="Opcional" />
@@ -348,6 +349,7 @@ export default function ModeEditorScreen({ route, navigation }) {
           </TouchableOpacity>
 
           <View style={{ height: 24 }} />
+          </View>
           {canEdit && <PrimaryButton label="GUARDAR CAMBIOS" onPress={handleSave} />}
           <View style={{ height: 40 }} />
         </ScrollView>
