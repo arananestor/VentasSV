@@ -18,6 +18,7 @@ import CompactSummaryBand from '../components/CompactSummaryBand';
 import PhotoPickerSheet from '../components/PhotoPickerSheet';
 import ShiftSummaryModal from '../components/ShiftSummaryModal';
 import { computeShiftSummary } from '../utils/shiftSummary';
+import useCan from '../hooks/useCan';
 
 export default function ProfileScreen({ navigation }) {
   const {
@@ -29,6 +30,9 @@ export default function ProfileScreen({ navigation }) {
   const { sales, showNotif } = useApp();
 
   const iAmAdmin = isAdmin(currentWorker);
+  const canEditConfig = useCan('edit-business-config');
+  const canEditCatalogs = useCan('edit-catalogs');
+  const canViewCatalogs = useCan('view-catalogs');
 
   // Modales
   const [showProfileDetail, setShowProfileDetail] = useState(false);
@@ -241,39 +245,41 @@ export default function ProfileScreen({ navigation }) {
         )}
 
         {/* SECCIÓN ADMIN */}
-        {iAmAdmin && (
+        {iAmAdmin && (canEditConfig || canViewCatalogs) && (
           <View>
             <Text style={[styles.sectionLabel, { color: theme.textMuted }]}>ADMINISTRACIÓN</Text>
 
             <View style={styles.group}>
-              <TouchableOpacity
-                style={[styles.row, styles.rowFirst, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}
-                onPress={() => navigation.navigate('BusinessConfig')}
-              >
-                <View style={[styles.rowIcon, { backgroundColor: isDark ? '#1C1C1E' : '#F0F0F0' }]}>
-                  <Feather name="settings" size={15} color={theme.text} />
-                </View>
-                <View style={styles.rowTexts}>
-                  <Text style={[styles.rowTitle, { color: theme.text }]}>Configuración de cobro</Text>
-                  <Text style={[styles.rowSub, { color: theme.textMuted }]}>Banco, WhatsApp para tickets</Text>
-                </View>
-                <Feather name="chevron-right" size={18} color={theme.textMuted} />
-              </TouchableOpacity>
-              {currentWorker?.role === 'owner' && (
+              {canEditConfig && (
                 <TouchableOpacity
-                  style={[styles.row, styles.rowLast, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}
-                  onPress={() => navigation.navigate('ManageModes')}
+                  style={[styles.row, styles.rowFirst, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}
+                  onPress={() => navigation.navigate('BusinessConfig')}
                 >
                   <View style={[styles.rowIcon, { backgroundColor: isDark ? '#1C1C1E' : '#F0F0F0' }]}>
-                    <Feather name="layers" size={15} color={theme.text} />
+                    <Feather name="settings" size={15} color={theme.text} />
                   </View>
                   <View style={styles.rowTexts}>
-                    <Text style={[styles.rowTitle, { color: theme.text }]}>Catálogos</Text>
-                    <Text style={[styles.rowSub, { color: theme.textMuted }]}>Crear, editar y programar catálogos</Text>
+                    <Text style={[styles.rowTitle, { color: theme.text }]}>Configuración de cobro</Text>
+                    <Text style={[styles.rowSub, { color: theme.textMuted }]}>Banco, WhatsApp para tickets</Text>
                   </View>
                   <Feather name="chevron-right" size={18} color={theme.textMuted} />
                 </TouchableOpacity>
               )}
+              <TouchableOpacity
+                style={[styles.row, canEditConfig ? styles.rowLast : [styles.rowFirst, styles.rowLast], { backgroundColor: theme.card, borderColor: theme.cardBorder }]}
+                onPress={() => navigation.navigate('ManageModes')}
+              >
+                <View style={[styles.rowIcon, { backgroundColor: isDark ? '#1C1C1E' : '#F0F0F0' }]}>
+                  <Feather name="layers" size={15} color={theme.text} />
+                </View>
+                <View style={styles.rowTexts}>
+                  <Text style={[styles.rowTitle, { color: theme.text }]}>Catálogos</Text>
+                  <Text style={[styles.rowSub, { color: theme.textMuted }]}>
+                    {canEditCatalogs ? 'Crear, editar y programar catálogos' : 'Consultar catálogos activos'}
+                  </Text>
+                </View>
+                <Feather name="chevron-right" size={18} color={theme.textMuted} />
+              </TouchableOpacity>
             </View>
 
             <Text style={[styles.sectionLabel, { color: theme.textMuted }]}>EQUIPO</Text>

@@ -11,6 +11,7 @@ import ThemedTextInput from '../components/ThemedTextInput';
 import PrimaryButton from '../components/PrimaryButton';
 import RequiresQentas from '../components/RequiresQentas';
 import { canManageModesLocally, validateModeForm } from '../utils/modeManagement';
+import useCan from '../hooks/useCan';
 
 function ActionPill({ label, color, bgColor, onPress }) {
   const scale = useRef(new Animated.Value(1)).current;
@@ -37,6 +38,7 @@ export default function ManageModesScreen({ navigation }) {
   const { modes, currentModeId, createModeFromForm, deleteMode, cloneMode, showNotif } = useApp();
   const { currentWorker, workers } = useAuth();
   const { theme } = useTheme();
+  const canEdit = useCan('edit-catalogs');
 
   const [showCreate, setShowCreate] = useState(false);
   const [newName, setNewName] = useState('');
@@ -89,6 +91,12 @@ export default function ManageModesScreen({ navigation }) {
     <SafeAreaView style={[styles.container, { backgroundColor: theme.bg }]}>
       <ScreenHeader title="CATÁLOGOS" onBack={() => navigation.goBack()} />
 
+      {!canEdit && (
+        <View style={[styles.consultaBadge, { backgroundColor: theme.bg }]}>
+          <Text style={[styles.consultaText, { color: theme.textMuted }]}>CONSULTA</Text>
+        </View>
+      )}
+
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         {modes.map(mode => {
           const isActive = mode.id === currentModeId;
@@ -132,24 +140,28 @@ export default function ManageModesScreen({ navigation }) {
                 )}
               </View>
 
-              <View style={styles.cardActions}>
-                <ActionPill label="Editar" color={theme.text} bgColor={theme.card} onPress={() => navigation.navigate('ModeEditor', { modeId: mode.id })} />
-                <ActionPill label="Clonar" color={theme.text} bgColor={theme.card} onPress={() => handleClone(mode.id)} />
-                {!mode.isDefault && !isActive && (
-                  <ActionPill label="Eliminar" color={theme.danger} bgColor={theme.danger + '12'} onPress={() => setShowConfirm({ type: 'delete', modeId: mode.id, name: mode.name })} />
-                )}
-              </View>
+              {canEdit && (
+                <View style={styles.cardActions}>
+                  <ActionPill label="Editar" color={theme.text} bgColor={theme.card} onPress={() => navigation.navigate('ModeEditor', { modeId: mode.id })} />
+                  <ActionPill label="Clonar" color={theme.text} bgColor={theme.card} onPress={() => handleClone(mode.id)} />
+                  {!mode.isDefault && !isActive && (
+                    <ActionPill label="Eliminar" color={theme.danger} bgColor={theme.danger + '12'} onPress={() => setShowConfirm({ type: 'delete', modeId: mode.id, name: mode.name })} />
+                  )}
+                </View>
+              )}
             </View>
           );
         })}
 
-        <TouchableOpacity
-          style={[styles.createBtn, { borderColor: theme.cardBorder }]}
-          onPress={() => setShowCreate(true)}
-        >
-          <Feather name="plus" size={18} color={theme.textMuted} />
-          <Text style={[styles.createBtnText, { color: theme.textMuted }]}>Crear nuevo catálogo</Text>
-        </TouchableOpacity>
+        {canEdit && (
+          <TouchableOpacity
+            style={[styles.createBtn, { borderColor: theme.cardBorder }]}
+            onPress={() => setShowCreate(true)}
+          >
+            <Feather name="plus" size={18} color={theme.textMuted} />
+            <Text style={[styles.createBtnText, { color: theme.textMuted }]}>Crear nuevo catálogo</Text>
+          </TouchableOpacity>
+        )}
 
         <RequiresQentas fallback={
           <View style={styles.tipsSection}>
@@ -220,6 +232,8 @@ const styles = StyleSheet.create({
   cardActions: { flexDirection: 'row', gap: 8, marginTop: 12, flexWrap: 'wrap' },
   actionBtn: { borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8, borderWidth: 1 },
   actionText: { fontSize: 12, fontWeight: '700' },
+  consultaBadge: { alignSelf: 'flex-start', marginLeft: 16, marginBottom: 4, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 },
+  consultaText: { fontSize: 10, fontWeight: '800', letterSpacing: 2 },
   createBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
     borderRadius: 14, paddingVertical: 16, borderWidth: 1, borderStyle: 'dashed', marginTop: 8,
