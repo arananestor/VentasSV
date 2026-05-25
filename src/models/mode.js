@@ -8,6 +8,8 @@ const createMode = ({
   isDefault = false,
   scheduledActivations = [],
   assignedWorkerIds = [],
+  color = '',
+  assignedLocationIds = [],
 } = {}) => ({
   id: newId(),
   name,
@@ -17,6 +19,8 @@ const createMode = ({
   isDefault,
   scheduledActivations,
   assignedWorkerIds,
+  color,
+  assignedLocationIds,
   createdAt: new Date().toISOString(),
   updatedAt: new Date().toISOString(),
 });

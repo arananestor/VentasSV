@@ -81,6 +81,13 @@ describe('owner permissions', () => {
     // Assert
     expect(result).toBe(true);
   });
+
+  it('can assign-catalog', () => {
+    // Arrange / Act
+    const result = can(owner, 'assign-catalog');
+    // Assert
+    expect(result).toBe(true);
+  });
 });
 
 describe('co-admin permitted actions', () => {
@@ -162,6 +169,13 @@ describe('co-admin restricted actions — security critical', () => {
     // Assert
     expect(result).toBe(false);
   });
+
+  it('cannot assign-catalog', () => {
+    // Arrange / Act
+    const result = can(coAdmin, 'assign-catalog');
+    // Assert
+    expect(result).toBe(false);
+  });
 });
 
 describe('worker permissions', () => {
@@ -180,7 +194,7 @@ describe('matrix integrity', () => {
     // Act
     const unique = new Set(ownerActions);
     // Assert
-    expect(unique.size).toBe(18);
+    expect(unique.size).toBe(19);
   });
 
   it('can() does not mutate PERMISSIONS', () => {

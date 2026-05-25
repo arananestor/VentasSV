@@ -23,6 +23,7 @@ const PERMISSIONS = {
     'edit-employee': true,
     'delete-employee': true,
     'change-employee-role': true,
+    'assign-catalog': true,
   },
   'co-admin': {
     'use-pos': true,

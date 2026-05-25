@@ -1,4 +1,4 @@
-import { evaluateSchedule, appendScheduledActivation, removeScheduledActivation, isScheduleValid } from '../../../src/utils/modeScheduling';
+import { evaluateSchedule, appendScheduledActivation, removeScheduledActivation, isScheduleValid, detectScheduleOverlap, getActiveModeAt } from '../../../src/utils/modeScheduling';
 import { isValidUuid } from '../../../src/utils/ids';
 import { createMode } from '../../../src/models/mode';
 
@@ -106,5 +106,160 @@ describe('isScheduleValid', () => {
     const result = isScheduleValid({ startsAt: null, endsAt: null });
     // Assert
     expect(result).toBe(false);
+  });
+});
+
+describe('detectScheduleOverlap', () => {
+  it('returns empty array with no existing activations', () => {
+    // Arrange
+    const newAct = { type: 'recurrente', days: [1], startTime: '08:00', endTime: '12:00' };
+    // Act
+    const result = detectScheduleOverlap(newAct, []);
+    // Assert
+    expect(result).toEqual([]);
+  });
+
+  it('returns empty when no overlap', () => {
+    // Arrange
+    const newAct = { type: 'recurrente', days: [1], startTime: '08:00', endTime: '12:00' };
+    const existing = [{ id: 'e1', modeId: 'm1', type: 'recurrente', days: [1], startTime: '13:00', endTime: '17:00' }];
+    // Act
+    const result = detectScheduleOverlap(newAct, existing);
+    // Assert
+    expect(result).toEqual([]);
+  });
+
+  it('detects full overlap (same range)', () => {
+    // Arrange
+    const newAct = { type: 'recurrente', days: [1], startTime: '08:00', endTime: '12:00' };
+    const existing = [{ id: 'e1', modeId: 'm1', type: 'recurrente', days: [1], startTime: '08:00', endTime: '12:00' }];
+    // Act
+    const result = detectScheduleOverlap(newAct, existing);
+    // Assert
+    expect(result).toHaveLength(1);
+    expect(result[0].modeId).toBe('m1');
+  });
+
+  it('detects partial overlap (1 hour margin)', () => {
+    // Arrange
+    const newAct = { type: 'recurrente', days: [1], startTime: '11:00', endTime: '15:00' };
+    const existing = [{ id: 'e1', modeId: 'm1', type: 'recurrente', days: [1], startTime: '08:00', endTime: '12:00' }];
+    // Act
+    const result = detectScheduleOverlap(newAct, existing);
+    // Assert
+    expect(result).toHaveLength(1);
+    expect(result[0].overlapStart).toBe('11:00');
+    expect(result[0].overlapEnd).toBe('12:00');
+  });
+
+  it('detects overlap with multiple existing activations', () => {
+    // Arrange
+    const newAct = { type: 'recurrente', days: [1], startTime: '10:00', endTime: '20:00' };
+    const existing = [
+      { id: 'e1', modeId: 'm1', type: 'recurrente', days: [1], startTime: '08:00', endTime: '12:00' },
+      { id: 'e2', modeId: 'm2', type: 'recurrente', days: [1], startTime: '18:00', endTime: '22:00' },
+    ];
+    // Act
+    const result = detectScheduleOverlap(newAct, existing);
+    // Assert
+    expect(result).toHaveLength(2);
+  });
+
+  it('handles cross-day activation (23:00-03:00)', () => {
+    // Arrange
+    const newAct = { type: 'recurrente', days: [3], startTime: '23:00', endTime: '03:00' }; // Wed night
+    const existing = [{ id: 'e1', modeId: 'm1', type: 'recurrente', days: [3], startTime: '22:00', endTime: '23:30' }];
+    // Act
+    const result = detectScheduleOverlap(newAct, existing);
+    // Assert
+    expect(result).toHaveLength(1);
+  });
+
+  it('detects overlap between evento and recurrente on same weekday', () => {
+    // Arrange — 2026-05-25 is Monday (day 1 in UTC)
+    const newAct = { type: 'evento', date: '2026-05-25', startTime: '10:00', endTime: '14:00' };
+    const existing = [{ id: 'e1', modeId: 'm1', type: 'recurrente', days: [1], startTime: '12:00', endTime: '16:00' }];
+    // Act
+    const result = detectScheduleOverlap(newAct, existing);
+    // Assert
+    expect(result).toHaveLength(1);
+  });
+});
+
+describe('getActiveModeAt', () => {
+  const principal = { id: 'principal', isDefault: true };
+  const promo = { id: 'promo', isDefault: false };
+
+  it('returns null with no modes and no principal', () => {
+    // Arrange / Act
+    const result = getActiveModeAt('2026-05-25T12:00:00Z', [], [], null);
+    // Assert
+    expect(result).toBeNull();
+  });
+
+  it('returns principal when nothing is scheduled', () => {
+    // Arrange / Act
+    const result = getActiveModeAt('2026-05-25T12:00:00Z', [principal], [], null);
+    // Assert
+    expect(result).toBe('principal');
+  });
+
+  it('evento puntual wins over principal', () => {
+    // Arrange — 2026-05-25 is Sunday (day 0)
+    const activations = [{ type: 'evento', date: '2026-05-25', startTime: '10:00', endTime: '14:00', modeId: 'promo' }];
+    // Act
+    const result = getActiveModeAt('2026-05-25T12:00:00Z', [principal, promo], activations, null);
+    // Assert
+    expect(result).toBe('promo');
+  });
+
+  it('recurrente wins over principal', () => {
+    // Arrange — Sunday = day 0
+    const activations = [{ type: 'recurrente', days: [1], startTime: '10:00', endTime: '14:00', modeId: 'promo' }];
+    // Act
+    const result = getActiveModeAt('2026-05-25T12:00:00Z', [principal, promo], activations, null);
+    // Assert
+    expect(result).toBe('promo');
+  });
+
+  it('evento wins over recurrente when both active', () => {
+    // Arrange
+    const activations = [
+      { type: 'recurrente', days: [1], startTime: '10:00', endTime: '14:00', modeId: 'recMode' },
+      { type: 'evento', date: '2026-05-25', startTime: '10:00', endTime: '14:00', modeId: 'evtMode' },
+    ];
+    const modes = [principal, { id: 'recMode' }, { id: 'evtMode' }];
+    // Act
+    const result = getActiveModeAt('2026-05-25T12:00:00Z', modes, activations, null);
+    // Assert
+    expect(result).toBe('evtMode');
+  });
+
+  it('manual override always wins', () => {
+    // Arrange
+    const activations = [{ type: 'evento', date: '2026-05-25', startTime: '10:00', endTime: '14:00', modeId: 'promo' }];
+    // Act
+    const result = getActiveModeAt('2026-05-25T12:00:00Z', [principal, promo], activations, 'manual-mode');
+    // Assert
+    expect(result).toBe('manual-mode');
+  });
+
+  it('now === endTime means not active (activation ended)', () => {
+    // Arrange
+    const activations = [{ type: 'recurrente', days: [1], startTime: '10:00', endTime: '12:00', modeId: 'promo' }];
+    // Act
+    const result = getActiveModeAt('2026-05-25T12:00:00Z', [principal, promo], activations, null);
+    // Assert
+    expect(result).toBe('principal');
+  });
+
+  it('cross-day: 02:30 Thursday falls in Wednesday 23:00-03:00', () => {
+    // Arrange — 2026-05-28 is Thursday (day 4), so Wednesday is day 3
+    const activations = [{ type: 'recurrente', days: [3], startTime: '23:00', endTime: '03:00', modeId: 'night' }];
+    const modes = [principal, { id: 'night' }];
+    // Act
+    const result = getActiveModeAt('2026-05-28T02:30:00Z', modes, activations, null);
+    // Assert
+    expect(result).toBe('night');
   });
 });
