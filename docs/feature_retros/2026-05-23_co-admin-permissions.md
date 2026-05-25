@@ -43,3 +43,13 @@ El fix usa un wrapper View con `pointerEvents={canEdit ? 'auto' : 'none'}` y `op
 La opacity 0.55 es un feedback visual limpio: el co-admin entiende inmediatamente que el contenido está deshabilitado sin necesidad de microcopy adicional. El patrón pointerEvents='none' es nativo de React Native y no introduce dependencias.
 
 La ejecución fue directa — abrir el View wrapper antes del primer ThemedTextInput, cerrarlo antes del botón GUARDAR. Sin iteración necesaria.
+
+## Tercer commit — quitar view-catalogs de co-admin por default
+
+Decisión revisada por Nestor durante review final del PR: co-admin no debe tener view-catalogs por default. La gestión de catálogos será definida en un PR separado de rediseño donde se considere quién puede asignar (no modificar) catálogos a empleados. La visibilidad de catálogos para co-admin se implementará como un override por-worker en el futuro, no como un permiso default del rol.
+
+Cambio de 1 línea en permissions.js (eliminar `'view-catalogs': true` del bloque co-admin) + 1 test movido de "co-admin permitted actions" a "co-admin restricted actions — security critical" con expectativa false.
+
+Toda la maquinaria de read-only en ManageModesScreen y ModeEditorScreen (badge CONSULTA, wrapper pointerEvents+opacity 0.55, condicionales con useCan) queda en el código preparada para cuando se habilite la visibilidad por-worker en el futuro. No es código muerto: es infraestructura disponible que se activará cambiando un booleano en la matriz.
+
+Lección de proceso: las decisiones de permisos siguen a las decisiones de funcionalidad, no las preceden. Forzar la decisión de permisos (¿qué ve el co-admin en catálogos?) antes de rediseñar el sistema de catálogos hubiera generado doble trabajo. Es mejor dejar la infraestructura lista y activar el permiso cuando la funcionalidad que lo consume esté definida.

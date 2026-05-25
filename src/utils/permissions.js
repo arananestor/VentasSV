@@ -30,7 +30,6 @@ const PERMISSIONS = {
     'view-day-sales': true,
     'share-shift-summary': true,
     'close-cash-register': true,
-    'view-catalogs': true,
     'view-employee-basic-info': true,
   },
 };

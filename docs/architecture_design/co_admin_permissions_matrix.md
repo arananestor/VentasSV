@@ -9,6 +9,12 @@
 
 ---
 
+## Revision Notes
+
+- 2026-05-23 (during PR #80 execution): view-catalogs removed from co-admin default permissions. Decision made after recognizing that catalog access for co-admin should be tied to the upcoming catalog system redesign and a per-worker override layer. The action remains in the matrix for owner; the read-only infrastructure (badge CONSULTA, pointerEvents wrapper in ModeEditorScreen) stays in code as available infrastructure for the future per-worker override implementation. See docs/feature_retros/2026-05-23_co-admin-permissions.md for context.
+
+---
+
 ## Problem
 
 VentasSV define tres roles: owner, co-admin, worker. El worker se filtra por puesto. Pero el co-admin actualmente tiene acceso EQUIVALENTE al owner — ve los mismos tabs, accede a Configuración de cobro, edita catálogos, en el futuro vería históricos y gestión de empleados.

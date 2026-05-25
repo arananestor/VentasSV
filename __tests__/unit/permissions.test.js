@@ -112,13 +112,6 @@ describe('co-admin permitted actions', () => {
     expect(result).toBe(true);
   });
 
-  it('can view-catalogs', () => {
-    // Arrange / Act
-    const result = can(coAdmin, 'view-catalogs');
-    // Assert
-    expect(result).toBe(true);
-  });
-
   it('can view-employee-basic-info', () => {
     // Arrange / Act
     const result = can(coAdmin, 'view-employee-basic-info');
@@ -159,6 +152,13 @@ describe('co-admin restricted actions — security critical', () => {
   it('cannot create-employee', () => {
     // Arrange / Act
     const result = can(coAdmin, 'create-employee');
+    // Assert
+    expect(result).toBe(false);
+  });
+
+  it('cannot view-catalogs', () => {
+    // Arrange / Act
+    const result = can(coAdmin, 'view-catalogs');
     // Assert
     expect(result).toBe(false);
   });
