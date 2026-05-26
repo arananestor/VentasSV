@@ -12,8 +12,9 @@ import * as repository from '../data/repository';
 import { migrateBusinessConfigToQentasFields } from '../utils/businessConfigMigration';
 import { migrateToV5 } from '../utils/schemaMigrationV5';
 import { createMode } from '../models/mode';
-import { evaluateSchedule } from '../utils/modeScheduling';
+import { evaluateSchedule, getActiveModeAt } from '../utils/modeScheduling';
 import { findModeForWorker } from '../utils/modeManagement';
+import { normalizeModeActivations } from '../utils/scheduledActivationNormalizer';
 import { generateCatalogName } from '../utils/funNames';
 import { useAuth } from './AuthContext';
 
@@ -101,7 +102,7 @@ export function AppProvider({ children }) {
 
       setProducts(loadedProducts);
       setSales(loadedSales);
-      setModes(loadedModes);
+      setModes(loadedModes.map(normalizeModeActivations));
       setCurrentModeIdState(loadedCurrentModeId);
     } catch (e) { console.log('Error loading data', e); }
   };

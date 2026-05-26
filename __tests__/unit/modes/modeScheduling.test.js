@@ -59,7 +59,7 @@ describe('appendScheduledActivation', () => {
     // Arrange
     const mode = createMode({ name: 'Test' });
     // Act
-    const updated = appendScheduledActivation(mode, { startsAt: '2026-04-15T08:00:00Z', previousModeId: 'm0' });
+    const updated = appendScheduledActivation(mode, { type: 'evento', date: '2026-04-15', startTime: '08:00', endTime: '18:00' });
     // Assert
     expect(updated.scheduledActivations).toHaveLength(1);
     expect(isValidUuid(updated.scheduledActivations[0].id)).toBe(true);

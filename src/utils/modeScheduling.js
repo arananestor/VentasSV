@@ -29,11 +29,11 @@ const evaluateSchedule = ({ modes = [], currentModeId, now }) => {
   return { action: 'none', targetModeId: null, scheduledEntryId: null };
 };
 
-const appendScheduledActivation = (mode, { startsAt, endsAt = null, previousModeId }) => ({
+const appendScheduledActivation = (mode, activation) => ({
   ...mode,
   scheduledActivations: [
     ...(mode.scheduledActivations || []),
-    { id: newId(), startsAt, endsAt, previousModeId, createdAt: new Date().toISOString() },
+    { ...activation, id: activation.id || newId(), modeId: mode.id, createdAt: activation.createdAt || new Date().toISOString() },
   ],
   updatedAt: new Date().toISOString(),
 });

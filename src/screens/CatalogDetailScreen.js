@@ -17,7 +17,7 @@ import ScheduleSheet from '../components/ScheduleSheet';
 import BottomSheetModal from '../components/BottomSheetModal';
 import CenterModal from '../components/CenterModal';
 import ThemedTextInput from '../components/ThemedTextInput';
-import { appendScheduledActivation, removeScheduledActivation } from '../utils/modeScheduling';
+import { newId } from '../utils/ids';
 
 const MULTI_LOCAL_ENABLED = false;
 
@@ -104,28 +104,24 @@ export default function CatalogDetailScreen({ route, navigation }) {
     showNotif(`${w?.name || 'Empleado'} desasignado del catálogo`);
   };
 
-  const handleScheduleSave = async (activation, isOverride) => {
-    const updated = appendScheduledActivation(mode, {
-      startsAt: activation.type === 'evento' ? `${activation.date}T${activation.startTime}:00` : new Date().toISOString(),
-      endsAt: activation.type === 'evento' ? `${activation.date}T${activation.endTime}:00` : null,
-      previousModeId: currentModeId,
-    });
+  const handleScheduleSave = async (activation) => {
+    const newActivation = {
+      ...activation,
+      id: newId(),
+      modeId,
+      createdAt: new Date().toISOString(),
+    };
     await updateMode(modeId, {
-      scheduledActivations: [
-        ...(mode.scheduledActivations || []),
-        {
-          ...activation,
-          id: updated.scheduledActivations[updated.scheduledActivations.length - 1].id,
-        },
-      ],
+      scheduledActivations: [...(mode.scheduledActivations || []), newActivation],
     });
     showNotif('Horario programado');
   };
 
   const confirmDeleteEntry = async () => {
     if (!entryToDelete) return;
-    const result = removeScheduledActivation(mode, entryToDelete);
-    await updateMode(modeId, { scheduledActivations: result.scheduledActivations });
+    await updateMode(modeId, {
+      scheduledActivations: (mode.scheduledActivations || []).filter(e => e.id !== entryToDelete),
+    });
     setEntryToDelete(null);
     showNotif('Horario eliminado');
   };
@@ -256,7 +252,7 @@ export default function CatalogDetailScreen({ route, navigation }) {
         const ds = (e.days || []).map(d => dayNames[d]).join(', ');
         return `${ds} · ${e.startTime} a ${e.endTime} · Recurrente`;
       }
-      return `${e.startsAt || ''} — programado`;
+      return `${e.startTime || ''} — programado`;
     };
 
     return (
