@@ -25,7 +25,7 @@ make dev-clear         # Start with cache cleared
 make tunnel            # Expo with tunnel (restrictive networks)
 
 # Testing
-npm test               # Run all tests (847 tests, 56 suites — must be 0 failures)
+npm test               # Run all tests (867 tests, 59 suites — must be 0 failures)
 npm run test:unit      # Unit tests only (__tests__/unit/)
 npm run test:integration  # Integration tests only (__tests__/integration/)
 npm run test:coverage  # Coverage report (70% threshold)
@@ -51,6 +51,8 @@ App.js → SafeAreaProvider → ThemeProvider → AuthProvider → AppProvider �
 - Owner work mode: when `worker.role === 'owner'`, the field `ownerMode` (`'operativo'` or `'administrativo'`) controls visible tabs via `getTabsForWorker` in `src/utils/roleConfig.js`. Operativo is a superset of administrativo (administrative tabs + operational tabs + future role-specific tabs). Administrativo shows only administrative tabs (currently only Profile; future Owner Dashboard joins this set). Default is operativo. Workers without the field are treated as operativo (no formal migration). Toggle exposed in ProfileScreen with mandatory confirmation modal.
 - Co-admin permissions matrix: declarative system in `src/utils/permissions.js`. PERMISSIONS constant maps role to allowed actions. `can(worker, action)` is a pure function. `useCan(action)` is the React hook consuming AuthContext (`src/hooks/useCan.js`). Restricted screens use useCan to filter UI or show defensive empty states. Co-admin has full operational permissions (POS, orders, day sales, shift sharing, basic employee info) and zero administrative permissions including catalog access by default (catalog visibility is reserved for a future per-worker override system tied to the catalog system redesign). Pattern documented in `docs/architecture_design/co_admin_permissions_matrix.md`.
 - Time zone convention: Schedule logic in `src/utils/modeScheduling.js` operates in the device's local time. Date strings (YYYY-MM-DD) and time strings (HH:mm) are interpreted as local. Date parsing avoids the 'Z' suffix to prevent UTC interpretation. VentasSV serves El Salvador (UTC-6) only — owners think in local time and the system respects that.
+- Internal tabs: `src/components/InternalTabs.js` is a controlled component for top-aligned tab navigation within a single screen (distinct from the bottom MainTabs navigator). Props: tabs, activeKey, onTabChange. Used in CatalogDetailScreen. Pattern: horizontal scrollable, underline on active tab, sentence case labels.
+- Catalog UI components: 6 new components introduced in PR #84 — InternalTabs, DayChipsSelector, CatalogColorPicker, WeekCalendarView, CatalogActiveBanner, ScheduleSheet. All consume the catalog data model extended in PR #83. WeekCalendarView's computeBandPositions function consumes expandToRanges from modeScheduling. CatalogActiveBanner is built but NOT yet consumed by any screen — integration happens in PR #85.
 - Bottom sheets: `src/components/BottomSheetModal.js` for non-destructive sheets. Consumers: CartSheet, SimpleProductSheet.
 - Icon and color picker: `src/components/IconColorPicker.js` unifies icon catalog and color selection in one searchable categorized grid. Source of icons and helpers: `src/constants/productConstants.js` (ICON_CATALOG with 11 categories, searchIcons, getIconCols, getIconBtnSize).
 - User feedback API: showSnack for persistent post-sale snackbar, showNotif for informational toast of 2 to 3 seconds, CenterModal for destructive confirmations with explicit button. All exposed from AppContext.
@@ -102,11 +104,11 @@ owner → co-admin → worker (positions: Cajero, Cocinero, Motorista, Camarero)
 ## Testing
 
 - Runner: jest-expo. Config in package.json `jest` field
-- Unit tests (`__tests__/unit/`): auth, businessConfig, cart, displayComponents, formComponents, posScreen, migration, pinEntry, pinKeypadModal, productPermissions, products, roleConfig, geoLogic, itemsLogic, salesMigration, saleDetailItems, salesListSummary, cookModalItems, ticketPrinter, ticketMessage, transferMessage, ids, entityEnvelope, schemaMigrationV4, qentasClient, requiresQentasLogic, upsellCardLogic, businessConfigQentasFields, modes/modeModel, modes/schemaMigrationV5, modes/repositoryModes, modes/modeManagementLogic, modes/modeResolution, modes/posModeFiltering, modes/orderBuilderPricing, modes/modeManagement, modes/modeScheduling, modes/modeEditorLogic, modes/modeAutoActivation, modes/modeProductEditorLogic, collapsibleHeader, iconCatalog, permissions, responsive, sales, salesCsv, shareShiftSummary, shiftSummary, selectWorker, setup, snackbar, tabs, theme, workers
+- Unit tests (`__tests__/unit/`): auth, businessConfig, cart, displayComponents, formComponents, posScreen, migration, pinEntry, pinKeypadModal, productPermissions, products, roleConfig, geoLogic, itemsLogic, salesMigration, saleDetailItems, salesListSummary, cookModalItems, ticketPrinter, ticketMessage, transferMessage, ids, entityEnvelope, schemaMigrationV4, qentasClient, requiresQentasLogic, upsellCardLogic, businessConfigQentasFields, modes/modeModel, modes/schemaMigrationV5, modes/repositoryModes, modes/modeManagementLogic, modes/modeResolution, modes/posModeFiltering, modes/orderBuilderPricing, modes/modeManagement, modes/modeScheduling, modes/modeEditorLogic, modes/modeAutoActivation, modes/modeProductEditorLogic, catalogActiveBanner, catalogColorPicker, collapsibleHeader, iconCatalog, permissions, responsive, sales, salesCsv, shareShiftSummary, weekCalendarView, shiftSummary, selectWorker, setup, snackbar, tabs, theme, workers
 - Integration tests (`__tests__/integration/`): payment, orders
 - Mocks in `__mocks__/` for AsyncStorage, vector-icons, safe-area-context
 - Coverage threshold: 70% on branches, functions, lines, statements
-- **Rule: 847 tests (minimum), 0 failures before any merge. No exceptions.**
+- **Rule: 867 tests (minimum), 0 failures before any merge. No exceptions.**
 - **AAA Pattern (mandatory):** Every test must follow Arrange-Act-Assert. The Act step must call a real function imported from `src/`. Never reimplement logic in tests. Comments `// Arrange`, `// Act`, `// Assert` are required in every test block.
 
 ## Repository
