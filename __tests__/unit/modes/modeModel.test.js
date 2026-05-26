@@ -36,6 +36,27 @@ describe('createMode', () => {
     // Assert
     expect(a.id).not.toBe(b.id);
   });
+
+  it('color defaults to empty string', () => {
+    // Arrange / Act
+    const mode = createMode({ name: 'Test' });
+    // Assert
+    expect(mode.color).toBe('');
+  });
+
+  it('accepts custom color', () => {
+    // Arrange / Act
+    const mode = createMode({ name: 'Test', color: '#FF5733' });
+    // Assert
+    expect(mode.color).toBe('#FF5733');
+  });
+
+  it('assignedLocationIds defaults to empty array', () => {
+    // Arrange / Act
+    const mode = createMode({ name: 'Test' });
+    // Assert
+    expect(mode.assignedLocationIds).toEqual([]);
+  });
 });
 
 describe('normalizeProductOverrides', () => {
