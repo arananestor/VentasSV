@@ -30,3 +30,15 @@ Primer PR del rediseño de catálogos, dividido en 3 PRs después de que Code fl
 - **2026-05-25 es lunes, no domingo**: Los tests originales asumían day 0 (Sunday) para esa fecha. Node confirmó que es day 1 (Monday) en UTC. El error era en los fixtures del test, no en la lógica — pero descubrirlo requirió correr los tests y debuggear el day-of-week, no asumirlo.
 - **Scope split valió la pena**: El design doc original pedía modelo + scheduling + 6 componentes + pantalla nueva + pantalla refactored + banner + navigation en un solo PR. Code flagueó el riesgo antes de empezar. La división en 3 PRs (Foundation → UI → Integration) mantiene cada PR revisable y testeable de forma independiente. Este PR tiene 20 tests nuevos y cero riesgo de regresión visual.
 - **La estructura cross-día**: Representar una activación 23:00-03:00 como `endMin += 24*60` (sumando un día completo de minutos al end) simplifica la detección de overlap a una comparación de rangos lineales en lugar de manejar dos rangos separados. El tradeoff es que la visualización en el calendario semanal (PR #84) tendrá que "splitear" visualmente la banda al cruce de medianoche.
+
+## Segundo commit — cross-day overlap fix + local timezone convention
+
+Dos bugs encontrados en code review pre-merge:
+
+**Cross-day overlap detection incompleta.** El primer commit extendía endMin pasando medianoche pero devolvía UN solo range con el día original. Cuando una activación miércoles 23:00→jueves 03:00 se comparaba con una activación del jueves 02:00-06:00, el overlap no se detectaba porque los días no coincidían (3 vs 4). El fix fue que expandToRanges devuelva DOS ranges cuando crossDay es true: uno del día original (startMin → 24*60) y otro del día siguiente (0 → rawEndMin). Esto eliminó la necesidad del bloque "yesterday check" en getActiveModeAt — ahora expandToRanges emite explícitamente el range del día siguiente, y la comparación de rangos lo encuentra naturalmente.
+
+**Convención UTC vs local.** El primer commit usaba getUTCHours/getUTCDay como fix al problema de tests que usaban ISO con Z. Pero la convención correcta para VentasSV es hora local: el dueño salvadoreño programa "sábado 16:00" y espera que se active a las 16:00 hora de El Salvador, no 16:00 UTC. El fix fue revertir a getHours/getDay (local) y quitar la Z de todos los timestamps de test. Las fechas de evento puntual ahora se parsean con `new Date(date + 'T00:00:00')` sin Z para que JavaScript las interprete como hora local.
+
+**Tests agregados:** +2 tests de cross-day overlap (detección positiva cuando el overflow alcanza la activación del día siguiente, detección negativa cuando no alcanza). Los 8 tests de getActiveModeAt actualizados para usar timestamps sin Z.
+
+**Lo que requirió atención:** al quitar la Z de los timestamps, los días de la semana se mantuvieron iguales (2026-05-25 es lunes tanto en UTC como en CST a las 12:00). Si el test hubiera usado una hora cercana a medianoche (23:30 local = día siguiente en UTC), el cambio habría cambiado el día esperado. Ninguno de los tests existentes tenía ese caso — pero es un edge case a vigilar en tests futuros.

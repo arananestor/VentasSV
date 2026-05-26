@@ -98,25 +98,16 @@ const getActiveModeAt = (now, modes, scheduledActivations, manualOverride) => {
   if (manualOverride) return manualOverride;
 
   const d = new Date(now);
-  const nowMin = d.getUTCHours() * 60 + d.getUTCMinutes();
-  const dayOfWeek = d.getUTCDay(); // 0=Sun
-  const dateStr = now instanceof Date ? now.toISOString().slice(0, 10) : (typeof now === 'string' ? now.slice(0, 10) : '');
+  const nowMin = d.getHours() * 60 + d.getMinutes();
+  const dayOfWeek = d.getDay(); // 0=Sun, local time
+  const dateStr = localDateString(d);
 
   let eventoMatch = null;
   let recurrenteMatch = null;
 
   (scheduledActivations || []).forEach(act => {
     const ranges = expandToRanges(act);
-    const isActive = ranges.some(r => {
-      if (r.day === dayOfWeek && nowMin >= r.startMin && nowMin < r.endMin) return true;
-      // Cross-day: check if yesterday's overnight range covers now
-      const yesterday = (dayOfWeek + 6) % 7;
-      if (r.day === yesterday && r.endMin > 24 * 60) {
-        const overflowEnd = r.endMin - 24 * 60;
-        if (nowMin < overflowEnd) return true;
-      }
-      return false;
-    });
+    const isActive = ranges.some(r => r.day === dayOfWeek && nowMin >= r.startMin && nowMin < r.endMin);
 
     if (!isActive) return;
 
@@ -138,21 +129,36 @@ const getActiveModeAt = (now, modes, scheduledActivations, manualOverride) => {
 
 function expandToRanges(activation) {
   const startMin = timeToMinutes(activation.startTime || '00:00');
-  let endMin = timeToMinutes(activation.endTime || '23:59');
-  const crossDay = endMin <= startMin;
-  if (crossDay) endMin += 24 * 60; // extend past midnight
+  const rawEndMin = timeToMinutes(activation.endTime || '23:59');
+  const crossDay = rawEndMin <= startMin;
 
   if (activation.type === 'evento' && activation.date) {
-    const d = new Date(activation.date + 'T00:00:00Z');
-    const day = d.getUTCDay();
-    return [{ day, startMin, endMin }];
+    const d = new Date(activation.date + 'T00:00:00'); // local time, no Z
+    const day = d.getDay();
+    if (crossDay) {
+      return [
+        { day, startMin, endMin: 24 * 60 },
+        { day: (day + 1) % 7, startMin: 0, endMin: rawEndMin },
+      ];
+    }
+    return [{ day, startMin, endMin: rawEndMin }];
   }
 
   if (activation.type === 'recurrente' && activation.days) {
-    return activation.days.map(day => ({ day, startMin, endMin }));
+    if (crossDay) {
+      return activation.days.flatMap(day => [
+        { day, startMin, endMin: 24 * 60 },
+        { day: (day + 1) % 7, startMin: 0, endMin: rawEndMin },
+      ]);
+    }
+    return activation.days.map(day => ({ day, startMin, endMin: rawEndMin }));
   }
 
   return [];
+}
+
+function localDateString(d) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
 function timeToMinutes(time) {

@@ -175,6 +175,28 @@ describe('detectScheduleOverlap', () => {
     expect(result).toHaveLength(1);
   });
 
+  it('detects overlap when cross-day activation reaches next-day existing', () => {
+    // Arrange — new Wed 23:00 to Thu 03:00 vs existing Thu 02:00 to 06:00
+    const newAct = { type: 'recurrente', days: [3], startTime: '23:00', endTime: '03:00' };
+    const existing = [{ id: 'e1', modeId: 'm1', type: 'recurrente', days: [4], startTime: '02:00', endTime: '06:00' }];
+    // Act
+    const result = detectScheduleOverlap(newAct, existing);
+    // Assert
+    expect(result).toHaveLength(1);
+    expect(result[0].modeId).toBe('m1');
+    expect(result[0].overlapDay).toBe(4);
+  });
+
+  it('does not detect overlap when cross-day activation does not reach next-day existing', () => {
+    // Arrange — new Wed 23:00 to Thu 01:00 vs existing Thu 02:00 to 06:00
+    const newAct = { type: 'recurrente', days: [3], startTime: '23:00', endTime: '01:00' };
+    const existing = [{ id: 'e1', modeId: 'm1', type: 'recurrente', days: [4], startTime: '02:00', endTime: '06:00' }];
+    // Act
+    const result = detectScheduleOverlap(newAct, existing);
+    // Assert
+    expect(result).toHaveLength(0);
+  });
+
   it('detects overlap between evento and recurrente on same weekday', () => {
     // Arrange — 2026-05-25 is Monday (day 1 in UTC)
     const newAct = { type: 'evento', date: '2026-05-25', startTime: '10:00', endTime: '14:00' };
@@ -192,32 +214,32 @@ describe('getActiveModeAt', () => {
 
   it('returns null with no modes and no principal', () => {
     // Arrange / Act
-    const result = getActiveModeAt('2026-05-25T12:00:00Z', [], [], null);
+    const result = getActiveModeAt('2026-05-25T12:00:00', [], [], null);
     // Assert
     expect(result).toBeNull();
   });
 
   it('returns principal when nothing is scheduled', () => {
     // Arrange / Act
-    const result = getActiveModeAt('2026-05-25T12:00:00Z', [principal], [], null);
+    const result = getActiveModeAt('2026-05-25T12:00:00', [principal], [], null);
     // Assert
     expect(result).toBe('principal');
   });
 
   it('evento puntual wins over principal', () => {
-    // Arrange — 2026-05-25 is Sunday (day 0)
+    // Arrange — 2026-05-25 is Monday (day 1) in local time
     const activations = [{ type: 'evento', date: '2026-05-25', startTime: '10:00', endTime: '14:00', modeId: 'promo' }];
     // Act
-    const result = getActiveModeAt('2026-05-25T12:00:00Z', [principal, promo], activations, null);
+    const result = getActiveModeAt('2026-05-25T12:00:00', [principal, promo], activations, null);
     // Assert
     expect(result).toBe('promo');
   });
 
   it('recurrente wins over principal', () => {
-    // Arrange — Sunday = day 0
+    // Arrange — Monday = day 1
     const activations = [{ type: 'recurrente', days: [1], startTime: '10:00', endTime: '14:00', modeId: 'promo' }];
     // Act
-    const result = getActiveModeAt('2026-05-25T12:00:00Z', [principal, promo], activations, null);
+    const result = getActiveModeAt('2026-05-25T12:00:00', [principal, promo], activations, null);
     // Assert
     expect(result).toBe('promo');
   });
@@ -230,7 +252,7 @@ describe('getActiveModeAt', () => {
     ];
     const modes = [principal, { id: 'recMode' }, { id: 'evtMode' }];
     // Act
-    const result = getActiveModeAt('2026-05-25T12:00:00Z', modes, activations, null);
+    const result = getActiveModeAt('2026-05-25T12:00:00', modes, activations, null);
     // Assert
     expect(result).toBe('evtMode');
   });
@@ -239,7 +261,7 @@ describe('getActiveModeAt', () => {
     // Arrange
     const activations = [{ type: 'evento', date: '2026-05-25', startTime: '10:00', endTime: '14:00', modeId: 'promo' }];
     // Act
-    const result = getActiveModeAt('2026-05-25T12:00:00Z', [principal, promo], activations, 'manual-mode');
+    const result = getActiveModeAt('2026-05-25T12:00:00', [principal, promo], activations, 'manual-mode');
     // Assert
     expect(result).toBe('manual-mode');
   });
@@ -248,17 +270,17 @@ describe('getActiveModeAt', () => {
     // Arrange
     const activations = [{ type: 'recurrente', days: [1], startTime: '10:00', endTime: '12:00', modeId: 'promo' }];
     // Act
-    const result = getActiveModeAt('2026-05-25T12:00:00Z', [principal, promo], activations, null);
+    const result = getActiveModeAt('2026-05-25T12:00:00', [principal, promo], activations, null);
     // Assert
     expect(result).toBe('principal');
   });
 
   it('cross-day: 02:30 Thursday falls in Wednesday 23:00-03:00', () => {
-    // Arrange — 2026-05-28 is Thursday (day 4), so Wednesday is day 3
+    // Arrange — 2026-05-28 is Thursday (day 4) local, Wednesday is day 3
     const activations = [{ type: 'recurrente', days: [3], startTime: '23:00', endTime: '03:00', modeId: 'night' }];
     const modes = [principal, { id: 'night' }];
     // Act
-    const result = getActiveModeAt('2026-05-28T02:30:00Z', modes, activations, null);
+    const result = getActiveModeAt('2026-05-28T02:30:00', modes, activations, null);
     // Assert
     expect(result).toBe('night');
   });
