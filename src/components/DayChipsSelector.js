@@ -2,20 +2,22 @@ import React from 'react';
 import { View, TouchableOpacity, Text, StyleSheet } from 'react-native';
 import { useTheme } from '../context/ThemeContext';
 
-const DAY_LABELS = ['D', 'L', 'M', 'M', 'J', 'V', 'S'];
+const DAY_LABELS = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
+const DAYS_ORDER = [1, 2, 3, 4, 5, 6, 0]; // visual index → JS day (0=Sun)
 
 export default function DayChipsSelector({ value = [], onChange }) {
   const { theme } = useTheme();
 
-  const toggle = (day) => {
-    onChange(value.includes(day) ? value.filter(d => d !== day) : [...value, day]);
+  const toggle = (dayJS) => {
+    onChange(value.includes(dayJS) ? value.filter(d => d !== dayJS) : [...value, dayJS]);
   };
 
   return (
     <View>
       <View style={styles.row}>
         {DAY_LABELS.map((label, i) => {
-          const active = value.includes(i);
+          const dayJS = DAYS_ORDER[i];
+          const active = value.includes(dayJS);
           return (
             <TouchableOpacity
               key={i}
@@ -23,7 +25,7 @@ export default function DayChipsSelector({ value = [], onChange }) {
                 backgroundColor: active ? theme.accent : theme.bg,
                 borderColor: active ? theme.accent : theme.cardBorder,
               }]}
-              onPress={() => toggle(i)}
+              onPress={() => toggle(dayJS)}
             >
               <Text style={[styles.chipText, { color: active ? theme.accentText : theme.textMuted }]}>{label}</Text>
             </TouchableOpacity>

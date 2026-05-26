@@ -174,5 +174,5 @@ function minutesToTime(minutes) {
 
 module.exports = {
   evaluateSchedule, appendScheduledActivation, removeScheduledActivation, isScheduleValid,
-  detectScheduleOverlap, getActiveModeAt,
+  detectScheduleOverlap, getActiveModeAt, expandToRanges,
 };

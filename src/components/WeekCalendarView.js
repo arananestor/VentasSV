@@ -3,6 +3,7 @@ import { View, Text, StyleSheet } from 'react-native';
 import Svg, { Rect, Text as SvgText, Line } from 'react-native-svg';
 import { useTheme } from '../context/ThemeContext';
 import useResponsive from '../hooks/useResponsive';
+import { expandToRanges } from '../utils/modeScheduling';
 
 const DAY_LABELS = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
 const START_HOUR = 6;
@@ -21,7 +22,7 @@ export function computeBandPositions(activations, modes, colWidth, hourHeight) {
     const color = mode?.color || '#4361EE';
     const label = mode?.name || '';
 
-    const ranges = expandActivationToRanges(act);
+    const ranges = expandToRanges(act);
     ranges.forEach(r => {
       const dayIdx = dayToColumn(r.day);
       if (dayIdx < 0) return;
@@ -38,40 +39,6 @@ export function computeBandPositions(activations, modes, colWidth, hourHeight) {
   });
 
   return bands;
-}
-
-function expandActivationToRanges(act) {
-  const startMin = timeToMinutes(act.startTime || '00:00');
-  const rawEnd = timeToMinutes(act.endTime || '23:59');
-  const crossDay = rawEnd <= startMin;
-
-  if (act.type === 'evento' && act.date) {
-    const d = new Date(act.date + 'T00:00:00');
-    const day = d.getDay();
-    if (crossDay) {
-      return [
-        { day, startMin, endMin: 24 * 60 },
-        { day: (day + 1) % 7, startMin: 0, endMin: rawEnd },
-      ];
-    }
-    return [{ day, startMin, endMin: rawEnd }];
-  }
-
-  if (act.type === 'recurrente' && act.days) {
-    if (crossDay) {
-      return act.days.flatMap(day => [
-        { day, startMin, endMin: 24 * 60 },
-        { day: (day + 1) % 7, startMin: 0, endMin: rawEnd },
-      ]);
-    }
-    return act.days.map(day => ({ day, startMin, endMin: rawEnd }));
-  }
-  return [];
-}
-
-function timeToMinutes(t) {
-  const [h, m] = (t || '00:00').split(':').map(Number);
-  return h * 60 + (m || 0);
 }
 
 function dayToColumn(day) {

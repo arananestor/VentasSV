@@ -44,6 +44,7 @@ export default function CatalogDetailScreen({ route, navigation }) {
   const [showSchedule, setShowSchedule] = useState(false);
   const [showAddWorker, setShowAddWorker] = useState(false);
   const [entryToDelete, setEntryToDelete] = useState(null);
+  const [workerToUnassign, setWorkerToUnassign] = useState(null);
 
   if (!mode) {
     return (
@@ -223,11 +224,7 @@ export default function CatalogDetailScreen({ route, navigation }) {
         </View>
       ) : (
         assignedWorkers.map(w => (
-          <TouchableOpacity
-            key={w.id}
-            style={[styles.workerRow, { borderColor: theme.cardBorder }]}
-            onLongPress={() => removeWorkerFromMode(w.id)}
-          >
+          <View key={w.id} style={[styles.workerRow, { borderColor: theme.cardBorder }]}>
             <View style={[styles.workerAvatar, { backgroundColor: w.role === 'owner' ? theme.accent : (w.color || '#1C1C1E') }]}>
               <Text style={{ color: w.role === 'owner' ? theme.accentText : '#fff', fontSize: 14, fontWeight: '800' }}>
                 {w.name?.charAt(0)?.toUpperCase()}
@@ -237,8 +234,10 @@ export default function CatalogDetailScreen({ route, navigation }) {
               <Text style={[styles.workerName, { color: theme.text }]}>{w.name}</Text>
               <Text style={[styles.workerPuesto, { color: theme.textMuted }]}>{w.puesto || 'Cajero'}</Text>
             </View>
-            <Feather name="x" size={16} color={theme.textMuted} />
-          </TouchableOpacity>
+            <TouchableOpacity onPress={() => setWorkerToUnassign(w)}>
+              <Feather name="x" size={16} color={theme.textMuted} />
+            </TouchableOpacity>
+          </View>
         ))
       )}
       <TouchableOpacity style={[styles.addBtn, { borderColor: theme.cardBorder }]} onPress={() => setShowAddWorker(true)}>
@@ -341,6 +340,20 @@ export default function CatalogDetailScreen({ route, navigation }) {
           </TouchableOpacity>
           <TouchableOpacity style={{ flex: 1, borderRadius: 12, paddingVertical: 14, alignItems: 'center', backgroundColor: '#D62828' }} onPress={confirmDeleteEntry}>
             <Text style={{ fontSize: 14, fontWeight: '700', color: '#fff' }}>ELIMINAR</Text>
+          </TouchableOpacity>
+        </View>
+      </CenterModal>
+
+      <CenterModal visible={workerToUnassign !== null} onClose={() => setWorkerToUnassign(null)} title="¿DESASIGNAR EMPLEADO?">
+        <Text style={{ color: theme.textMuted, fontSize: 14, textAlign: 'center', marginBottom: 16 }}>
+          Vas a desasignar a {workerToUnassign?.name}. Podés volver a asignarlo después si querés.
+        </Text>
+        <View style={{ flexDirection: 'row', gap: 10 }}>
+          <TouchableOpacity style={{ flex: 1, borderRadius: 12, paddingVertical: 14, alignItems: 'center', borderWidth: 1, borderColor: theme.cardBorder }} onPress={() => setWorkerToUnassign(null)}>
+            <Text style={{ fontSize: 14, fontWeight: '700', color: theme.textMuted }}>Cancelar</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={{ flex: 1, borderRadius: 12, paddingVertical: 14, alignItems: 'center', backgroundColor: theme.danger || '#D62828' }} onPress={() => { removeWorkerFromMode(workerToUnassign.id); setWorkerToUnassign(null); }}>
+            <Text style={{ fontSize: 14, fontWeight: '700', color: '#fff' }}>DESASIGNAR</Text>
           </TouchableOpacity>
         </View>
       </CenterModal>
