@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, AppState } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useTheme } from '../context/ThemeContext';
+import { getActiveModeAt, expandToRanges } from '../utils/modeScheduling';
 
 export function formatCountdown(minutes) {
   if (minutes == null || minutes <= 0) return '';
@@ -16,7 +17,24 @@ export function formatCountdown(minutes) {
   return `${mins}min`;
 }
 
-export default function CatalogActiveBanner({ currentMode, modes, onPress }) {
+function findActiveActivationCountdown(now, activeModeActivations) {
+  const d = new Date(now);
+  const nowMin = d.getHours() * 60 + d.getMinutes();
+  const dayOfWeek = d.getDay();
+
+  for (const act of activeModeActivations) {
+    const ranges = expandToRanges(act);
+    for (const r of ranges) {
+      if (r.day === dayOfWeek && nowMin >= r.startMin && nowMin < r.endMin) {
+        const endMin = r.endMin > 24 * 60 ? r.endMin - 24 * 60 : r.endMin;
+        return Math.max(0, endMin - nowMin);
+      }
+    }
+  }
+  return null;
+}
+
+export default function CatalogActiveBanner({ modes, scheduledActivations, onPress }) {
   const { theme } = useTheme();
   const [now, setNow] = useState(new Date());
 
@@ -28,17 +46,16 @@ export default function CatalogActiveBanner({ currentMode, modes, onPress }) {
     return () => { clearInterval(interval); sub.remove(); };
   }, []);
 
-  if (!currentMode || currentMode.isDefault) return null;
+  const principal = (modes || []).find(m => m.isDefault);
+  const activeModeId = getActiveModeAt(now, modes || [], scheduledActivations || [], null);
 
-  const activeActivation = (currentMode.scheduledActivations || []).find(a => {
-    if (!a.endsAt) return false;
-    return new Date(a.endsAt).getTime() > now.getTime();
-  });
+  if (!activeModeId || activeModeId === principal?.id) return null;
 
-  const minutesLeft = activeActivation
-    ? Math.max(0, Math.round((new Date(activeActivation.endsAt).getTime() - now.getTime()) / 60000))
-    : null;
+  const activeMode = (modes || []).find(m => m.id === activeModeId);
+  if (!activeMode) return null;
 
+  const activeModeActivations = (scheduledActivations || []).filter(a => a.modeId === activeModeId);
+  const minutesLeft = findActiveActivationCountdown(now, activeModeActivations);
   const countdown = minutesLeft != null ? formatCountdown(minutesLeft) : '';
 
   return (
@@ -50,7 +67,7 @@ export default function CatalogActiveBanner({ currentMode, modes, onPress }) {
       <View style={{ flex: 1 }}>
         <Text style={[styles.label, { color: theme.success }]}>VENDIENDO AHORA</Text>
         <Text style={[styles.name, { color: theme.text }]}>
-          {currentMode.name}
+          {activeMode.name}
           {countdown ? ` · Vuelve a Principal en ${countdown}` : ''}
         </Text>
       </View>
