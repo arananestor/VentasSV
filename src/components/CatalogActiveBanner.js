@@ -17,7 +17,7 @@ export function formatCountdown(minutes) {
   return `${mins}min`;
 }
 
-function findActiveActivationCountdown(now, activeModeActivations) {
+export function findActiveActivationCountdown(now, activeModeActivations) {
   const d = new Date(now);
   const nowMin = d.getHours() * 60 + d.getMinutes();
   const dayOfWeek = d.getDay();
@@ -26,8 +26,7 @@ function findActiveActivationCountdown(now, activeModeActivations) {
     const ranges = expandToRanges(act);
     for (const r of ranges) {
       if (r.day === dayOfWeek && nowMin >= r.startMin && nowMin < r.endMin) {
-        const endMin = r.endMin > 24 * 60 ? r.endMin - 24 * 60 : r.endMin;
-        return Math.max(0, endMin - nowMin);
+        return Math.max(0, r.endMin - nowMin);
       }
     }
   }

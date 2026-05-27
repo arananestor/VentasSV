@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, StyleSheet, Image, Animated } from 'react-native';
+import { View, Text, TouchableOpacity, TouchableWithoutFeedback, ScrollView, StyleSheet, Image, Animated, PanResponder } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import { useApp } from '../context/AppContext';
@@ -12,33 +12,95 @@ import PrimaryButton from '../components/PrimaryButton';
 import RequiresQentas from '../components/RequiresQentas';
 import { canManageModesLocally, validateModeForm } from '../utils/modeManagement';
 import useCan from '../hooks/useCan';
+import useResponsive from '../hooks/useResponsive';
 
-function ActionPill({ label, color, bgColor, onPress }) {
-  const scale = useRef(new Animated.Value(1)).current;
-  const handlePress = () => {
-    Animated.sequence([
-      Animated.spring(scale, { toValue: 0.95, useNativeDriver: true, speed: 50 }),
-      Animated.spring(scale, { toValue: 1, useNativeDriver: true, speed: 50 }),
-    ]).start();
-    onPress();
+function SwipeableCatalogCard({ children, canSwipe, canDelete, onSwipeRight, onSwipeLeft, onLongPress, onTap, screenWidth, theme }) {
+  const translateX = useRef(new Animated.Value(0)).current;
+  const isSwiping = useRef(false);
+  const longPressTimer = useRef(null);
+  const didLongPress = useRef(false);
+  const threshold = screenWidth * 0.6;
+
+  const pan = useRef(PanResponder.create({
+    onMoveShouldSetPanResponder: (_, gs) => canSwipe && Math.abs(gs.dx) > 10 && Math.abs(gs.dx) > Math.abs(gs.dy),
+    onPanResponderGrant: () => {
+      isSwiping.current = true;
+      if (longPressTimer.current) clearTimeout(longPressTimer.current);
+    },
+    onPanResponderMove: (_, gs) => {
+      if (!isSwiping.current) return;
+      let dx = gs.dx;
+      if (dx < 0 && !canDelete) dx = 0;
+      translateX.setValue(dx);
+    },
+    onPanResponderRelease: (_, gs) => {
+      isSwiping.current = false;
+      if (gs.dx > threshold && onSwipeRight) {
+        Animated.timing(translateX, { toValue: screenWidth, duration: 200, useNativeDriver: true }).start(() => {
+          translateX.setValue(0);
+          onSwipeRight();
+        });
+      } else if (gs.dx < -threshold && canDelete && onSwipeLeft) {
+        Animated.timing(translateX, { toValue: -screenWidth, duration: 200, useNativeDriver: true }).start(() => {
+          translateX.setValue(0);
+          onSwipeLeft();
+        });
+      } else {
+        Animated.spring(translateX, { toValue: 0, useNativeDriver: true, tension: 120, friction: 10 }).start();
+      }
+    },
+  })).current;
+
+  const handlePressIn = () => {
+    didLongPress.current = false;
+    longPressTimer.current = setTimeout(() => {
+      didLongPress.current = true;
+      if (onLongPress) onLongPress();
+    }, 700);
   };
+
+  const handlePressOut = () => {
+    if (longPressTimer.current) clearTimeout(longPressTimer.current);
+  };
+
+  const handleTap = () => {
+    if (!didLongPress.current && !isSwiping.current && onTap) onTap();
+  };
+
   return (
-    <Animated.View style={{ transform: [{ scale }] }}>
-      <TouchableOpacity
-        style={[styles.actionBtn, { backgroundColor: bgColor, borderColor: color }]}
-        onPress={handlePress} activeOpacity={0.8}
+    <View style={styles.swipeContainer}>
+      {/* Reveal backgrounds */}
+      <View style={[styles.revealBg, styles.revealRight, { backgroundColor: '#2B9348' }]}>
+        <Feather name="copy" size={22} color="#fff" />
+      </View>
+      {canDelete && (
+        <View style={[styles.revealBg, styles.revealLeft, { backgroundColor: '#D62828' }]}>
+          <Feather name="trash-2" size={22} color="#fff" />
+        </View>
+      )}
+      {/* Card */}
+      <Animated.View
+        style={{ transform: [{ translateX }] }}
+        {...pan.panHandlers}
       >
-        <Text style={[styles.actionText, { color }]}>{label}</Text>
-      </TouchableOpacity>
-    </Animated.View>
+        <TouchableWithoutFeedback
+          onPressIn={handlePressIn}
+          onPressOut={handlePressOut}
+          onPress={handleTap}
+        >
+          <View>{children}</View>
+        </TouchableWithoutFeedback>
+      </Animated.View>
+    </View>
   );
 }
 
 export default function ManageModesScreen({ navigation }) {
-  const { modes, currentModeId, createModeFromForm, deleteMode, cloneMode, showNotif } = useApp();
+  const { modes, currentModeId, createModeFromForm, deleteMode, cloneMode, setCurrentMode, showNotif } = useApp();
   const { currentWorker, workers } = useAuth();
   const { theme } = useTheme();
   const canEdit = useCan('edit-catalogs');
+  const { width: screenWidth } = useResponsive();
 
   const [showCreate, setShowCreate] = useState(false);
   const [newName, setNewName] = useState('');
@@ -84,7 +146,18 @@ export default function ManageModesScreen({ navigation }) {
     if (!source) return;
     const { generateCatalogName } = require('../utils/funNames');
     await cloneMode(modeId, generateCatalogName());
-    showNotif('Catálogo clonado');
+    showNotif(`Catálogo duplicado como Copia de ${source.name}`);
+  };
+
+  const handleActivate = async (modeId) => {
+    if (currentModeId === modeId) {
+      showNotif('Este catálogo ya está activo');
+      return;
+    }
+    await setCurrentMode(modeId);
+    const m = modes.find(mm => mm.id === modeId);
+    showNotif(`Catálogo ${m?.name || ''} activo ahora`);
+    setShowConfirm(null);
   };
 
   return (
@@ -102,54 +175,62 @@ export default function ManageModesScreen({ navigation }) {
           const isActive = mode.id === currentModeId;
           const activeCount = Object.values(mode.productOverrides || {}).filter(o => o.active).length;
           return (
-            <View key={mode.id} style={[
-              styles.card,
-              { backgroundColor: theme.card, borderColor: theme.cardBorder },
-            ]}>
-              <View style={styles.cardHeader}>
-                <View style={{ flex: 1 }}>
-                  <Text style={[styles.cardName, { color: theme.text }]}>{mode.name}</Text>
-                  <Text style={[styles.cardMeta, { color: theme.textMuted }]}>
-                    {activeCount} productos activos
-                  </Text>
+            <SwipeableCatalogCard
+              key={mode.id}
+              canSwipe={canEdit}
+              canDelete={!mode.isDefault && !isActive}
+              onSwipeRight={() => handleClone(mode.id)}
+              onSwipeLeft={() => setShowConfirm({ type: 'delete', modeId: mode.id, name: mode.name })}
+              onLongPress={() => {
+                if (canEdit) {
+                  if (isActive) { showNotif('Este catálogo ya está activo'); }
+                  else { setShowConfirm({ type: 'activate', modeId: mode.id, name: mode.name }); }
+                }
+              }}
+              onTap={() => navigation.navigate('CatalogDetail', { modeId: mode.id })}
+              screenWidth={screenWidth}
+              theme={theme}
+            >
+              <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+                <View style={styles.cardHeader}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.cardName, { color: theme.text }]}>{mode.name}</Text>
+                    <Text style={[styles.cardMeta, { color: theme.textMuted }]}>
+                      {activeCount} productos activos
+                    </Text>
+                  </View>
+                  <View style={styles.badges}>
+                    {mode.isDefault && (
+                      <View style={[styles.badge, { backgroundColor: theme.accent + '15', borderColor: theme.accent }]}>
+                        <Text style={[styles.badgeText, { color: theme.accent }]}>Principal</Text>
+                      </View>
+                    )}
+                    {isActive && (
+                      <View style={[styles.badge, { backgroundColor: theme.success + '20', borderColor: theme.success }]}>
+                        <Text style={[styles.badgeText, { color: theme.success }]}>Activo</Text>
+                      </View>
+                    )}
+                  </View>
                 </View>
-                <View style={styles.badges}>
-                  {mode.isDefault && (
-                    <View style={[styles.badge, { backgroundColor: theme.accent + '15', borderColor: theme.accent }]}>
-                      <Text style={[styles.badgeText, { color: theme.accent }]}>Default</Text>
-                    </View>
+
+                <View style={styles.workerRow}>
+                  {(mode.assignedWorkerIds || []).map(wId => {
+                    const w = workers.find(wr => wr.id === wId);
+                    if (!w) return null;
+                    return w.photo ? (
+                      <Image key={w.id} source={{ uri: w.photo }} style={styles.workerBubble} />
+                    ) : (
+                      <View key={w.id} style={[styles.workerBubble, { backgroundColor: w.role === 'owner' ? theme.accent : (w.color || '#1C1C1E'), alignItems: 'center', justifyContent: 'center' }]}>
+                        <Text style={[styles.workerInitial, { color: w.role === 'owner' ? theme.accentText : '#fff' }]}>{w.name?.charAt(0)?.toUpperCase()}</Text>
+                      </View>
+                    );
+                  })}
+                  {(mode.assignedWorkerIds || []).length === 0 && (
+                    <Text style={[styles.unassigned, { color: theme.textMuted }]}>Tocá para ver detalles</Text>
                   )}
                 </View>
               </View>
-
-              {/* Worker bubbles */}
-              <View style={styles.workerRow}>
-                {(mode.assignedWorkerIds || []).map(wId => {
-                  const w = workers.find(wr => wr.id === wId);
-                  if (!w) return null;
-                  return w.photo ? (
-                    <Image key={w.id} source={{ uri: w.photo }} style={styles.workerBubble} />
-                  ) : (
-                    <View key={w.id} style={[styles.workerBubble, { backgroundColor: w.role === 'owner' ? theme.accent : (w.color || '#1C1C1E'), alignItems: 'center', justifyContent: 'center' }]}>
-                      <Text style={[styles.workerInitial, { color: w.role === 'owner' ? theme.accentText : '#fff' }]}>{w.name?.charAt(0)?.toUpperCase()}</Text>
-                    </View>
-                  );
-                })}
-                {(mode.assignedWorkerIds || []).length === 0 && (
-                  <Text style={[styles.unassigned, { color: theme.textMuted }]}>Toca Editar para asignar empleados</Text>
-                )}
-              </View>
-
-              {canEdit && (
-                <View style={styles.cardActions}>
-                  <ActionPill label="Editar" color={theme.text} bgColor={theme.card} onPress={() => navigation.navigate('ModeEditor', { modeId: mode.id })} />
-                  <ActionPill label="Clonar" color={theme.text} bgColor={theme.card} onPress={() => handleClone(mode.id)} />
-                  {!mode.isDefault && !isActive && (
-                    <ActionPill label="Eliminar" color={theme.danger} bgColor={theme.danger + '12'} onPress={() => setShowConfirm({ type: 'delete', modeId: mode.id, name: mode.name })} />
-                  )}
-                </View>
-              )}
-            </View>
+            </SwipeableCatalogCard>
           );
         })}
 
@@ -192,7 +273,7 @@ export default function ManageModesScreen({ navigation }) {
       </CenterModal>
 
       <CenterModal
-        visible={!!showConfirm}
+        visible={showConfirm?.type === 'delete'}
         onClose={() => setShowConfirm(null)}
         title="ELIMINAR CATÁLOGO"
       >
@@ -200,11 +281,25 @@ export default function ManageModesScreen({ navigation }) {
           ¿Eliminar "{showConfirm?.name}"? Esta acción no se puede deshacer.
         </Text>
         <View style={{ marginTop: 16 }}>
-          <PrimaryButton
-            label="ELIMINAR"
-            variant="danger"
-            onPress={() => handleDelete(showConfirm?.modeId)}
-          />
+          <PrimaryButton label="ELIMINAR" variant="danger" onPress={() => handleDelete(showConfirm?.modeId)} />
+        </View>
+      </CenterModal>
+
+      <CenterModal
+        visible={showConfirm?.type === 'activate'}
+        onClose={() => setShowConfirm(null)}
+        title="ACTIVAR AHORA"
+      >
+        <Text style={[styles.confirmText, { color: theme.textMuted }]}>
+          ¿Activar "{showConfirm?.name}" como catálogo activo ahora?
+        </Text>
+        <View style={{ flexDirection: 'row', gap: 10, marginTop: 16 }}>
+          <TouchableOpacity style={{ flex: 1, borderRadius: 12, paddingVertical: 14, alignItems: 'center', borderWidth: 1, borderColor: theme.cardBorder }} onPress={() => setShowConfirm(null)}>
+            <Text style={{ fontSize: 14, fontWeight: '700', color: theme.textMuted }}>Cancelar</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={{ flex: 1, borderRadius: 12, paddingVertical: 14, alignItems: 'center', backgroundColor: theme.accent }} onPress={() => handleActivate(showConfirm?.modeId)}>
+            <Text style={{ fontSize: 14, fontWeight: '700', color: theme.accentText }}>ACTIVAR</Text>
+          </TouchableOpacity>
         </View>
       </CenterModal>
     </SafeAreaView>
@@ -218,7 +313,11 @@ const styles = StyleSheet.create({
   deniedText: { fontSize: 15, fontWeight: '600', textAlign: 'center' },
   deniedBtn: { borderRadius: 12, paddingVertical: 12, paddingHorizontal: 24, borderWidth: 1 },
   deniedBtnText: { fontSize: 14, fontWeight: '700' },
-  card: { borderRadius: 16, padding: 16, borderWidth: 1, marginBottom: 10 },
+  swipeContainer: { position: 'relative', marginBottom: 10, overflow: 'hidden', borderRadius: 16 },
+  revealBg: { position: 'absolute', top: 0, bottom: 0, width: '100%', alignItems: 'center', justifyContent: 'center' },
+  revealRight: { left: 0, alignItems: 'flex-start', paddingLeft: 24 },
+  revealLeft: { right: 0, alignItems: 'flex-end', paddingRight: 24 },
+  card: { borderRadius: 16, padding: 16, borderWidth: 1 },
   cardHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
   cardName: { fontSize: 16, fontWeight: '800' },
   cardMeta: { fontSize: 12, fontWeight: '500', marginTop: 4 },
@@ -229,9 +328,6 @@ const styles = StyleSheet.create({
   workerBubble: { width: 28, height: 28, borderRadius: 14 },
   workerInitial: { color: '#fff', fontSize: 12, fontWeight: '900' },
   unassigned: { fontSize: 11, fontWeight: '500', fontStyle: 'italic' },
-  cardActions: { flexDirection: 'row', gap: 8, marginTop: 12, flexWrap: 'wrap' },
-  actionBtn: { borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8, borderWidth: 1 },
-  actionText: { fontSize: 12, fontWeight: '700' },
   consultaBadge: { alignSelf: 'flex-start', marginLeft: 16, marginBottom: 4, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 },
   consultaText: { fontSize: 10, fontWeight: '800', letterSpacing: 2 },
   createBtn: {

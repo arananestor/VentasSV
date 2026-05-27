@@ -25,7 +25,7 @@ make dev-clear         # Start with cache cleared
 make tunnel            # Expo with tunnel (restrictive networks)
 
 # Testing
-npm test               # Run all tests (876 tests, 60 suites — must be 0 failures)
+npm test               # Run all tests (857 tests, 58 suites — must be 0 failures)
 npm run test:unit      # Unit tests only (__tests__/unit/)
 npm run test:integration  # Integration tests only (__tests__/integration/)
 npm run test:coverage  # Coverage report (70% threshold)
@@ -105,11 +105,11 @@ owner → co-admin → worker (positions: Cajero, Cocinero, Motorista, Camarero)
 ## Testing
 
 - Runner: jest-expo. Config in package.json `jest` field
-- Unit tests (`__tests__/unit/`): auth, businessConfig, cart, displayComponents, formComponents, posScreen, migration, pinEntry, pinKeypadModal, productPermissions, products, roleConfig, geoLogic, itemsLogic, salesMigration, saleDetailItems, salesListSummary, cookModalItems, ticketPrinter, ticketMessage, transferMessage, ids, entityEnvelope, schemaMigrationV4, qentasClient, requiresQentasLogic, upsellCardLogic, businessConfigQentasFields, modes/modeModel, modes/schemaMigrationV5, modes/repositoryModes, modes/modeManagementLogic, modes/modeResolution, modes/posModeFiltering, modes/orderBuilderPricing, modes/modeManagement, modes/modeScheduling, modes/modeEditorLogic, modes/modeAutoActivation, modes/modeProductEditorLogic, catalogActiveBanner, catalogColorPicker, collapsibleHeader, iconCatalog, permissions, responsive, sales, salesCsv, scheduledActivationNormalizer, shareShiftSummary, weekCalendarView, shiftSummary, selectWorker, setup, snackbar, tabs, theme, workers
+- Unit tests (`__tests__/unit/`): auth, businessConfig, cart, displayComponents, formComponents, posScreen, migration, pinEntry, pinKeypadModal, productPermissions, products, roleConfig, geoLogic, itemsLogic, salesMigration, saleDetailItems, salesListSummary, cookModalItems, ticketPrinter, ticketMessage, transferMessage, ids, entityEnvelope, schemaMigrationV4, qentasClient, requiresQentasLogic, upsellCardLogic, businessConfigQentasFields, modes/modeModel, modes/schemaMigrationV5, modes/repositoryModes, modes/modeManagementLogic, modes/modeResolution, modes/posModeFiltering, modes/orderBuilderPricing, modes/modeManagement, modes/modeScheduling, modes/modeAutoActivation, catalogActiveBanner, catalogColorPicker, collapsibleHeader, iconCatalog, permissions, responsive, sales, salesCsv, scheduledActivationNormalizer, shareShiftSummary, weekCalendarView, shiftSummary, selectWorker, setup, snackbar, tabs, theme, workers
 - Integration tests (`__tests__/integration/`): payment, orders
 - Mocks in `__mocks__/` for AsyncStorage, vector-icons, safe-area-context
 - Coverage threshold: 70% on branches, functions, lines, statements
-- **Rule: 876 tests (minimum), 0 failures before any merge. No exceptions.**
+- **Rule: 857 tests (minimum), 0 failures before any merge. No exceptions.**
 - **AAA Pattern (mandatory):** Every test must follow Arrange-Act-Assert. The Act step must call a real function imported from `src/`. Never reimplement logic in tests. Comments `// Arrange`, `// Act`, `// Assert` are required in every test block.
 
 ## Repository
@@ -189,6 +189,7 @@ Architecture design docs are REQUIRED before starting any major feature. Feature
 - **Skills orchestration rule**: The architect must follow the skills-mapping table in CLAUDE.md (Established Architecture Patterns → Skills mapping) and announce at the top of every instruction block: which skills were invoked, which were evaluated and discarded with reason, and which will be invoked pre-merge. Nestor can audit at any time with "¿qué skills usaste para esto?". Process, not goodwill. (Source: PR #78 architect process formalization)
 - **Design docs born from ADR include Alternatives Considered**: When a design doc is produced after invoking engineering:architecture, the document must include sections "Alternatives Considered" with the options evaluated (table of dimensions per option) and "Trade-off Analysis" with reasoning. The Problem/Solution/Changes/Rules/Verification format of the repo extends — it does not replace — the ADR rigor. Without these sections the ADR is wasted. (Source: PR #78 ADR-to-design-doc preservation)
 - **New restricted features must register their action in the permissions matrix**: When introducing a feature that should be restricted by role (financial data, configuration, employee management), the action must be added to `src/utils/permissions.js` with explicit role assignments, and the consuming screen must invoke `useCan(action)`. Adding a feature without registering its permission means defaulting to "everyone sees it" — the inverse of secure-by-default. (Source: PR #80 co-admin permissions matrix)
+- **Architect scope pre-flight check**: Before delivering an execution PR block to Claude Code, the architect must explicitly count: number of new files, number of existing files touched, number of architectural layers spanned. The count appears in the architect's response BEFORE the block. If any threshold from "Execution PRs must complete the scope they declare" is exceeded (>5 new files OR >8 existing files OR >3 layers), the block MUST be split BEFORE delivery. Three consecutive occurrences (PRs #82, #85, #86) confirmed this is an architect failure mode. (Source: PR #86 process formalization)
 
 ## UI Conventions
 
