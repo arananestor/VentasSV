@@ -15,12 +15,14 @@ import CartSheet from '../components/CartSheet';
 import SimpleProductSheet from '../components/SimpleProductSheet';
 import { resolveVisibleProducts, resolveProductPrice, resolveTabOrder } from '../utils/modeResolution';
 import useResponsive from '../hooks/useResponsive';
+import CatalogActiveBanner from '../components/CatalogActiveBanner';
+import CatalogSwitcherSheet from '../components/CatalogSwitcherSheet';
 
 export default function POSScreen({ navigation }) {
   const {
-    products,
+    products, modes, currentModeId,
     cart, addToCart, removeFromCart, clearCart, cartTotal, cartCount,
-    currentMode,
+    currentMode, setCurrentMode, showNotif,
   } = useApp();
   const { currentWorker } = useAuth();
   const { theme } = useTheme();
@@ -33,6 +35,9 @@ export default function POSScreen({ navigation }) {
   const [showCart, setShowCart] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [showSimpleModal, setShowSimpleModal] = useState(false);
+  const [showSwitcher, setShowSwitcher] = useState(false);
+
+  const allScheduledActivations = modes.flatMap(m => (m.scheduledActivations || []).map(a => ({ ...a, modeId: m.id })));
 
   const [headerHeight, setHeaderHeight] = useState(120);
   const headerMeasured = useRef(false);
@@ -93,6 +98,12 @@ export default function POSScreen({ navigation }) {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.bg }]}>
       <StatusBar barStyle={theme.statusBar} backgroundColor={theme.bg} />
+
+      <CatalogActiveBanner
+        modes={modes}
+        scheduledActivations={allScheduledActivations}
+        onPress={() => setShowSwitcher(true)}
+      />
 
       {/* Mini header — fades in when full header slides out */}
       <Animated.View style={[styles.miniHeader, { backgroundColor: theme.bg, paddingHorizontal: PADDING, opacity: miniOpacity }]}>
@@ -245,6 +256,18 @@ export default function POSScreen({ navigation }) {
         currentMode={currentMode}
         onAddToCart={addToCart}
         theme={theme}
+      />
+
+      <CatalogSwitcherSheet
+        visible={showSwitcher}
+        onClose={() => setShowSwitcher(false)}
+        modes={modes}
+        currentModeId={currentModeId}
+        onSelect={(modeId) => {
+          setCurrentMode(modeId);
+          const m = modes.find(mm => mm.id === modeId);
+          showNotif(`Catálogo ${m?.name || ''} activo ahora`);
+        }}
       />
 
     </SafeAreaView>

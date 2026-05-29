@@ -14,6 +14,8 @@ import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import { useApp } from '../context/AppContext';
 import { useTheme } from '../context/ThemeContext';
+import CatalogActiveBanner from '../components/CatalogActiveBanner';
+import CatalogSwitcherSheet from '../components/CatalogSwitcherSheet';
 import {
   loadWhatsAppNumber, loadBankConfig,
   buildTransferMessage, buildTicketMessage,
@@ -24,8 +26,10 @@ const WA_COLOR = '#25D366';
 
 // TODO: condicionar con useCan('view-historical-sales') cuando se agregue date picker histórico
 export default function SalesScreen({ navigation }) {
-  const { getTodaySales, showNotif } = useApp();
+  const { getTodaySales, showNotif, modes, currentModeId, setCurrentMode } = useApp();
   const { theme } = useTheme();
+  const [showSwitcher, setShowSwitcher] = useState(false);
+  const allScheduledActivations = modes.flatMap(m => (m.scheduledActivations || []).map(a => ({ ...a, modeId: m.id })));
 
   const sales = getTodaySales().reverse();
   const total = sales.reduce((s, v) => s + v.total, 0);
@@ -80,6 +84,11 @@ export default function SalesScreen({ navigation }) {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.bg }]}>
+      <CatalogActiveBanner
+        modes={modes}
+        scheduledActivations={allScheduledActivations}
+        onPress={() => setShowSwitcher(true)}
+      />
       <ScreenHeader
         title="VENTAS HOY"
         onBack={() => navigation.goBack()}
@@ -179,6 +188,18 @@ export default function SalesScreen({ navigation }) {
           </View>
         )}
       </ScrollView>
+
+      <CatalogSwitcherSheet
+        visible={showSwitcher}
+        onClose={() => setShowSwitcher(false)}
+        modes={modes}
+        currentModeId={currentModeId}
+        onSelect={(modeId) => {
+          setCurrentMode(modeId);
+          const m = modes.find(mm => mm.id === modeId);
+          showNotif(`Catálogo ${m?.name || ''} activo ahora`);
+        }}
+      />
     </SafeAreaView>
   );
 }

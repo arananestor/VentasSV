@@ -10,6 +10,8 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useApp } from '../context/AppContext';
 import { useTheme } from '../context/ThemeContext';
 import useResponsive from '../hooks/useResponsive';
+import CatalogActiveBanner from '../components/CatalogActiveBanner';
+import CatalogSwitcherSheet from '../components/CatalogSwitcherSheet';
 const STATUS = {
   new:        { label: 'NUEVOS',     color: '#F77F00' },
   processing: { label: 'EN PROCESO', color: '#4361EE' },
@@ -659,11 +661,13 @@ function DividerBar({ label, color, theme, isLandscape, onDrag, onLayout }) {
 
 // ─── SCREEN ───────────────────────────────────────────────
 export default function OrdersScreen() {
-  const { getTodaySales, updateSaleStatus } = useApp();
+  const { getTodaySales, updateSaleStatus, modes, currentModeId, setCurrentMode, showNotif } = useApp();
   const { theme } = useTheme();
   const { width, height } = useWindowDimensions();
   const { width: screenWidth } = useResponsive();
   const isLandscape = width > height;
+  const [showSwitcher, setShowSwitcher] = useState(false);
+  const allScheduledActivations = modes.flatMap(m => (m.scheduledActivations || []).map(a => ({ ...a, modeId: m.id })));
 
   const sales = getTodaySales().reverse();
   const newOrders = sales.filter(s => (s.orderStatus || 'new') === 'new');
@@ -753,6 +757,11 @@ export default function OrdersScreen() {
   return (
     <View style={{ flex: 1 }}>
       <SafeAreaView style={[styles.container, { backgroundColor: theme.bg }]} edges={['top']}>
+        <CatalogActiveBanner
+          modes={modes}
+          scheduledActivations={allScheduledActivations}
+          onPress={() => setShowSwitcher(true)}
+        />
         <View style={[styles.header, { borderBottomColor: theme.cardBorder }]}>
           <Text style={[styles.headerTitle, { color: theme.text }]}>PEDIDOS</Text>
           <View style={styles.headerIndex}>
@@ -805,6 +814,18 @@ export default function OrdersScreen() {
 
       <CookModal sale={cookSale} visible={showCook} onClose={() => setShowCook(false)} onDone={(id) => updateSaleStatus(id, 'done')} theme={theme} />
       <OrderDetailModal sale={detailSale} visible={showDetail} onClose={() => setShowDetail(false)} onMove={updateSaleStatus} theme={theme} />
+
+      <CatalogSwitcherSheet
+        visible={showSwitcher}
+        onClose={() => setShowSwitcher(false)}
+        modes={modes}
+        currentModeId={currentModeId}
+        onSelect={(modeId) => {
+          setCurrentMode(modeId);
+          const m = modes.find(mm => mm.id === modeId);
+          showNotif(`Catálogo ${m?.name || ''} activo ahora`);
+        }}
+      />
     </View>
   );
 }
