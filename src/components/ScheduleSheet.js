@@ -1,14 +1,26 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, ScrollView, StyleSheet } from 'react-native';
 import { useTheme } from '../context/ThemeContext';
 import BottomSheetModal from './BottomSheetModal';
 import CenterModal from './CenterModal';
 import DayChipsSelector from './DayChipsSelector';
 import WeekCalendarView from './WeekCalendarView';
+import TimeInputAmPm, { convertTo24h, isValidTime12 } from './TimeInputAmPm';
 import { detectScheduleOverlap } from '../utils/modeScheduling';
 
-const TIME_RE = /^([01]?[0-9]|2[0-3]):[0-5][0-9]$/;
-const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+const DATE_LATAM_RE = /^\d{2}-\d{2}-\d{4}$/;
+
+function formatDateInput(raw) {
+  const digits = raw.replace(/\D/g, '').slice(0, 8);
+  if (digits.length <= 2) return digits;
+  if (digits.length <= 4) return digits.slice(0, 2) + '-' + digits.slice(2);
+  return digits.slice(0, 2) + '-' + digits.slice(2, 4) + '-' + digits.slice(4);
+}
+
+function latamToIso(ddmmyyyy) {
+  const [dd, mm, yyyy] = ddmmyyyy.split('-');
+  return `${yyyy}-${mm}-${dd}`;
+}
 
 export default function ScheduleSheet({ visible, onClose, modeId, existingActivations, modes, onSave }) {
   const { theme } = useTheme();
@@ -16,37 +28,46 @@ export default function ScheduleSheet({ visible, onClose, modeId, existingActiva
   const [date, setDate] = useState('');
   const [days, setDays] = useState([]);
   const [startTime, setStartTime] = useState('');
+  const [startPM, setStartPM] = useState(false);
   const [endTime, setEndTime] = useState('');
+  const [endPM, setEndPM] = useState(false);
   const [showConflict, setShowConflict] = useState(null);
   const [saveError, setSaveError] = useState('');
 
   const modeName = (modes || []).find(m => m.id === modeId)?.name || '';
-
   const clearError = () => setSaveError('');
 
-  const buildActivation = () => ({
-    type,
-    modeId,
-    ...(type === 'evento' ? { date } : { days }),
-    startTime,
-    endTime,
-  });
+  const buildActivation = () => {
+    const st = convertTo24h(startTime, startPM);
+    const et = convertTo24h(endTime, endPM);
+    return {
+      type,
+      modeId,
+      ...(type === 'evento' ? { date: DATE_LATAM_RE.test(date) ? latamToIso(date) : '' } : { days }),
+      startTime: st,
+      endTime: et,
+    };
+  };
 
   const isPreviewValid = () => {
-    if (!TIME_RE.test(startTime) || !TIME_RE.test(endTime)) return false;
-    if (type === 'evento') return DATE_RE.test(date) && !isNaN(new Date(date + 'T00:00:00').getTime());
+    if (!isValidTime12(startTime) || !isValidTime12(endTime)) return false;
+    if (type === 'evento') {
+      if (!DATE_LATAM_RE.test(date)) return false;
+      const iso = latamToIso(date);
+      return !isNaN(new Date(iso + 'T00:00:00').getTime());
+    }
     return days.length > 0;
   };
 
   const handleSave = () => {
     if (type === 'evento') {
-      if (!DATE_RE.test(date) || isNaN(new Date(date + 'T00:00:00').getTime())) {
-        setSaveError('Fecha inválida (formato YYYY-MM-DD)');
+      if (!DATE_LATAM_RE.test(date) || isNaN(new Date(latamToIso(date) + 'T00:00:00').getTime())) {
+        setSaveError('Fecha inválida. Usá formato DD-MM-AAAA.');
         return;
       }
     }
-    if (!TIME_RE.test(startTime)) { setSaveError('Hora de inicio inválida (formato HH:MM)'); return; }
-    if (!TIME_RE.test(endTime)) { setSaveError('Hora de fin inválida (formato HH:MM)'); return; }
+    if (!isValidTime12(startTime)) { setSaveError('Hora de inicio inválida. Usá hora entre 1 y 12.'); return; }
+    if (!isValidTime12(endTime)) { setSaveError('Hora de fin inválida. Usá hora entre 1 y 12.'); return; }
     if (type === 'recurrente' && days.length === 0) { setSaveError('Seleccioná al menos un día'); return; }
 
     const newAct = buildActivation();
@@ -68,19 +89,14 @@ export default function ScheduleSheet({ visible, onClose, modeId, existingActiva
   };
 
   const resetAndClose = () => {
-    setType('recurrente');
-    setDate('');
-    setDays([]);
-    setStartTime('');
-    setEndTime('');
-    setShowConflict(null);
-    setSaveError('');
+    setType('recurrente'); setDate(''); setDays([]);
+    setStartTime(''); setStartPM(false); setEndTime(''); setEndPM(false);
+    setShowConflict(null); setSaveError('');
     onClose();
   };
 
   const dayLabel = (d) => ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'][d] || '';
 
-  // Preview activations
   const previewActivations = isPreviewValid()
     ? [...(existingActivations || []), buildActivation()]
     : (existingActivations || []);
@@ -88,121 +104,111 @@ export default function ScheduleSheet({ visible, onClose, modeId, existingActiva
   return (
     <>
       <BottomSheetModal visible={visible} onClose={resetAndClose} title="PROGRAMAR HORARIO">
-        <View style={styles.content}>
-          {/* Type toggle */}
-          <View style={styles.typeRow}>
-            {['recurrente', 'evento'].map(t => (
-              <TouchableOpacity
-                key={t}
-                style={[styles.typeChip, { backgroundColor: type === t ? theme.accent : theme.bg, borderColor: type === t ? theme.accent : theme.cardBorder }]}
-                onPress={() => { setType(t); clearError(); }}
-              >
-                <Text style={{ color: type === t ? theme.accentText : theme.textSecondary, fontSize: 13, fontWeight: '700' }}>
-                  {t === 'recurrente' ? 'Recurrente' : 'Evento puntual'}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-
-          {type === 'evento' && (
-            <View style={styles.field}>
-              <Text style={[styles.fieldLabel, { color: theme.textMuted }]}>FECHA</Text>
-              <TextInput
-                style={[styles.input, { color: theme.text, borderColor: theme.cardBorder, backgroundColor: theme.bg }]}
-                placeholder="2026-06-15"
-                placeholderTextColor={theme.textMuted}
-                value={date}
-                onChangeText={v => { setDate(v); clearError(); }}
-              />
-            </View>
-          )}
-
-          {type === 'recurrente' && (
-            <View style={styles.field}>
-              <Text style={[styles.fieldLabel, { color: theme.textMuted }]}>DÍAS</Text>
-              <DayChipsSelector value={days} onChange={v => { setDays(v); clearError(); }} />
-            </View>
-          )}
-
-          <View style={styles.timeRow}>
-            <View style={[styles.field, { flex: 1 }]}>
-              <Text style={[styles.fieldLabel, { color: theme.textMuted }]}>HORA INICIO</Text>
-              <TextInput
-                style={[styles.input, { color: theme.text, borderColor: theme.cardBorder, backgroundColor: theme.bg }]}
-                placeholder="11:00"
-                placeholderTextColor={theme.textMuted}
-                value={startTime}
-                onChangeText={v => { setStartTime(v); clearError(); }}
-              />
-            </View>
-            <View style={[styles.field, { flex: 1 }]}>
-              <Text style={[styles.fieldLabel, { color: theme.textMuted }]}>HORA FIN</Text>
-              <TextInput
-                style={[styles.input, { color: theme.text, borderColor: theme.cardBorder, backgroundColor: theme.bg }]}
-                placeholder="15:00"
-                placeholderTextColor={theme.textMuted}
-                value={endTime}
-                onChangeText={v => { setEndTime(v); clearError(); }}
-              />
-            </View>
-          </View>
-
-          {/* Live preview */}
-          {isPreviewValid() ? (
-            <View style={styles.previewWrap}>
-              <Text style={[styles.previewLabel, { color: theme.textMuted }]}>PREVIEW</Text>
-              <View style={{ maxHeight: 200, borderRadius: 10, overflow: 'hidden' }}>
-                <WeekCalendarView scheduledActivations={previewActivations} modes={modes || []} />
-              </View>
-              {(() => {
-                const overlaps = detectScheduleOverlap(buildActivation(), existingActivations || []);
-                if (overlaps.length === 0) return null;
-                const first = overlaps[0];
-                const conflictName = (modes || []).find(m => m.id === first.modeId)?.name || 'otro catálogo';
-                return (
-                  <Text style={[styles.warningText, { color: theme.danger }]}>
-                    Se solapa con "{conflictName}" el {dayLabel(first.overlapDay)} de {first.overlapStart} a {first.overlapEnd}
-                    {overlaps.length > 1 ? ` + ${overlaps.length - 1} más` : ''}
+        <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: 40 }}>
+          <View style={styles.content}>
+            <View style={styles.typeRow}>
+              {['recurrente', 'evento'].map(t => (
+                <TouchableOpacity
+                  key={t}
+                  style={[styles.typeChip, { backgroundColor: type === t ? theme.accent : theme.bg, borderColor: type === t ? theme.accent : theme.cardBorder }]}
+                  onPress={() => { setType(t); clearError(); }}
+                >
+                  <Text style={{ color: type === t ? theme.accentText : theme.textSecondary, fontSize: 13, fontWeight: '700' }}>
+                    {t === 'recurrente' ? 'Recurrente' : 'Evento puntual'}
                   </Text>
-                );
-              })()}
+                </TouchableOpacity>
+              ))}
             </View>
-          ) : (
-            <Text style={[styles.previewHint, { color: theme.textMuted }]}>
-              Configurá los días y horas para ver preview
-            </Text>
-          )}
 
-          {saveError ? <Text style={[styles.errorText, { color: theme.danger }]}>{saveError}</Text> : null}
+            {type === 'evento' && (
+              <View style={styles.field}>
+                <Text style={[styles.fieldLabel, { color: theme.textMuted }]}>FECHA DEL EVENTO</Text>
+                <TextInput
+                  style={[styles.input, { color: theme.text, borderColor: theme.cardBorder, backgroundColor: theme.bg }]}
+                  placeholder="30-05-2026"
+                  placeholderTextColor={theme.textMuted}
+                  keyboardType="number-pad"
+                  maxLength={10}
+                  value={date}
+                  onChangeText={v => { setDate(formatDateInput(v)); clearError(); }}
+                />
+              </View>
+            )}
 
-          <TouchableOpacity
-            style={[styles.saveBtn, { backgroundColor: theme.accent }]}
-            onPress={handleSave}
-          >
-            <Text style={{ color: theme.accentText, fontSize: 15, fontWeight: '900', letterSpacing: 2 }}>GUARDAR HORARIO</Text>
-          </TouchableOpacity>
-        </View>
+            {type === 'recurrente' && (
+              <View style={styles.field}>
+                <Text style={[styles.fieldLabel, { color: theme.textMuted }]}>DÍAS</Text>
+                <DayChipsSelector value={days} onChange={v => { setDays(v); clearError(); }} />
+              </View>
+            )}
+
+            <View style={styles.timeRow}>
+              <View style={{ flex: 1 }}>
+                <TimeInputAmPm
+                  label="HORA INICIO"
+                  value={startTime}
+                  isPM={startPM}
+                  onChangeTime={v => { setStartTime(v); clearError(); }}
+                  onChangeAmPm={setStartPM}
+                />
+              </View>
+              <View style={{ flex: 1 }}>
+                <TimeInputAmPm
+                  label="HORA FIN"
+                  value={endTime}
+                  isPM={endPM}
+                  onChangeTime={v => { setEndTime(v); clearError(); }}
+                  onChangeAmPm={setEndPM}
+                />
+              </View>
+            </View>
+
+            {isPreviewValid() ? (
+              <View style={styles.previewWrap}>
+                <Text style={[styles.previewLabel, { color: theme.textMuted }]}>PREVIEW</Text>
+                <View style={{ maxHeight: 200, borderRadius: 10, overflow: 'hidden' }}>
+                  <WeekCalendarView scheduledActivations={previewActivations} modes={modes || []} />
+                </View>
+                {(() => {
+                  const overlaps = detectScheduleOverlap(buildActivation(), existingActivations || []);
+                  if (overlaps.length === 0) return null;
+                  const first = overlaps[0];
+                  const conflictName = (modes || []).find(m => m.id === first.modeId)?.name || 'otro catálogo';
+                  return (
+                    <Text style={[styles.warningText, { color: theme.danger }]}>
+                      Se cruza con "{conflictName}" el {dayLabel(first.overlapDay)} de {first.overlapStart} a {first.overlapEnd}
+                      {overlaps.length > 1 ? ` + ${overlaps.length - 1} más` : ''}
+                    </Text>
+                  );
+                })()}
+              </View>
+            ) : (
+              <Text style={[styles.previewHint, { color: theme.textMuted }]}>
+                Configurá los días y horas para ver preview
+              </Text>
+            )}
+
+            {saveError ? <Text style={[styles.errorText, { color: theme.danger }]}>{saveError}</Text> : null}
+
+            <TouchableOpacity style={[styles.saveBtn, { backgroundColor: theme.accent }]} onPress={handleSave}>
+              <Text style={{ color: theme.accentText, fontSize: 15, fontWeight: '900', letterSpacing: 2 }}>GUARDAR HORARIO</Text>
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
       </BottomSheetModal>
 
-      <CenterModal
-        visible={showConflict !== null}
-        onClose={() => setShowConflict(null)}
-      >
+      <CenterModal visible={showConflict !== null} onClose={() => setShowConflict(null)}>
         <View style={{ alignItems: 'center' }}>
-          <Text style={[styles.conflictTitle, { color: theme.text }]}>SOLAPAMIENTO DETECTADO</Text>
+          <Text style={[styles.conflictTitle, { color: theme.text }]}>CRUCE DE HORARIOS</Text>
           <Text style={[styles.conflictBody, { color: theme.textMuted }]}>
             El catálogo "{modeName}" se cruza con "{showConflict?.name}" el {dayLabel(showConflict?.day)} de {showConflict?.start} a {showConflict?.end}.
             {'\n\n'}¿Qué querés hacer?
           </Text>
           <TouchableOpacity
             style={[styles.conflictBtn, { backgroundColor: theme.accent }]}
-            onPress={() => {
-              onSave(showConflict.activation, true);
-              setShowConflict(null);
-              resetAndClose();
-            }}
+            onPress={() => { onSave(showConflict.activation, true); setShowConflict(null); resetAndClose(); }}
           >
-            <Text style={{ color: theme.accentText, fontWeight: '800', fontSize: 13, letterSpacing: 1 }}>REEMPLAZAR EN LA FRANJA</Text>
+            <Text style={{ color: theme.accentText, fontWeight: '800', fontSize: 13, letterSpacing: 1 }}>REEMPLAZAR EN EL CRUCE</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.conflictBtn, { borderWidth: 1, borderColor: theme.cardBorder }]}
@@ -220,7 +226,7 @@ export default function ScheduleSheet({ visible, onClose, modeId, existingActiva
 }
 
 const styles = StyleSheet.create({
-  content: { paddingHorizontal: 16, paddingBottom: 30 },
+  content: { paddingHorizontal: 16 },
   typeRow: { flexDirection: 'row', gap: 8, marginBottom: 16 },
   typeChip: { flex: 1, paddingVertical: 12, borderRadius: 12, alignItems: 'center', borderWidth: 1 },
   field: { marginBottom: 16 },

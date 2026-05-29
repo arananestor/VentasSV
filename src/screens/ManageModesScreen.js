@@ -67,16 +67,27 @@ function SwipeableCatalogCard({ children, canSwipe, canDelete, onSwipeRight, onS
     if (!didLongPress.current && !isSwiping.current && onTap) onTap();
   };
 
+  const revealRightOpacity = translateX.interpolate({
+    inputRange: [0, threshold],
+    outputRange: [0, 1],
+    extrapolate: 'clamp',
+  });
+  const revealLeftOpacity = translateX.interpolate({
+    inputRange: [-threshold, 0],
+    outputRange: [1, 0],
+    extrapolate: 'clamp',
+  });
+
   return (
     <View style={styles.swipeContainer}>
       {/* Reveal backgrounds */}
-      <View style={[styles.revealBg, styles.revealRight, { backgroundColor: '#2B9348' }]}>
+      <Animated.View style={[styles.revealBg, styles.revealRight, { backgroundColor: '#2B9348', opacity: revealRightOpacity }]}>
         <Feather name="copy" size={22} color="#fff" />
-      </View>
+      </Animated.View>
       {canDelete && (
-        <View style={[styles.revealBg, styles.revealLeft, { backgroundColor: '#D62828' }]}>
+        <Animated.View style={[styles.revealBg, styles.revealLeft, { backgroundColor: '#D62828', opacity: revealLeftOpacity }]}>
           <Feather name="trash-2" size={22} color="#fff" />
-        </View>
+        </Animated.View>
       )}
       {/* Card */}
       <Animated.View
