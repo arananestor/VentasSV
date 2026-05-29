@@ -14,6 +14,8 @@ React Native 0.81.5, Expo ~54.0.33, React 19.1.0, AsyncStorage, React Navigation
 
 **BLOCKED:** @testing-library/react-native is NOT installed — incompatible with React 19.1.0. Component UI tests use pure JS logic only, no component rendering.
 
+**BLOCKED:** react-native-reanimated is NOT installed — requires full babel plugin config and native rebuild, incompatible with the current pinned setup. Do not propose it as a solution.
+
 ## Commands
 
 ```bash
@@ -23,7 +25,7 @@ make dev-clear         # Start with cache cleared
 make tunnel            # Expo with tunnel (restrictive networks)
 
 # Testing
-npm test               # Run all tests (760 tests, 52 suites — must be 0 failures)
+npm test               # Run all tests (857 tests, 58 suites — must be 0 failures)
 npm run test:unit      # Unit tests only (__tests__/unit/)
 npm run test:integration  # Integration tests only (__tests__/integration/)
 npm run test:coverage  # Coverage report (70% threshold)
@@ -37,35 +39,64 @@ make update m='msg'    # OTA update to production
 
 ## Architecture
 
-**Provider chain:** App.js → SafeAreaProvider → ThemeProvider → AuthProvider → AppProvider → TabProvider → NavigationContainer → AppNavigator
+### Provider Chain
 
-**Established Architecture Patterns:**
+App.js → SafeAreaProvider → ThemeProvider → AuthProvider → AppProvider → TabProvider → NavigationContainer → AppNavigator
+
+### Established Architecture Patterns
 
 - Responsive layout: `useResponsive` hook in `src/hooks/useResponsive.js` returns reactive primitives (width, height, isTablet, isLandscape, padding, gap, columns, gridCardSize, layout, fontSize). Mandatory for any screen with dynamic width-based computations. Current consumers: POSScreen, AddProductScreen, OrderBuilderScreen, SelectWorkerScreen, OrdersScreen.
-- Modal backdrops: Pressable plus StyleSheet.absoluteFill is the single accepted pattern. Reference: `src/components/CenterModal.js`. Consumers: CenterModal, BottomSheetModal, ModeEditorScreen modal, OrdersScreen modal, ProfileScreen modal.
+- Modal backdrops: Pressable plus StyleSheet.absoluteFill is the single accepted pattern. Reference: `src/components/CenterModal.js`. Consumers: CenterModal, BottomSheetModal, OrdersScreen modal, ProfileScreen modal.
+- Owner avatar treatment: when rendering any worker avatar (initial circle), use backgroundColor based on role with `worker.role === 'owner' ? theme.accent : (worker.color || '#1C1C1E')`, and initial color with `worker.role === 'owner' ? theme.accentText : '#fff'`. Consumers using this pattern: ProfileScreen, SelectWorkerScreen, ManageModesScreen. The owner is the only worker with the theme accent color treatment.
+- Owner work mode: when `worker.role === 'owner'`, the field `ownerMode` (`'operativo'` or `'administrativo'`) controls visible tabs via `getTabsForWorker` in `src/utils/roleConfig.js`. Operativo is a superset of administrativo (administrative tabs + operational tabs + future role-specific tabs). Administrativo shows only administrative tabs (currently only Profile; future Owner Dashboard joins this set). Default is operativo. Workers without the field are treated as operativo (no formal migration). Toggle exposed in ProfileScreen with mandatory confirmation modal.
+- Co-admin permissions matrix: declarative system in `src/utils/permissions.js`. PERMISSIONS constant maps role to allowed actions. `can(worker, action)` is a pure function. `useCan(action)` is the React hook consuming AuthContext (`src/hooks/useCan.js`). Restricted screens use useCan to filter UI or show defensive empty states. Co-admin has full operational permissions (POS, orders, day sales, shift sharing, basic employee info) and zero administrative permissions including catalog access by default (catalog visibility is reserved for a future per-worker override system tied to the catalog system redesign). Pattern documented in `docs/architecture_design/co_admin_permissions_matrix.md`.
+- Time zone convention: Schedule logic in `src/utils/modeScheduling.js` operates in the device's local time. Date strings (YYYY-MM-DD) and time strings (HH:mm) are interpreted as local. Date parsing avoids the 'Z' suffix to prevent UTC interpretation. VentasSV serves El Salvador (UTC-6) only — owners think in local time and the system respects that.
+- Internal tabs: `src/components/InternalTabs.js` is a controlled component for top-aligned tab navigation within a single screen (distinct from the bottom MainTabs navigator). Props: tabs, activeKey, onTabChange. Used in CatalogDetailScreen. Pattern: horizontal scrollable, underline on active tab, sentence case labels.
+- Catalog UI components: InternalTabs, DayChipsSelector, CatalogColorPicker, WeekCalendarView, CatalogActiveBanner, ScheduleSheet, CatalogSwitcherSheet. CatalogActiveBanner consumed by POSScreen, OrdersScreen, SalesScreen. CatalogSwitcherSheet provides mode switching from banner tap. ModeEditorScreen deleted in PR #86, replaced by CatalogDetailScreen.
+- Catalog scheduled activation shape: `src/utils/modeScheduling.js` defines the canonical shape of scheduledActivations: `{ id, type: 'evento'|'recurrente', modeId, date|days, startTime, endTime, createdAt }`. Legacy data persisted with the previous shape (startsAt, endsAt, previousModeId) is normalized transparently on read via `normalizeScheduledActivation` in `src/utils/scheduledActivationNormalizer.js`. Banner countdown and POS auto-activation derive timing from this shape using `getActiveModeAt`.
 - Bottom sheets: `src/components/BottomSheetModal.js` for non-destructive sheets. Consumers: CartSheet, SimpleProductSheet.
 - Icon and color picker: `src/components/IconColorPicker.js` unifies icon catalog and color selection in one searchable categorized grid. Source of icons and helpers: `src/constants/productConstants.js` (ICON_CATALOG with 11 categories, searchIcons, getIconCols, getIconBtnSize).
 - User feedback API: showSnack for persistent post-sale snackbar, showNotif for informational toast of 2 to 3 seconds, CenterModal for destructive confirmations with explicit button. All exposed from AppContext.
+- Photo picker: `src/components/PhotoPickerSheet.js` wraps BottomSheetModal with two options (Tomar foto / Elegir de galería). Handles requestCameraPermissionsAsync and requestMediaLibraryPermissionsAsync internally. Current consumer: ProfileScreen. Pending migration to AddProductScreen, PaymentScreen, BusinessConfigScreen (see Active priorities).
+- Skills mapping (architect orchestration): The architect invokes specialized skills according to this table at the corresponding phase of work. Process, not goodwill.
 
-**State management:** React Context API (no Redux). Four contexts:
+  | Fase del trabajo | Skill | Cuándo invocar |
+  |---|---|---|
+  | Discovery técnico de feature | engineering:architecture | Antes del design doc, si la feature tiene decisiones arquitectónicas reales (schema, auth, navigation, modelos de datos) |
+  | Discovery de UX y microcopy | design:ux-copy | Cuando el design doc define texto en pantalla (labels, errores, descripciones, CTAs) |
+  | Pre-merge del execution PR | engineering:code-review | Después de que Code abra el PR, antes de que Nestor mergee |
+  | Test strategy | engineering:testing-strategy | Cuando la feature toca lógica crítica (auth, pagos, datos sensibles, migraciones) |
+  | Cierre de semana | engineering:standup | Resumen de PRs mergeados + próximos pasos |
+  | Pre-beta pública | design:accessibility-review | Antes de release a usuarios reales |
+  | Auditoría periódica | engineering:tech-debt | Cada 20 a 30 PRs |
+
+### State Management
+
+React Context API (no Redux). Four contexts:
 
 - `src/context/AppContext.js` — Single source of truth: products, sales, cart, order numbers, snackbar, Qentas hooks (placeholder)
 - `src/context/AuthContext.js` — Role hierarchy, 4-digit PIN auth, worker management, schema versioning v2, migration v1→v2
 - `src/context/TabContext.js` — Product tab/category organization
 - `src/context/ThemeContext.js` — Light/dark mode tokens
 
-**Navigation:**
+### Navigation
+
 - No worker: Setup → SelectWorker → PinEntry
 - With worker: MainTabs (Venta | Comandas | Ventas | Perfil)
 - HomeStack: HomeMain → OrderBuilder → Payment → AddProduct → ManageTabs
 - SalesStack: SalesMain → SaleDetail
 - ProfileStack: ProfileMain → BusinessConfig
 
-**Data persistence:** AsyncStorage via repository layer (src/data/repository.js). Schema versioning unified in `ventasv_schema_version` (current v5). Migrations: v1→v2 (AuthContext), v2→v3 (salesMigration.js items[]), v3→v4 (schemaMigrationV4.js entity envelope), v4→v5 (schemaMigrationV5.js Modes). All entities have UUID v4 IDs (newId from src/utils/ids.js) and sync envelope (accountId, deviceId, syncState, serverUpdatedAt).
+### Data Persistence
 
-**Role system:** owner → co-admin → worker (positions: Cajero, Cocinero, Motorista, Camarero)
+AsyncStorage via repository layer (src/data/repository.js). Schema versioning unified in `ventasv_schema_version` (current v5). Migrations: v1→v2 (AuthContext), v2→v3 (salesMigration.js items[]), v3→v4 (schemaMigrationV4.js entity envelope), v4→v5 (schemaMigrationV5.js Modes). All entities have UUID v4 IDs (newId from src/utils/ids.js) and sync envelope (accountId, deviceId, syncState, serverUpdatedAt).
 
-**Auth rules:**
+### Role System
+
+owner → co-admin → worker (positions: Cajero, Cocinero, Motorista, Camarero)
+
+### Auth Rules
+
 - PIN exactly 4 digits
 - deviceType: fixed = SelectWorker on shift close; personal = direct logout
 - Owner can view worker PINs but CANNOT enter their profiles
@@ -74,11 +105,11 @@ make update m='msg'    # OTA update to production
 ## Testing
 
 - Runner: jest-expo. Config in package.json `jest` field
-- Unit tests (`__tests__/unit/`): auth, businessConfig, cart, displayComponents, formComponents, posScreen, migration, pinEntry, pinKeypadModal, productPermissions, products, roleConfig, geoLogic, itemsLogic, salesMigration, saleDetailItems, salesListSummary, cookModalItems, ticketPrinter, ticketMessage, transferMessage, ids, entityEnvelope, schemaMigrationV4, qentasClient, requiresQentasLogic, upsellCardLogic, businessConfigQentasFields, modes/modeModel, modes/schemaMigrationV5, modes/repositoryModes, modes/modeManagementLogic, modes/modeResolution, modes/posModeFiltering, modes/orderBuilderPricing, modes/modeManagement, modes/modeScheduling, modes/modeEditorLogic, modes/modeAutoActivation, modes/modeProductEditorLogic, collapsibleHeader, iconCatalog, responsive, sales, selectWorker, setup, snackbar, tabs, theme, workers
+- Unit tests (`__tests__/unit/`): auth, businessConfig, cart, displayComponents, formComponents, posScreen, migration, pinEntry, pinKeypadModal, productPermissions, products, roleConfig, geoLogic, itemsLogic, salesMigration, saleDetailItems, salesListSummary, cookModalItems, ticketPrinter, ticketMessage, transferMessage, ids, entityEnvelope, schemaMigrationV4, qentasClient, requiresQentasLogic, upsellCardLogic, businessConfigQentasFields, modes/modeModel, modes/schemaMigrationV5, modes/repositoryModes, modes/modeManagementLogic, modes/modeResolution, modes/posModeFiltering, modes/orderBuilderPricing, modes/modeManagement, modes/modeScheduling, modes/modeAutoActivation, catalogActiveBanner, catalogColorPicker, collapsibleHeader, iconCatalog, permissions, responsive, sales, salesCsv, scheduledActivationNormalizer, shareShiftSummary, weekCalendarView, shiftSummary, selectWorker, setup, snackbar, tabs, theme, workers
 - Integration tests (`__tests__/integration/`): payment, orders
 - Mocks in `__mocks__/` for AsyncStorage, vector-icons, safe-area-context
 - Coverage threshold: 70% on branches, functions, lines, statements
-- **Rule: 760 tests (minimum), 0 failures before any merge. No exceptions.**
+- **Rule: 857 tests (minimum), 0 failures before any merge. No exceptions.**
 - **AAA Pattern (mandatory):** Every test must follow Arrange-Act-Assert. The Act step must call a real function imported from `src/`. Never reimplement logic in tests. Comments `// Arrange`, `// Act`, `// Assert` are required in every test block.
 
 ## Repository
@@ -140,21 +171,6 @@ docs/feature_retros/       ← retrospectives after each merge
 
 Architecture design docs are REQUIRED before starting any major feature. Feature retros are REQUIRED after every merge to develop. No exceptions. Retros are living documents — if a subsequent PR reveals a retro claimed something was fixed but wasn't, the retro must be corrected in that same PR.
 
-## Development Rules — No Exceptions
-
-- NEVER touch files directly on main
-- NEVER update React or native deps without full compatibility verification
-- Tests: 0 failures before any merge
-- Commits in English, format `type(scope): description`
-- UI always in Spanish, code in English
-- KeyboardAvoidingView on every screen with inputs
-- Pills/cards always adaptive to content (no fixed width)
-- No native Alert — always custom modals
-- Architecture design doc BEFORE major features
-- Feature retro AFTER merge
-- Always give Nestor complete, detailed steps for each PR
-- Tests: AAA pattern mandatory — Arrange (input), Act (call real function from src/), Assert (verify output). No exceptions.
-
 ## Process Rules — Learned from Retros
 
 - **Role changes require global grep**: Any PR that modifies role logic must include `grep -r "role ===" src/` output in the PR description to verify no orphaned role checks exist. (Source: PRs #13, #16 — `role === 'admin'` bug appeared twice)
@@ -168,7 +184,12 @@ Architecture design docs are REQUIRED before starting any major feature. Feature
 - **Release cadence**: Every 10 PRs merged to develop, open a release PR develop → main. The release PR carries no commits of its own — it only promotes the accumulated work. The next release after PR #74 will be at the PR #84 mark. (Source: PR #73 sync cycle)
 - **Polish phase patterns are mandatory project-wide**: Alert.alert is forbidden — use showNotif for informational messages, CenterModal for destructive confirmations. Dimensions.get('window') at module level is forbidden — use the useResponsive hook. Modal backdrops must use Pressable plus StyleSheet.absoluteFill, never TouchableOpacity as overlay. (Source: PRs #70, #72)
 - **Animation restrictions in ScrollView contexts**: Only transform and opacity may animate, always with useNativeDriver: true. Animating height, margin, or padding inside a ScrollView is forbidden. (Source: collapsibleHeader.js, PR #63)
-- **react-native-reanimated is blocked**: It requires full babel plugin config and native rebuild, incompatible with the current pinned setup. Do not propose it as a solution.
+- **Architect carry-over check**: Before passing a new instruction block to Claude Code, the architect must verify that all previously identified fixes from earlier discussions have been committed. If a block was prepared but Nestor pivoted to a new issue before executing it, include those pending fixes in the next block. Pending fixes never get silently dropped when focus shifts. (Source: PR #76 fourth refinement, missed carry-over of PinEntryScreen fix)
+- **Retros are written from reality, not from prediction**: Architect instructions describe what the executor should do and instruct the executor to write the retro at the end based on what actually happened during execution — including unexpected bugs, dependency issues, route changes, mid-flight decisions, things that worked first try vs things that needed iteration. Architect may suggest baseline structure and minimum points to cover; never dictate retro content verbatim. (Source: PR #76 process observation by Nestor)
+- **Skills orchestration rule**: The architect must follow the skills-mapping table in CLAUDE.md (Established Architecture Patterns → Skills mapping) and announce at the top of every instruction block: which skills were invoked, which were evaluated and discarded with reason, and which will be invoked pre-merge. Nestor can audit at any time with "¿qué skills usaste para esto?". Process, not goodwill. (Source: PR #78 architect process formalization)
+- **Design docs born from ADR include Alternatives Considered**: When a design doc is produced after invoking engineering:architecture, the document must include sections "Alternatives Considered" with the options evaluated (table of dimensions per option) and "Trade-off Analysis" with reasoning. The Problem/Solution/Changes/Rules/Verification format of the repo extends — it does not replace — the ADR rigor. Without these sections the ADR is wasted. (Source: PR #78 ADR-to-design-doc preservation)
+- **New restricted features must register their action in the permissions matrix**: When introducing a feature that should be restricted by role (financial data, configuration, employee management), the action must be added to `src/utils/permissions.js` with explicit role assignments, and the consuming screen must invoke `useCan(action)`. Adding a feature without registering its permission means defaulting to "everyone sees it" — the inverse of secure-by-default. (Source: PR #80 co-admin permissions matrix)
+- **Architect scope pre-flight check**: Before delivering an execution PR block to Claude Code, the architect must explicitly count: number of new files, number of existing files touched, number of architectural layers spanned. The count appears in the architect's response BEFORE the block. If any threshold from "Execution PRs must complete the scope they declare" is exceeded (>5 new files OR >8 existing files OR >3 layers), the block MUST be split BEFORE delivery. Three consecutive occurrences (PRs #82, #85, #86) confirmed this is an architect failure mode. (Source: PR #86 process formalization)
 
 ## UI Conventions
 
@@ -178,6 +199,8 @@ Architecture design docs are REQUIRED before starting any major feature. Feature
 - Timestamps as ISO strings
 - SVG icons via react-native-svg-transformer (metro.config.js)
 - Receipt printing via expo-print; ticket sharing via WhatsApp
+- KeyboardAvoidingView on every screen with inputs
+- Pills/cards always adaptive to content (no fixed width)
 
 ## Decision Filter
 
@@ -194,14 +217,13 @@ Before adding any feature, ask: **Does this help a business owner in El Salvador
 
 **Active priorities:**
 
-1. Release develop → main on PR #74 cycle, every 10 PRs thereafter
-2. ProfileScreen fixes — custom shift modal, compact summary, camera vs gallery
-3. Sales date picker + historical CSV export with full columns
-4. Verify static map + geo URI flow in SaleDetailScreen
-5. Onboarding — solo vs team → configure available tools → lazy loading
-6. Owner dashboard — live orders, daily sales, active team
-7. Cash register close — for fixed devices on shift change
-8. Role-specific screens — motorista (entregas), camarero (mesas)
+1. Sales date picker + historical CSV export with full columns
+2. Verify static map + geo URI flow in SaleDetailScreen
+3. Onboarding — solo vs team → configure available tools → lazy loading
+4. Owner dashboard — live orders, daily sales, active team
+5. Cash register close — for fixed devices on shift change
+6. Photo picker global migration — AddProductScreen, PaymentScreen, BusinessConfigScreen consume PhotoPickerSheet
+7. Role-specific screens — motorista (entregas), camarero (mesas)
 
 **Completed milestones:**
 
@@ -210,3 +232,7 @@ Before adding any feature, ask: **Does this help a business owner in El Salvador
 - ~~Foundation sync-ready: F1 UUIDs and entity envelope, F2 Qentas client stub with RequiresQentas and UpsellCard~~
 - ~~Modos de operación: foundation, cashier view respects active mode, owner management with scheduling~~
 - ~~Polish phase: POS collapsible header (PR #63), CartSheet extracted (PR #61), SimpleProductSheet extracted (PR #62), AddProduct responsive and redesign (PRs #64 #68), OrderBuilder responsive and redesign (PRs #69 #70), Icon catalog categories with unified IconColorPicker (PR #67), Header gap fix (PR #66), Global Alert.alert and Dimensions.get cleanup with BottomSheetModal backdrop fix (PRs #70 #72)~~
+- ~~ProfileScreen fixes: shift summary modal, compact band, unified photo picker, iOS photo bug fix, CSV export, owner avatar harmony (PR #76)~~
+- ~~Owner mode toggle: operativo vs administrativo with confirmation modal (PR #78)~~
+- ~~Co-admin permissions matrix: declarative can(worker, action) with useCan hook, restricted screens with defensive empty states (PR #80)~~
+- ~~Catalog system redesign: foundation model + scheduling (PR #83), UI components + CatalogDetailScreen (PR #84), shape consolidation + banner fix (PR #85), gestures + ModeEditor deletion (PR #86), active banner integration in POS/Orders/Sales + catalog switcher sheet (PR #87). Implements docs/architecture_design/catalog_system_redesign.md.~~

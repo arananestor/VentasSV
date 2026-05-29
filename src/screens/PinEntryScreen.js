@@ -59,8 +59,8 @@ export default function PinEntryScreen({ route, navigation }) {
         {worker.photo ? (
           <Image source={{ uri: worker.photo }} style={styles.photo} />
         ) : (
-          <View style={[styles.avatar, { backgroundColor: worker.color || theme.accent }]}>
-            <Text style={[styles.avatarText, { color: theme.accentText }]}>
+          <View style={[styles.avatar, { backgroundColor: worker.role === 'owner' ? theme.accent : (worker.color || '#1C1C1E') }]}>
+            <Text style={[styles.avatarText, { color: worker.role === 'owner' ? theme.accentText : '#fff' }]}>
               {worker.name.charAt(0).toUpperCase()}
             </Text>
           </View>

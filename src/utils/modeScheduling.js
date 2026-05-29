@@ -29,11 +29,11 @@ const evaluateSchedule = ({ modes = [], currentModeId, now }) => {
   return { action: 'none', targetModeId: null, scheduledEntryId: null };
 };
 
-const appendScheduledActivation = (mode, { startsAt, endsAt = null, previousModeId }) => ({
+const appendScheduledActivation = (mode, activation) => ({
   ...mode,
   scheduledActivations: [
     ...(mode.scheduledActivations || []),
-    { id: newId(), startsAt, endsAt, previousModeId, createdAt: new Date().toISOString() },
+    { ...activation, id: activation.id || newId(), modeId: mode.id, createdAt: activation.createdAt || new Date().toISOString() },
   ],
   updatedAt: new Date().toISOString(),
 });
@@ -55,4 +55,124 @@ const isScheduleValid = ({ startsAt, endsAt }) => {
   return true;
 };
 
-module.exports = { evaluateSchedule, appendScheduledActivation, removeScheduledActivation, isScheduleValid };
+/**
+ * Detects overlap between a new activation and existing ones.
+ * Supports cross-day (startTime > endTime means overnight).
+ * Returns array of { activationId, modeId, overlapDay, overlapStart, overlapEnd }.
+ */
+const detectScheduleOverlap = (newActivation, existingActivations) => {
+  if (!existingActivations || existingActivations.length === 0) return [];
+
+  const newRanges = expandToRanges(newActivation);
+  const overlaps = [];
+
+  existingActivations.forEach(existing => {
+    const existingRanges = expandToRanges(existing);
+    newRanges.forEach(nr => {
+      existingRanges.forEach(er => {
+        if (nr.day === er.day) {
+          const oStart = Math.max(nr.startMin, er.startMin);
+          const oEnd = Math.min(nr.endMin, er.endMin);
+          if (oStart < oEnd) {
+            overlaps.push({
+              activationId: existing.id,
+              modeId: existing.modeId,
+              overlapDay: nr.day,
+              overlapStart: minutesToTime(oStart),
+              overlapEnd: minutesToTime(oEnd),
+            });
+          }
+        }
+      });
+    });
+  });
+
+  return overlaps;
+};
+
+/**
+ * Determines which mode should be active at a given time.
+ * Priority: manualOverride > evento > recurrente > Principal.
+ */
+const getActiveModeAt = (now, modes, scheduledActivations, manualOverride) => {
+  if (manualOverride) return manualOverride;
+
+  const d = new Date(now);
+  const nowMin = d.getHours() * 60 + d.getMinutes();
+  const dayOfWeek = d.getDay(); // 0=Sun, local time
+  const dateStr = localDateString(d);
+
+  let eventoMatch = null;
+  let recurrenteMatch = null;
+
+  (scheduledActivations || []).forEach(act => {
+    const ranges = expandToRanges(act);
+    const isActive = ranges.some(r => r.day === dayOfWeek && nowMin >= r.startMin && nowMin < r.endMin);
+
+    if (!isActive) return;
+
+    if (act.type === 'evento' && act.date === dateStr) {
+      eventoMatch = act.modeId;
+    } else if (act.type === 'recurrente') {
+      recurrenteMatch = act.modeId;
+    }
+  });
+
+  if (eventoMatch) return eventoMatch;
+  if (recurrenteMatch) return recurrenteMatch;
+
+  const principal = modes.find(m => m.isDefault);
+  return principal ? principal.id : null;
+};
+
+// Internal helpers
+
+function expandToRanges(activation) {
+  const startMin = timeToMinutes(activation.startTime || '00:00');
+  const rawEndMin = timeToMinutes(activation.endTime || '23:59');
+  const crossDay = rawEndMin <= startMin;
+
+  if (activation.type === 'evento' && activation.date) {
+    const d = new Date(activation.date + 'T00:00:00'); // local time, no Z
+    const day = d.getDay();
+    if (crossDay) {
+      return [
+        { day, startMin, endMin: 24 * 60 },
+        { day: (day + 1) % 7, startMin: 0, endMin: rawEndMin },
+      ];
+    }
+    return [{ day, startMin, endMin: rawEndMin }];
+  }
+
+  if (activation.type === 'recurrente' && activation.days) {
+    if (crossDay) {
+      return activation.days.flatMap(day => [
+        { day, startMin, endMin: 24 * 60 },
+        { day: (day + 1) % 7, startMin: 0, endMin: rawEndMin },
+      ]);
+    }
+    return activation.days.map(day => ({ day, startMin, endMin: rawEndMin }));
+  }
+
+  return [];
+}
+
+function localDateString(d) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+function timeToMinutes(time) {
+  const [h, m] = (time || '00:00').split(':').map(Number);
+  return h * 60 + (m || 0);
+}
+
+function minutesToTime(minutes) {
+  const h = Math.floor(minutes / 60) % 24;
+  const m = minutes % 60;
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+}
+
+module.exports = {
+  evaluateSchedule, appendScheduledActivation, removeScheduledActivation, isScheduleValid,
+  detectScheduleOverlap, getActiveModeAt, expandToRanges,
+};

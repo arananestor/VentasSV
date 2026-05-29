@@ -10,23 +10,35 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { useAuth, PUESTOS, PUESTO_ICONS, generatePin } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
+import { useApp } from '../context/AppContext';
 import CenterModal from '../components/CenterModal';
 import ThemedTextInput from '../components/ThemedTextInput';
 import PinKeypadModal from '../components/PinKeypadModal';
+import CompactSummaryBand from '../components/CompactSummaryBand';
+import PhotoPickerSheet from '../components/PhotoPickerSheet';
+import ShiftSummaryModal from '../components/ShiftSummaryModal';
+import { computeShiftSummary } from '../utils/shiftSummary';
+import useCan from '../hooks/useCan';
 
 export default function ProfileScreen({ navigation }) {
   const {
-    currentWorker, workers, deviceType,
-    verifyOwnerPin, isAdmin, switchWorker,
+    currentWorker, workers, deviceType, shiftStartedAt,
+    verifyOwnerPin, isAdmin, switchWorker, setOwnerMode,
     addWorker, removeWorker, updateWorkerPhoto,
   } = useAuth();
   const { theme, isDark, toggleTheme } = useTheme();
+  const { sales, showNotif } = useApp();
 
   const iAmAdmin = isAdmin(currentWorker);
+  const canEditConfig = useCan('edit-business-config');
+  const canEditCatalogs = useCan('edit-catalogs');
+  const canViewCatalogs = useCan('view-catalogs');
 
   // Modales
   const [showProfileDetail, setShowProfileDetail] = useState(false);
   const [showSwitchModal, setShowSwitchModal]     = useState(false);
+  const [showModeModal, setShowModeModal]         = useState(false);
+  const [showPhotoPicker, setShowPhotoPicker]     = useState(false);
   const [showDeleteModal, setShowDeleteModal]     = useState(false);
   const [workerToDelete, setWorkerToDelete]       = useState(null);
 
@@ -73,19 +85,17 @@ export default function ProfileScreen({ navigation }) {
     setShowPuestoList(false); setAddError('');
   };
 
-  const handlePhotoPress = async () => {
-    const opts = { allowsEditing: true, aspect: [1, 1], quality: 0.6 };
-    if (Platform.OS === 'ios') {
-      const { ImagePickerAssets } = await ImagePicker.launchImageLibraryAsync(opts);
-    }
-    const result = await ImagePicker.launchImageLibraryAsync(opts);
+  const onPickFromCamera = async () => {
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== 'granted') { showNotif('Permiso de cámara denegado'); return; }
+    const result = await ImagePicker.launchCameraAsync({ allowsEditing: true, aspect: [1, 1], quality: 0.6 });
     if (!result.canceled) await updateWorkerPhoto(currentWorker.id, result.assets[0].uri);
   };
 
-  const handleCameraPress = async () => {
-    const { status } = await ImagePicker.requestCameraPermissionsAsync();
-    if (status !== 'granted') return;
-    const result = await ImagePicker.launchCameraAsync({ allowsEditing: true, aspect: [1,1], quality: 0.6 });
+  const onPickFromGallery = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') { showNotif('Permiso de galería denegado'); return; }
+    const result = await ImagePicker.launchImageLibraryAsync({ allowsEditing: true, aspect: [1, 1], quality: 0.6 });
     if (!result.canceled) await updateWorkerPhoto(currentWorker.id, result.assets[0].uri);
   };
 
@@ -110,6 +120,12 @@ export default function ProfileScreen({ navigation }) {
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
+
+        <CompactSummaryBand
+          shiftStartedAt={shiftStartedAt}
+          sales={sales}
+          currentWorker={currentWorker}
+        />
 
         {/* TARJETA DE PERFIL */}
         <View style={[styles.profileCard, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
@@ -138,21 +154,13 @@ export default function ProfileScreen({ navigation }) {
             </View>
           </TouchableOpacity>
 
-          {/* Botón cámara separado */}
-          <View style={styles.photoActions}>
-            <TouchableOpacity
-              style={[styles.photoBtn, { backgroundColor: theme.bg, borderColor: theme.cardBorder }]}
-              onPress={handleCameraPress}
-            >
-              <Feather name="camera" size={14} color={theme.textMuted} />
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.photoBtn, { backgroundColor: theme.bg, borderColor: theme.cardBorder }]}
-              onPress={handlePhotoPress}
-            >
-              <Feather name="image" size={14} color={theme.textMuted} />
-            </TouchableOpacity>
-          </View>
+          <TouchableOpacity
+            style={[styles.photoBtn, { backgroundColor: theme.bg, borderColor: theme.cardBorder }]}
+            onPress={() => setShowPhotoPicker(true)}
+          >
+            <Feather name="camera" size={13} color={theme.textMuted} />
+            <Text style={[styles.photoBtnLabel, { color: theme.textMuted }]}>Cambiar foto</Text>
+          </TouchableOpacity>
         </View>
 
         {/* OPCIONES */}
@@ -207,40 +215,71 @@ export default function ProfileScreen({ navigation }) {
           <View style={[styles.row, styles.rowLast, { backgroundColor: theme.card, borderColor: theme.cardBorder, opacity: 0 }]} />
         </View>
 
+        {/* MODO DE TRABAJO — solo owner */}
+        {currentWorker?.role === 'owner' && (
+          <View>
+            <Text style={[styles.sectionLabel, { color: theme.textMuted }]}>MODO DE TRABAJO</Text>
+            <View style={[styles.modeCard, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.modeValue, { color: theme.text }]}>
+                  {(currentWorker.ownerMode || 'operativo') === 'operativo' ? 'Operativo' : 'Administrativo'}
+                </Text>
+                <Text style={[styles.modeDesc, { color: theme.textMuted }]}>
+                  {(currentWorker.ownerMode || 'operativo') === 'operativo'
+                    ? 'Trabajás en el negocio: vendés, atendés y administrás.'
+                    : 'Administrás sin atender ventas.'}
+                </Text>
+              </View>
+              <TouchableOpacity
+                style={[styles.modeBtn, { borderColor: theme.cardBorder }]}
+                onPress={() => setShowModeModal(true)}
+              >
+                <Text style={[styles.modeBtnText, { color: theme.textSecondary }]}>
+                  {(currentWorker.ownerMode || 'operativo') === 'operativo'
+                    ? 'Cambiar a administrativo'
+                    : 'Cambiar a operativo'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+
         {/* SECCIÓN ADMIN */}
-        {iAmAdmin && (
+        {iAmAdmin && (canEditConfig || canViewCatalogs) && (
           <View>
             <Text style={[styles.sectionLabel, { color: theme.textMuted }]}>ADMINISTRACIÓN</Text>
 
             <View style={styles.group}>
-              <TouchableOpacity
-                style={[styles.row, styles.rowFirst, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}
-                onPress={() => navigation.navigate('BusinessConfig')}
-              >
-                <View style={[styles.rowIcon, { backgroundColor: isDark ? '#1C1C1E' : '#F0F0F0' }]}>
-                  <Feather name="settings" size={15} color={theme.text} />
-                </View>
-                <View style={styles.rowTexts}>
-                  <Text style={[styles.rowTitle, { color: theme.text }]}>Configuración de cobro</Text>
-                  <Text style={[styles.rowSub, { color: theme.textMuted }]}>Banco, WhatsApp para tickets</Text>
-                </View>
-                <Feather name="chevron-right" size={18} color={theme.textMuted} />
-              </TouchableOpacity>
-              {currentWorker?.role === 'owner' && (
+              {canEditConfig && (
                 <TouchableOpacity
-                  style={[styles.row, styles.rowLast, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}
-                  onPress={() => navigation.navigate('ManageModes')}
+                  style={[styles.row, styles.rowFirst, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}
+                  onPress={() => navigation.navigate('BusinessConfig')}
                 >
                   <View style={[styles.rowIcon, { backgroundColor: isDark ? '#1C1C1E' : '#F0F0F0' }]}>
-                    <Feather name="layers" size={15} color={theme.text} />
+                    <Feather name="settings" size={15} color={theme.text} />
                   </View>
                   <View style={styles.rowTexts}>
-                    <Text style={[styles.rowTitle, { color: theme.text }]}>Catálogos</Text>
-                    <Text style={[styles.rowSub, { color: theme.textMuted }]}>Crear, editar y programar catálogos</Text>
+                    <Text style={[styles.rowTitle, { color: theme.text }]}>Configuración de cobro</Text>
+                    <Text style={[styles.rowSub, { color: theme.textMuted }]}>Banco, WhatsApp para tickets</Text>
                   </View>
                   <Feather name="chevron-right" size={18} color={theme.textMuted} />
                 </TouchableOpacity>
               )}
+              <TouchableOpacity
+                style={[styles.row, canEditConfig ? styles.rowLast : [styles.rowFirst, styles.rowLast], { backgroundColor: theme.card, borderColor: theme.cardBorder }]}
+                onPress={() => navigation.navigate('ManageModes')}
+              >
+                <View style={[styles.rowIcon, { backgroundColor: isDark ? '#1C1C1E' : '#F0F0F0' }]}>
+                  <Feather name="layers" size={15} color={theme.text} />
+                </View>
+                <View style={styles.rowTexts}>
+                  <Text style={[styles.rowTitle, { color: theme.text }]}>Catálogos</Text>
+                  <Text style={[styles.rowSub, { color: theme.textMuted }]}>
+                    {canEditCatalogs ? 'Crear, editar y programar catálogos' : 'Consultar catálogos activos'}
+                  </Text>
+                </View>
+                <Feather name="chevron-right" size={18} color={theme.textMuted} />
+              </TouchableOpacity>
             </View>
 
             <Text style={[styles.sectionLabel, { color: theme.textMuted }]}>EQUIPO</Text>
@@ -293,43 +332,50 @@ export default function ProfileScreen({ navigation }) {
         </View>
       </CenterModal>
 
-      {/* ── MODAL: CAMBIAR TURNO / CERRAR SESIÓN ─────── */}
+      {/* ── MODAL: CAMBIAR MODO ─────────────────────── */}
       <CenterModal
-        visible={showSwitchModal}
-        onClose={() => setShowSwitchModal(false)}
+        visible={showModeModal}
+        onClose={() => setShowModeModal(false)}
       >
         <View style={{ alignItems: 'center' }}>
           <View style={[styles.confirmIconWrap, { backgroundColor: theme.bg }]}>
-            <Feather
-              name={deviceType === 'fixed' ? 'users' : 'log-out'}
-              size={24} color={theme.text}
-            />
+            <Feather name="refresh-cw" size={24} color={theme.text} />
           </View>
           <Text style={[styles.confirmTitle, { color: theme.text }]}>
-            {deviceType === 'fixed' ? 'CAMBIAR TURNO' : 'CERRAR SESIÓN'}
+            {(currentWorker?.ownerMode || 'operativo') === 'operativo'
+              ? 'MODO ADMINISTRATIVO'
+              : 'MODO OPERATIVO'}
           </Text>
           <Text style={[styles.confirmSub, { color: theme.textMuted }]}>
-            {deviceType === 'fixed'
-              ? `${currentWorker?.name} va a cerrar su turno.\nOtro empleado podrá entrar con su PIN.`
-              : `Vas a salir de tu turno.\n¿Seguro que querés continuar?`
-            }
+            {(currentWorker?.ownerMode || 'operativo') === 'operativo'
+              ? 'Vas a ocultar Venta y Comandas. Podés volver a operativo cuando quieras desde tu perfil.'
+              : 'Vas a habilitar Venta y Comandas. Podés volver a administrativo cuando quieras desde tu perfil.'}
           </Text>
           <TouchableOpacity
             style={[styles.confirmBtn, { backgroundColor: theme.accent }]}
-            onPress={handleSwitchConfirm}
+            onPress={() => {
+              const dest = (currentWorker?.ownerMode || 'operativo') === 'operativo' ? 'administrativo' : 'operativo';
+              setOwnerMode(dest);
+              setShowModeModal(false);
+            }}
           >
-            <Text style={[styles.confirmBtnText, { color: theme.accentText }]}>
-              {deviceType === 'fixed' ? 'CAMBIAR TURNO' : 'SALIR'}
-            </Text>
+            <Text style={[styles.confirmBtnText, { color: theme.accentText }]}>CAMBIAR</Text>
           </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.confirmCancel}
-            onPress={() => setShowSwitchModal(false)}
-          >
+          <TouchableOpacity style={styles.confirmCancel} onPress={() => setShowModeModal(false)}>
             <Text style={[styles.confirmCancelText, { color: theme.textMuted }]}>Cancelar</Text>
           </TouchableOpacity>
         </View>
       </CenterModal>
+
+      {/* ── MODAL: CAMBIAR TURNO / CERRAR SESIÓN ─────── */}
+      <ShiftSummaryModal
+        visible={showSwitchModal}
+        onClose={() => setShowSwitchModal(false)}
+        onConfirm={handleSwitchConfirm}
+        worker={currentWorker}
+        summary={computeShiftSummary({ shiftStartedAt, sales, workerId: currentWorker?.id })}
+        deviceType={deviceType}
+      />
 
       {/* ── MODAL: ELIMINAR EMPLEADO ──────────────────── */}
       <CenterModal
@@ -502,6 +548,13 @@ export default function ProfileScreen({ navigation }) {
         }}
       />
 
+      <PhotoPickerSheet
+        visible={showPhotoPicker}
+        onClose={() => setShowPhotoPicker(false)}
+        onPickFromCamera={onPickFromCamera}
+        onPickFromGallery={onPickFromGallery}
+      />
+
     </SafeAreaView>
   );
 }
@@ -528,8 +581,11 @@ const styles = StyleSheet.create({
   profileName:       { fontSize: 16, fontWeight: '800' },
   puestoBadge:       { flexDirection: 'row', alignItems: 'center', gap: 5, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3, marginTop: 5, alignSelf: 'flex-start' },
   puestoText:        { fontSize: 9, fontWeight: '800', letterSpacing: 2 },
-  photoActions:      { flexDirection: 'row', gap: 6 },
-  photoBtn:          { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center', borderWidth: 1 },
+  photoBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    paddingHorizontal: 12, paddingVertical: 8, borderRadius: 12, borderWidth: 1,
+  },
+  photoBtnLabel: { fontSize: 11, fontWeight: '600' },
 
   // Grupos
   group:    { marginTop: 12 },
@@ -545,6 +601,14 @@ const styles = StyleSheet.create({
   rowSub:   { fontSize: 12, fontWeight: '500', marginTop: 1 },
 
   sectionLabel: { fontSize: 10, fontWeight: '800', letterSpacing: 3, marginTop: 24, marginBottom: 8 },
+  modeCard: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    borderRadius: 16, padding: 16, borderWidth: 1, marginBottom: 8,
+  },
+  modeValue: { fontSize: 18, fontWeight: '900', marginBottom: 4 },
+  modeDesc: { fontSize: 12, fontWeight: '500', lineHeight: 18 },
+  modeBtn: { borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10, borderWidth: 1 },
+  modeBtnText: { fontSize: 11, fontWeight: '700', textAlign: 'center' },
 
   // Worker cards
   workerCard:    { borderWidth: 1, padding: 14, marginTop: -1 },

@@ -22,6 +22,7 @@ export function AuthProvider({ children }) {
   const [isSetup, setIsSetup]             = useState(null);
   const [workers, setWorkers]             = useState([]);
   const [currentWorker, setCurrentWorker] = useState(null);
+  const [shiftStartedAt, setShiftStartedAt] = useState(null);
   const [deviceType, setDeviceType]       = useState(null); // 'fixed' | 'personal'
 
   useEffect(() => { loadAuth(); }, []);
@@ -59,6 +60,7 @@ export function AuthProvider({ children }) {
       dui: '',
       photo: null,
       color: '#1C1C1E',
+      ownerMode: 'operativo',
       createdAt: new Date().toISOString(),
     };
     const newWorkers = [owner];
@@ -71,12 +73,16 @@ export function AuthProvider({ children }) {
 
   const loginWithPin = (pin, workerId) => {
     const worker = workers.find(w => w.id === workerId && w.pin === pin);
-    if (worker) { setCurrentWorker(worker); return worker; }
+    if (worker) {
+      setCurrentWorker(worker);
+      setShiftStartedAt(new Date().toISOString());
+      return worker;
+    }
     return null;
   };
 
-  const logout       = () => setCurrentWorker(null);
-  const switchWorker = () => setCurrentWorker(null);
+  const logout       = () => { setCurrentWorker(null); setShiftStartedAt(null); };
+  const switchWorker = () => { setCurrentWorker(null); setShiftStartedAt(null); };
 
   const verifyOwnerPin = (pin) => {
     const owner = workers.find(w => w.role === 'owner');
@@ -140,11 +146,20 @@ export function AuthProvider({ children }) {
     return { success: true };
   };
 
+  const setOwnerMode = async (mode) => {
+    if (!currentWorker || currentWorker.role !== 'owner') return;
+    if (mode !== 'operativo' && mode !== 'administrativo') return;
+    const newWorkers = workers.map(w => w.id === currentWorker.id ? { ...w, ownerMode: mode } : w);
+    setWorkers(newWorkers);
+    await repository.save('workers', newWorkers);
+    setCurrentWorker(prev => ({ ...prev, ownerMode: mode }));
+  };
+
   return (
     <AuthContext.Provider value={{
-      isSetup, currentWorker, workers, deviceType,
+      isSetup, currentWorker, workers, deviceType, shiftStartedAt,
       setupOwner, loginWithPin, logout, switchWorker,
-      verifyOwnerPin, isAdmin,
+      verifyOwnerPin, isAdmin, setOwnerMode,
       addWorker, removeWorker, resetWorkerPin, updateWorkerPhoto,
     }}>
       {children}
