@@ -1,6 +1,5 @@
 import React from 'react';
 import { View, TextInput, TouchableOpacity, Text, StyleSheet } from 'react-native';
-import { Feather } from '@expo/vector-icons';
 import { useTheme } from '../context/ThemeContext';
 
 export function convertTo24h(hourStr, minuteStr, isPM) {
@@ -58,7 +57,6 @@ export default function TimeInputAmPm({ label, hour, minute, isPM, onChangeHour,
           onPress={() => onChangeAmPm(!isPM)}
         >
           <Text style={[styles.toggleText, { color: theme.text }]}>{isPM ? 'PM' : 'AM'}</Text>
-          <Feather name="repeat" size={12} color={theme.textMuted} />
         </TouchableOpacity>
       </View>
     </View>
@@ -71,6 +69,6 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   input: { width: 48, borderWidth: 1, borderRadius: 10, paddingHorizontal: 10, paddingVertical: 10, fontSize: 16, fontWeight: '700', textAlign: 'center' },
   colon: { fontSize: 18, fontWeight: '900' },
-  toggle: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 12, paddingVertical: 10, borderRadius: 10, borderWidth: 1 },
+  toggle: { paddingHorizontal: 10, paddingVertical: 10, borderRadius: 10, borderWidth: 1, alignItems: 'center' },
   toggleText: { fontSize: 13, fontWeight: '700' },
 });
