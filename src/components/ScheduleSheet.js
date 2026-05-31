@@ -6,6 +6,7 @@ import CenterModal from './CenterModal';
 import DayChipsSelector from './DayChipsSelector';
 import WeekCalendarView from './WeekCalendarView';
 import TimeInputAmPm, { convertTo24h, isValidTime12 } from './TimeInputAmPm';
+
 import { detectScheduleOverlap } from '../utils/modeScheduling';
 
 const DATE_LATAM_RE = /^\d{2}-\d{2}-\d{4}$/;
@@ -27,9 +28,11 @@ export default function ScheduleSheet({ visible, onClose, modeId, existingActiva
   const [type, setType] = useState('recurrente');
   const [date, setDate] = useState('');
   const [days, setDays] = useState([]);
-  const [startTime, setStartTime] = useState('');
+  const [startHour, setStartHour] = useState('');
+  const [startMin, setStartMin] = useState('');
   const [startPM, setStartPM] = useState(false);
-  const [endTime, setEndTime] = useState('');
+  const [endHour, setEndHour] = useState('');
+  const [endMin, setEndMin] = useState('');
   const [endPM, setEndPM] = useState(false);
   const [showConflict, setShowConflict] = useState(null);
   const [saveError, setSaveError] = useState('');
@@ -38,8 +41,8 @@ export default function ScheduleSheet({ visible, onClose, modeId, existingActiva
   const clearError = () => setSaveError('');
 
   const buildActivation = () => {
-    const st = convertTo24h(startTime, startPM);
-    const et = convertTo24h(endTime, endPM);
+    const st = convertTo24h(startHour, startMin, startPM);
+    const et = convertTo24h(endHour, endMin, endPM);
     return {
       type,
       modeId,
@@ -50,7 +53,7 @@ export default function ScheduleSheet({ visible, onClose, modeId, existingActiva
   };
 
   const isPreviewValid = () => {
-    if (!isValidTime12(startTime) || !isValidTime12(endTime)) return false;
+    if (!isValidTime12(startHour, startMin) || !isValidTime12(endHour, endMin)) return false;
     if (type === 'evento') {
       if (!DATE_LATAM_RE.test(date)) return false;
       const iso = latamToIso(date);
@@ -66,8 +69,8 @@ export default function ScheduleSheet({ visible, onClose, modeId, existingActiva
         return;
       }
     }
-    if (!isValidTime12(startTime)) { setSaveError('Hora de inicio inválida. Usá hora entre 1 y 12.'); return; }
-    if (!isValidTime12(endTime)) { setSaveError('Hora de fin inválida. Usá hora entre 1 y 12.'); return; }
+    if (!isValidTime12(startHour, startMin)) { setSaveError('Hora de inicio inválida. Usá hora 1-12 y minutos 0-59.'); return; }
+    if (!isValidTime12(endHour, endMin)) { setSaveError('Hora de fin inválida. Usá hora 1-12 y minutos 0-59.'); return; }
     if (type === 'recurrente' && days.length === 0) { setSaveError('Seleccioná al menos un día'); return; }
 
     const newAct = buildActivation();
@@ -90,7 +93,8 @@ export default function ScheduleSheet({ visible, onClose, modeId, existingActiva
 
   const resetAndClose = () => {
     setType('recurrente'); setDate(''); setDays([]);
-    setStartTime(''); setStartPM(false); setEndTime(''); setEndPM(false);
+    setStartHour(''); setStartMin(''); setStartPM(false);
+    setEndHour(''); setEndMin(''); setEndPM(false);
     setShowConflict(null); setSaveError('');
     onClose();
   };
@@ -146,18 +150,22 @@ export default function ScheduleSheet({ visible, onClose, modeId, existingActiva
               <View style={{ flex: 1 }}>
                 <TimeInputAmPm
                   label="HORA INICIO"
-                  value={startTime}
+                  hour={startHour}
+                  minute={startMin}
                   isPM={startPM}
-                  onChangeTime={v => { setStartTime(v); clearError(); }}
+                  onChangeHour={v => { setStartHour(v); clearError(); }}
+                  onChangeMinute={v => { setStartMin(v); clearError(); }}
                   onChangeAmPm={setStartPM}
                 />
               </View>
               <View style={{ flex: 1 }}>
                 <TimeInputAmPm
                   label="HORA FIN"
-                  value={endTime}
+                  hour={endHour}
+                  minute={endMin}
                   isPM={endPM}
-                  onChangeTime={v => { setEndTime(v); clearError(); }}
+                  onChangeHour={v => { setEndHour(v); clearError(); }}
+                  onChangeMinute={v => { setEndMin(v); clearError(); }}
                   onChangeAmPm={setEndPM}
                 />
               </View>

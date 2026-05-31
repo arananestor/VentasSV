@@ -36,8 +36,7 @@ function SwipeableCatalogCard({ children, canSwipe, canDelete, onSwipeRight, onS
     onPanResponderRelease: (_, gs) => {
       isSwiping.current = false;
       if (gs.dx > threshold && onSwipeRight) {
-        Animated.timing(translateX, { toValue: screenWidth, duration: 200, useNativeDriver: true }).start(() => {
-          translateX.setValue(0);
+        Animated.spring(translateX, { toValue: 0, useNativeDriver: true, tension: 120, friction: 10 }).start(() => {
           onSwipeRight();
         });
       } else if (gs.dx < -threshold && canDelete && onSwipeLeft) {

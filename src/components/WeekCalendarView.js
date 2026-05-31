@@ -21,7 +21,7 @@ export function computeBandPositions(activations, modes, colWidth, hourHeight) {
   activations.forEach(act => {
     const mode = modeMap[act.modeId];
     const modeIdx = modes.findIndex(m => m.id === act.modeId);
-    const color = (mode?.color) || CATALOG_COLORS[modeIdx % CATALOG_COLORS.length] || '#4361EE';
+    const color = (mode?.color && mode.color !== '') ? mode.color : (CATALOG_COLORS[modeIdx >= 0 ? modeIdx % CATALOG_COLORS.length : 0] || '#4361EE');
     const label = mode?.name || '';
 
     const ranges = expandToRanges(act);

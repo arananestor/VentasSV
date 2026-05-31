@@ -1,38 +1,30 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { View, TextInput, TouchableOpacity, Text, StyleSheet } from 'react-native';
 import { useTheme } from '../context/ThemeContext';
 
-export function convertTo24h(timeStr, isPM) {
-  if (!timeStr) return '';
-  const [hStr, mStr] = timeStr.split(':');
-  let h = parseInt(hStr, 10);
-  const m = parseInt(mStr || '0', 10);
+export function convertTo24h(hourStr, minuteStr, isPM) {
+  let h = parseInt(hourStr, 10);
+  const m = parseInt(minuteStr || '0', 10);
   if (isNaN(h) || h < 1 || h > 12 || isNaN(m) || m < 0 || m > 59) return '';
   if (isPM && h !== 12) h += 12;
   if (!isPM && h === 12) h = 0;
   return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
 }
 
-export function formatTimeInput(raw) {
-  const digits = raw.replace(/\D/g, '').slice(0, 4);
-  if (digits.length <= 2) return digits;
-  return digits.slice(0, 2) + ':' + digits.slice(2);
+export function isValidTime12(hourStr, minuteStr) {
+  const h = parseInt(hourStr, 10);
+  const m = parseInt(minuteStr || '0', 10);
+  return !isNaN(h) && h >= 1 && h <= 12 && !isNaN(m) && m >= 0 && m <= 59;
 }
 
-export function isValidTime12(str) {
-  if (!str) return false;
-  const [hStr, mStr] = str.split(':');
-  const h = parseInt(hStr, 10);
-  const m = parseInt(mStr || '0', 10);
-  return h >= 1 && h <= 12 && m >= 0 && m <= 59;
+export function padMinutes(raw) {
+  if (!raw) return '';
+  const digits = raw.replace(/\D/g, '').slice(0, 2);
+  return digits;
 }
 
-export default function TimeInputAmPm({ label, value, isPM, onChangeTime, onChangeAmPm }) {
+export default function TimeInputAmPm({ label, hour, minute, isPM, onChangeHour, onChangeMinute, onChangeAmPm }) {
   const { theme } = useTheme();
-
-  const handleText = (raw) => {
-    onChangeTime(formatTimeInput(raw));
-  };
 
   return (
     <View style={styles.container}>
@@ -40,12 +32,25 @@ export default function TimeInputAmPm({ label, value, isPM, onChangeTime, onChan
       <View style={styles.row}>
         <TextInput
           style={[styles.input, { color: theme.text, borderColor: theme.cardBorder, backgroundColor: theme.bg }]}
-          placeholder="07:00"
+          placeholder="07"
           placeholderTextColor={theme.textMuted}
           keyboardType="number-pad"
-          maxLength={5}
-          value={value}
-          onChangeText={handleText}
+          maxLength={2}
+          value={hour}
+          onChangeText={v => onChangeHour(v.replace(/\D/g, '').slice(0, 2))}
+        />
+        <Text style={[styles.colon, { color: theme.text }]}>:</Text>
+        <TextInput
+          style={[styles.input, { color: theme.text, borderColor: theme.cardBorder, backgroundColor: theme.bg }]}
+          placeholder="30"
+          placeholderTextColor={theme.textMuted}
+          keyboardType="number-pad"
+          maxLength={2}
+          value={minute}
+          onChangeText={v => onChangeMinute(v.replace(/\D/g, '').slice(0, 2))}
+          onBlur={() => {
+            if (minute && minute.length === 1) onChangeMinute(minute.padStart(2, '0'));
+          }}
         />
         <TouchableOpacity
           style={[styles.chip, { backgroundColor: !isPM ? theme.accent : theme.bg, borderColor: !isPM ? theme.accent : theme.cardBorder }]}
@@ -67,8 +72,9 @@ export default function TimeInputAmPm({ label, value, isPM, onChangeTime, onChan
 const styles = StyleSheet.create({
   container: { marginBottom: 16 },
   label: { fontSize: 10, fontWeight: '800', letterSpacing: 2, marginBottom: 6 },
-  row: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  input: { flex: 1, borderWidth: 1, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, fontSize: 15, fontWeight: '600' },
-  chip: { paddingHorizontal: 14, paddingVertical: 10, borderRadius: 10, borderWidth: 1 },
-  chipText: { fontSize: 13, fontWeight: '700' },
+  row: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  input: { width: 48, borderWidth: 1, borderRadius: 10, paddingHorizontal: 10, paddingVertical: 10, fontSize: 16, fontWeight: '700', textAlign: 'center' },
+  colon: { fontSize: 18, fontWeight: '900' },
+  chip: { paddingHorizontal: 12, paddingVertical: 10, borderRadius: 10, borderWidth: 1 },
+  chipText: { fontSize: 12, fontWeight: '700' },
 });
