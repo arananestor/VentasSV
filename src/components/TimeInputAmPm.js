@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, TextInput, TouchableOpacity, Text, StyleSheet } from 'react-native';
+import { Feather } from '@expo/vector-icons';
 import { useTheme } from '../context/ThemeContext';
 
 export function convertTo24h(hourStr, minuteStr, isPM) {
@@ -53,16 +54,11 @@ export default function TimeInputAmPm({ label, hour, minute, isPM, onChangeHour,
           }}
         />
         <TouchableOpacity
-          style={[styles.chip, { backgroundColor: !isPM ? theme.accent : theme.bg, borderColor: !isPM ? theme.accent : theme.cardBorder }]}
-          onPress={() => onChangeAmPm(false)}
+          style={[styles.toggle, { borderColor: theme.cardBorder, backgroundColor: theme.bg }]}
+          onPress={() => onChangeAmPm(!isPM)}
         >
-          <Text style={[styles.chipText, { color: !isPM ? theme.accentText : theme.textMuted }]}>AM</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.chip, { backgroundColor: isPM ? theme.accent : theme.bg, borderColor: isPM ? theme.accent : theme.cardBorder }]}
-          onPress={() => onChangeAmPm(true)}
-        >
-          <Text style={[styles.chipText, { color: isPM ? theme.accentText : theme.textMuted }]}>PM</Text>
+          <Text style={[styles.toggleText, { color: theme.text }]}>{isPM ? 'PM' : 'AM'}</Text>
+          <Feather name="repeat" size={12} color={theme.textMuted} />
         </TouchableOpacity>
       </View>
     </View>
@@ -75,6 +71,6 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   input: { width: 48, borderWidth: 1, borderRadius: 10, paddingHorizontal: 10, paddingVertical: 10, fontSize: 16, fontWeight: '700', textAlign: 'center' },
   colon: { fontSize: 18, fontWeight: '900' },
-  chip: { paddingHorizontal: 12, paddingVertical: 10, borderRadius: 10, borderWidth: 1 },
-  chipText: { fontSize: 12, fontWeight: '700' },
+  toggle: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 12, paddingVertical: 10, borderRadius: 10, borderWidth: 1 },
+  toggleText: { fontSize: 13, fontWeight: '700' },
 });
