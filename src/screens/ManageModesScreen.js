@@ -36,8 +36,7 @@ function SwipeableCatalogCard({ children, canSwipe, canDelete, onSwipeRight, onS
     onPanResponderRelease: (_, gs) => {
       isSwiping.current = false;
       if (gs.dx > threshold && onSwipeRight) {
-        Animated.timing(translateX, { toValue: screenWidth, duration: 200, useNativeDriver: true }).start(() => {
-          translateX.setValue(0);
+        Animated.spring(translateX, { toValue: 0, useNativeDriver: true, tension: 120, friction: 10 }).start(() => {
           onSwipeRight();
         });
       } else if (gs.dx < -threshold && canDelete && onSwipeLeft) {
@@ -47,6 +46,10 @@ function SwipeableCatalogCard({ children, canSwipe, canDelete, onSwipeRight, onS
         });
       } else {
         Animated.spring(translateX, { toValue: 0, useNativeDriver: true, tension: 120, friction: 10 }).start();
+        // Small movement that PanResponder captured — treat as tap if no long press
+        if (Math.abs(gs.dx) < 30 && !didLongPress.current && onTap) {
+          onTap();
+        }
       }
     },
   })).current;
@@ -67,16 +70,27 @@ function SwipeableCatalogCard({ children, canSwipe, canDelete, onSwipeRight, onS
     if (!didLongPress.current && !isSwiping.current && onTap) onTap();
   };
 
+  const revealRightOpacity = translateX.interpolate({
+    inputRange: [0, threshold],
+    outputRange: [0, 1],
+    extrapolate: 'clamp',
+  });
+  const revealLeftOpacity = translateX.interpolate({
+    inputRange: [-threshold, 0],
+    outputRange: [1, 0],
+    extrapolate: 'clamp',
+  });
+
   return (
     <View style={styles.swipeContainer}>
       {/* Reveal backgrounds */}
-      <View style={[styles.revealBg, styles.revealRight, { backgroundColor: '#2B9348' }]}>
+      <Animated.View style={[styles.revealBg, styles.revealRight, { backgroundColor: '#2B9348', opacity: revealRightOpacity }]}>
         <Feather name="copy" size={22} color="#fff" />
-      </View>
+      </Animated.View>
       {canDelete && (
-        <View style={[styles.revealBg, styles.revealLeft, { backgroundColor: '#D62828' }]}>
+        <Animated.View style={[styles.revealBg, styles.revealLeft, { backgroundColor: '#D62828', opacity: revealLeftOpacity }]}>
           <Feather name="trash-2" size={22} color="#fff" />
-        </View>
+        </Animated.View>
       )}
       {/* Card */}
       <Animated.View
@@ -144,8 +158,7 @@ export default function ManageModesScreen({ navigation }) {
   const handleClone = async (modeId) => {
     const source = modes.find(m => m.id === modeId);
     if (!source) return;
-    const { generateCatalogName } = require('../utils/funNames');
-    await cloneMode(modeId, generateCatalogName());
+    await cloneMode(modeId, `Copia de ${source.name}`);
     showNotif(`Catálogo duplicado como Copia de ${source.name}`);
   };
 
@@ -265,7 +278,7 @@ export default function ManageModesScreen({ navigation }) {
       </ScrollView>
 
       <CenterModal visible={showCreate} onClose={() => { setShowCreate(false); setCreateError(''); }} title="NUEVO CATÁLOGO">
-        <ThemedTextInput label="NOMBRE" value={newName} onChangeText={setNewName} placeholder="Ej: Festival del mango" autoFocus error={createError} />
+        <ThemedTextInput label="NOMBRE" value={newName} onChangeText={setNewName} placeholder="Ej: Festival del mango" autoFocus selectTextOnFocus error={createError} />
         <ThemedTextInput label="DESCRIPCIÓN" value={newDesc} onChangeText={setNewDesc} placeholder="Opcional" />
         <View style={{ marginTop: 16 }}>
           <PrimaryButton label="CREAR" onPress={handleCreate} />
@@ -302,6 +315,7 @@ export default function ManageModesScreen({ navigation }) {
           </TouchableOpacity>
         </View>
       </CenterModal>
+
     </SafeAreaView>
   );
 }

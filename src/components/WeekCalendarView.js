@@ -4,6 +4,7 @@ import Svg, { Rect, Text as SvgText, Line } from 'react-native-svg';
 import { useTheme } from '../context/ThemeContext';
 import useResponsive from '../hooks/useResponsive';
 import { expandToRanges } from '../utils/modeScheduling';
+import { CATALOG_COLORS } from './CatalogColorPicker';
 
 const DAY_LABELS = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
 const START_HOUR = 6;
@@ -19,7 +20,8 @@ export function computeBandPositions(activations, modes, colWidth, hourHeight) {
 
   activations.forEach(act => {
     const mode = modeMap[act.modeId];
-    const color = mode?.color || '#4361EE';
+    const modeIdx = modes.findIndex(m => m.id === act.modeId);
+    const color = (mode?.color && mode.color !== '') ? mode.color : (CATALOG_COLORS[modeIdx >= 0 ? modeIdx % CATALOG_COLORS.length : 0] || '#4361EE');
     const label = mode?.name || '';
 
     const ranges = expandToRanges(act);
@@ -80,10 +82,11 @@ export default function WeekCalendarView({ scheduledActivations = [], modes = []
         {/* Bands */}
         {bands.map((b, i) => (
           <React.Fragment key={i}>
-            <Rect x={b.x + 1} y={b.y} width={b.width - 2} height={Math.max(b.height, 2)}
-              rx={3} fill={b.color} opacity={0.85} />
-            {b.height > 30 && (
-              <SvgText x={b.x + 4} y={b.y + 12} fontSize={8} fontWeight="600" fill="#fff">
+            <Rect x={b.x + 2} y={b.y} width={b.width - 4} height={Math.max(b.height, 2)}
+              rx={5} fill={b.color} opacity={0.85}
+              stroke={b.color} strokeWidth={1} strokeOpacity={1} />
+            {b.height > 24 && (
+              <SvgText x={b.x + 5} y={b.y + 11} fontSize={8} fontWeight="600" fill="#fff">
                 {b.label.length > 8 ? b.label.slice(0, 8) + '…' : b.label}
               </SvgText>
             )}
