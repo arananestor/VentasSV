@@ -414,8 +414,11 @@ export default function CatalogDetailScreen({ route, navigation }) {
             setConflictModal(null);
             showNotif(`${w?.name || 'Empleado'} no asignada para evitar conflicto.`);
           } else if (action === 'remove-from-existing') {
-            // Add to current + remove from other
-            await updateMode(modeId, { assignedWorkerIds: [...assignedWorkerIds, recentWorkerId] });
+            // Persist worker in current catalog (simulation didn't save)
+            const currentMode = modes.find(m => m.id === modeId);
+            const currentWorkerIds = currentMode?.assignedWorkerIds || [];
+            await updateMode(modeId, { assignedWorkerIds: [...currentWorkerIds, recentWorkerId] });
+            // Remove worker from the other catalog
             const otherMode = modes.find(m => m.id === otherModeId);
             if (otherMode) {
               await updateMode(otherModeId, {
