@@ -131,7 +131,7 @@ export default function CatalogDetailScreen({ route, navigation }) {
   // ── Render tabs ──
   const renderDetalles = () => (
     <View style={styles.tabContent}>
-      <ThemedTextInput label="NOMBRE" value={name} onChangeText={setName} placeholder="Nombre del catálogo" />
+      <ThemedTextInput label="NOMBRE" value={name} onChangeText={setName} placeholder="Nombre del catálogo" selectTextOnFocus />
       <ThemedTextInput label="DESCRIPCIÓN" value={desc} onChangeText={setDesc} placeholder="Opcional" />
       <View style={styles.badges}>
         {mode.isDefault && <View style={[styles.badge, { backgroundColor: theme.accent }]}><Text style={[styles.badgeText, { color: theme.accentText }]}>PRINCIPAL</Text></View>}

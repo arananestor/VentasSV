@@ -37,3 +37,13 @@ Cinco fixes UX del testing en device del rediseño de catálogos. Reveal backgro
 **Fix 3 (dos campos HH:MM):** TimeInputAmPm reescrito con dos TextInput separados (HH y MM) + separador ":" visual + chips AM/PM. Antes era un solo campo con auto-formatting "07:00" — ambiguo sobre dónde terminaba la hora y empezaban los minutos. Con dos campos de maxLength=2 cada uno, el usuario ve claramente que puede poner cualquier minuto. Auto-pad: "5" al salir del campo MM → "05". convertTo24h ahora recibe (hourStr, minuteStr, isPM) en lugar de (timeStr, isPM). ScheduleSheet actualizado: 6 states (startHour, startMin, startPM, endHour, endMin, endPM) en lugar de 4.
 
 **Diferido a PR arquitectónico futuro:** La lógica de un empleado que no puede estar asignado a dos catálogos en la misma franja horaria. Requiere un verificador cross-mode que valide assignedWorkerIds vs scheduledActivations de todos los modes — scope de diseño, no de UX polish.
+
+## Quinto commit — tap edit confirm, clone reform, selectTextOnFocus
+
+**Fix 1 (tap navega a CatalogDetail):** El tap en la card no navegaba porque PanResponder capturaba movimientos pequeños (>10px horizontal) antes de que TouchableWithoutFeedback recibiera el onPress. Fix: en onPanResponderRelease, si gs.dx < 30 y no hubo long press, ejecutar onTap directamente. Adicionalmente, se agregó modal de confirmación "¿EDITAR CATÁLOGO?" antes de navegar — consistente con el patrón de modales para acciones que cambian contexto.
+
+**Fix 2 (save persistence):** Verificación de los 4 tabs: Detalles (updateMode con name/desc/color), Productos (updateMode con productOverrides), Equipo (updateMode con assignedWorkerIds), Horario (updateMode con scheduledActivations). Todos persisten correctamente vía AppContext.
+
+**Fix 3 (clone reform):** cloneMode en AppContext ahora copia assignedWorkerIds y color del source. NO copia scheduledActivations — el duplicado nace sin horarios para evitar cruce inmediato con el original. El nombre del duplicado cambió de random (generateCatalogName) a "Copia de {nombre}" para reflejar el origen.
+
+**Fix 4 (selectTextOnFocus):** ThemedTextInput ahora acepta y propaga selectTextOnFocus al TextInput nativo. Aplicado en: ManageModesScreen modal crear catálogo, CatalogDetailScreen tab Detalles. Al tocar el input, todo el texto queda seleccionado → escribir un carácter reemplaza todo.

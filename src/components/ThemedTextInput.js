@@ -5,7 +5,7 @@ import { useTheme } from '../context/ThemeContext';
 export default function ThemedTextInput({
   label, value, onChangeText, placeholder, error,
   prefix, keyboardType, maxLength, autoFocus, secureTextEntry,
-  autoCapitalize, multiline, style,
+  autoCapitalize, multiline, style, selectTextOnFocus,
 }) {
   const { theme } = useTheme();
 
@@ -34,6 +34,7 @@ export default function ThemedTextInput({
           secureTextEntry={secureTextEntry}
           autoCapitalize={autoCapitalize}
           multiline={multiline}
+          selectTextOnFocus={selectTextOnFocus}
         />
       </View>
       {error ? (

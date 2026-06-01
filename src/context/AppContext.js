@@ -237,6 +237,8 @@ export function AppProvider({ children }) {
       description: source.description,
       productOverrides: overrides,
       tabOrder: [...source.tabOrder],
+      assignedWorkerIds: [...(source.assignedWorkerIds || [])],
+      color: source.color || '',
       isDefault: false,
     });
     const enveloped = await repository.upsert('modes', cloned);

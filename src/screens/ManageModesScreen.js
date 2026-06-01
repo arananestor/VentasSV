@@ -46,6 +46,10 @@ function SwipeableCatalogCard({ children, canSwipe, canDelete, onSwipeRight, onS
         });
       } else {
         Animated.spring(translateX, { toValue: 0, useNativeDriver: true, tension: 120, friction: 10 }).start();
+        // Small movement that PanResponder captured — treat as tap if no long press
+        if (Math.abs(gs.dx) < 30 && !didLongPress.current && onTap) {
+          onTap();
+        }
       }
     },
   })).current;
@@ -154,8 +158,7 @@ export default function ManageModesScreen({ navigation }) {
   const handleClone = async (modeId) => {
     const source = modes.find(m => m.id === modeId);
     if (!source) return;
-    const { generateCatalogName } = require('../utils/funNames');
-    await cloneMode(modeId, generateCatalogName());
+    await cloneMode(modeId, `Copia de ${source.name}`);
     showNotif(`Catálogo duplicado como Copia de ${source.name}`);
   };
 
@@ -197,7 +200,7 @@ export default function ManageModesScreen({ navigation }) {
                   else { setShowConfirm({ type: 'activate', modeId: mode.id, name: mode.name }); }
                 }
               }}
-              onTap={() => navigation.navigate('CatalogDetail', { modeId: mode.id })}
+              onTap={() => setShowConfirm({ type: 'edit', modeId: mode.id, name: mode.name })}
               screenWidth={screenWidth}
               theme={theme}
             >
@@ -275,7 +278,7 @@ export default function ManageModesScreen({ navigation }) {
       </ScrollView>
 
       <CenterModal visible={showCreate} onClose={() => { setShowCreate(false); setCreateError(''); }} title="NUEVO CATÁLOGO">
-        <ThemedTextInput label="NOMBRE" value={newName} onChangeText={setNewName} placeholder="Ej: Festival del mango" autoFocus error={createError} />
+        <ThemedTextInput label="NOMBRE" value={newName} onChangeText={setNewName} placeholder="Ej: Festival del mango" autoFocus selectTextOnFocus error={createError} />
         <ThemedTextInput label="DESCRIPCIÓN" value={newDesc} onChangeText={setNewDesc} placeholder="Opcional" />
         <View style={{ marginTop: 16 }}>
           <PrimaryButton label="CREAR" onPress={handleCreate} />
@@ -309,6 +312,24 @@ export default function ManageModesScreen({ navigation }) {
           </TouchableOpacity>
           <TouchableOpacity style={{ flex: 1, borderRadius: 12, paddingVertical: 14, alignItems: 'center', backgroundColor: theme.accent }} onPress={() => handleActivate(showConfirm?.modeId)}>
             <Text style={{ fontSize: 14, fontWeight: '700', color: theme.accentText }}>ACTIVAR</Text>
+          </TouchableOpacity>
+        </View>
+      </CenterModal>
+
+      <CenterModal
+        visible={showConfirm?.type === 'edit'}
+        onClose={() => setShowConfirm(null)}
+        title="¿EDITAR CATÁLOGO?"
+      >
+        <Text style={[styles.confirmText, { color: theme.textMuted }]}>
+          Vas a abrir el editor de "{showConfirm?.name}".
+        </Text>
+        <View style={{ flexDirection: 'row', gap: 10, marginTop: 16 }}>
+          <TouchableOpacity style={{ flex: 1, borderRadius: 12, paddingVertical: 14, alignItems: 'center', borderWidth: 1, borderColor: theme.cardBorder }} onPress={() => setShowConfirm(null)}>
+            <Text style={{ fontSize: 14, fontWeight: '700', color: theme.textMuted }}>Cancelar</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={{ flex: 1, borderRadius: 12, paddingVertical: 14, alignItems: 'center', backgroundColor: theme.accent }} onPress={() => { setShowConfirm(null); navigation.navigate('CatalogDetail', { modeId: showConfirm?.modeId }); }}>
+            <Text style={{ fontSize: 14, fontWeight: '700', color: theme.accentText }}>EDITAR</Text>
           </TouchableOpacity>
         </View>
       </CenterModal>
