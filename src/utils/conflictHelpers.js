@@ -42,8 +42,7 @@ function computeAvatarsInCell(activations, modes, workers, day, startMin, endMin
     return {
       workerId: wId,
       initial: w?.name?.charAt(0)?.toUpperCase() || '?',
-      avatarColor: w?.role === 'owner' ? '#000000' : (w?.color || '#1C1C1E'),
-      textColor: w?.role === 'owner' ? '#FFFFFF' : '#fff',
+      isOwner: w?.role === 'owner',
     };
   });
 
