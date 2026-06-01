@@ -42,6 +42,8 @@ export default function CatalogDetailScreen({ route, navigation }) {
   const [color, setColor] = useState(mode?.color || '');
   const [overrides, setOverrides] = useState({ ...(mode?.productOverrides || {}) });
   const [showSchedule, setShowSchedule] = useState(false);
+  const [editingEntry, setEditingEntry] = useState(null);
+  const [entryToEdit, setEntryToEdit] = useState(null);
   const [showAddWorker, setShowAddWorker] = useState(false);
   const [entryToDelete, setEntryToDelete] = useState(null);
   const [workerToUnassign, setWorkerToUnassign] = useState(null);
@@ -105,16 +107,26 @@ export default function CatalogDetailScreen({ route, navigation }) {
   };
 
   const handleScheduleSave = async (activation) => {
-    const newActivation = {
-      ...activation,
-      id: newId(),
-      modeId,
-      createdAt: new Date().toISOString(),
-    };
-    await updateMode(modeId, {
-      scheduledActivations: [...(mode.scheduledActivations || []), newActivation],
-    });
-    showNotif('Horario programado');
+    if (editingEntry) {
+      // Replace existing activation by id
+      const updated = (mode.scheduledActivations || []).map(a =>
+        a.id === editingEntry.id ? { ...activation, id: editingEntry.id, modeId, createdAt: editingEntry.createdAt } : a
+      );
+      await updateMode(modeId, { scheduledActivations: updated });
+      setEditingEntry(null);
+      showNotif('Horario actualizado');
+    } else {
+      const newActivation = {
+        ...activation,
+        id: newId(),
+        modeId,
+        createdAt: new Date().toISOString(),
+      };
+      await updateMode(modeId, {
+        scheduledActivations: [...(mode.scheduledActivations || []), newActivation],
+      });
+      showNotif('Horario programado');
+    }
   };
 
   const confirmDeleteEntry = async () => {
@@ -268,6 +280,7 @@ export default function CatalogDetailScreen({ route, navigation }) {
             <TouchableOpacity
               key={e.id || i}
               style={[styles.scheduleRow, { borderColor: theme.cardBorder }]}
+              onPress={() => setEntryToEdit(e)}
               onLongPress={() => setEntryToDelete(e.id)}
             >
               <View style={[styles.scheduleBar, { backgroundColor: color || theme.accent }]} />
@@ -300,11 +313,12 @@ export default function CatalogDetailScreen({ route, navigation }) {
 
       <ScheduleSheet
         visible={showSchedule}
-        onClose={() => setShowSchedule(false)}
+        onClose={() => { setShowSchedule(false); setEditingEntry(null); }}
         modeId={modeId}
         existingActivations={allActivations}
         modes={modes}
         onSave={handleScheduleSave}
+        editingActivation={editingEntry}
       />
 
       <BottomSheetModal visible={showAddWorker} onClose={() => setShowAddWorker(false)} title="AGREGAR EMPLEADO">
@@ -325,6 +339,20 @@ export default function CatalogDetailScreen({ route, navigation }) {
           )}
         </View>
       </BottomSheetModal>
+
+      <CenterModal visible={entryToEdit !== null} onClose={() => setEntryToEdit(null)} title="¿EDITAR HORARIO?">
+        <Text style={{ color: theme.textMuted, fontSize: 14, textAlign: 'center', marginBottom: 16 }}>
+          Vas a editar el horario programado.
+        </Text>
+        <View style={{ flexDirection: 'row', gap: 10 }}>
+          <TouchableOpacity style={{ flex: 1, borderRadius: 12, paddingVertical: 14, alignItems: 'center', borderWidth: 1, borderColor: theme.cardBorder }} onPress={() => setEntryToEdit(null)}>
+            <Text style={{ fontSize: 14, fontWeight: '700', color: theme.textMuted }}>Cancelar</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={{ flex: 1, borderRadius: 12, paddingVertical: 14, alignItems: 'center', backgroundColor: theme.accent }} onPress={() => { setEditingEntry(entryToEdit); setEntryToEdit(null); setShowSchedule(true); }}>
+            <Text style={{ fontSize: 14, fontWeight: '700', color: theme.accentText }}>EDITAR</Text>
+          </TouchableOpacity>
+        </View>
+      </CenterModal>
 
       <CenterModal visible={entryToDelete !== null} onClose={() => setEntryToDelete(null)} title="¿ELIMINAR HORARIO?">
         <Text style={{ color: theme.textMuted, fontSize: 14, textAlign: 'center', marginBottom: 16 }}>

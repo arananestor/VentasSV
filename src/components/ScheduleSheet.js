@@ -23,17 +23,38 @@ function latamToIso(ddmmyyyy) {
   return `${yyyy}-${mm}-${dd}`;
 }
 
-export default function ScheduleSheet({ visible, onClose, modeId, existingActivations, modes, onSave }) {
+function isoToLatam(iso) {
+  if (!iso || iso.length < 10) return '';
+  const [y, m, d] = iso.slice(0, 10).split('-');
+  return `${d}-${m}-${y}`;
+}
+
+function timeTo12(time24) {
+  if (!time24) return { hour: '', minute: '', isPM: false };
+  const [hStr, mStr] = time24.split(':');
+  let h = parseInt(hStr, 10);
+  const isPM = h >= 12;
+  if (h === 0) h = 12;
+  else if (h > 12) h -= 12;
+  return { hour: String(h), minute: mStr || '00', isPM };
+}
+
+export default function ScheduleSheet({ visible, onClose, modeId, existingActivations, modes, onSave, editingActivation }) {
   const { theme } = useTheme();
-  const [type, setType] = useState('recurrente');
-  const [date, setDate] = useState('');
-  const [days, setDays] = useState([]);
-  const [startHour, setStartHour] = useState('');
-  const [startMin, setStartMin] = useState('');
-  const [startPM, setStartPM] = useState(false);
-  const [endHour, setEndHour] = useState('');
-  const [endMin, setEndMin] = useState('');
-  const [endPM, setEndPM] = useState(false);
+  const isEditing = !!editingActivation;
+
+  const initStart = isEditing ? timeTo12(editingActivation?.startTime) : { hour: '', minute: '', isPM: false };
+  const initEnd = isEditing ? timeTo12(editingActivation?.endTime) : { hour: '', minute: '', isPM: false };
+
+  const [type, setType] = useState(isEditing ? editingActivation.type : 'recurrente');
+  const [date, setDate] = useState(isEditing && editingActivation.date ? isoToLatam(editingActivation.date) : '');
+  const [days, setDays] = useState(isEditing && editingActivation.days ? [...editingActivation.days] : []);
+  const [startHour, setStartHour] = useState(initStart.hour);
+  const [startMin, setStartMin] = useState(initStart.minute);
+  const [startPM, setStartPM] = useState(initStart.isPM);
+  const [endHour, setEndHour] = useState(initEnd.hour);
+  const [endMin, setEndMin] = useState(initEnd.minute);
+  const [endPM, setEndPM] = useState(initEnd.isPM);
   const [showConflict, setShowConflict] = useState(null);
   const [saveError, setSaveError] = useState('');
 
@@ -107,7 +128,7 @@ export default function ScheduleSheet({ visible, onClose, modeId, existingActiva
 
   return (
     <>
-      <BottomSheetModal visible={visible} onClose={resetAndClose} title="PROGRAMAR HORARIO">
+      <BottomSheetModal visible={visible} onClose={resetAndClose} title={isEditing ? 'EDITAR HORARIO' : 'PROGRAMAR HORARIO'}>
         <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: 40 }}>
           <View style={styles.content}>
             <View style={styles.typeRow}>
@@ -199,7 +220,7 @@ export default function ScheduleSheet({ visible, onClose, modeId, existingActiva
             {saveError ? <Text style={[styles.errorText, { color: theme.danger }]}>{saveError}</Text> : null}
 
             <TouchableOpacity style={[styles.saveBtn, { backgroundColor: theme.accent }]} onPress={handleSave}>
-              <Text style={{ color: theme.accentText, fontSize: 15, fontWeight: '900', letterSpacing: 2 }}>GUARDAR HORARIO</Text>
+              <Text style={{ color: theme.accentText, fontSize: 15, fontWeight: '900', letterSpacing: 2 }}>{isEditing ? 'GUARDAR CAMBIOS' : 'GUARDAR HORARIO'}</Text>
             </TouchableOpacity>
           </View>
         </ScrollView>

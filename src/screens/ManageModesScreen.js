@@ -200,7 +200,7 @@ export default function ManageModesScreen({ navigation }) {
                   else { setShowConfirm({ type: 'activate', modeId: mode.id, name: mode.name }); }
                 }
               }}
-              onTap={() => setShowConfirm({ type: 'edit', modeId: mode.id, name: mode.name })}
+              onTap={() => navigation.navigate('CatalogDetail', { modeId: mode.id })}
               screenWidth={screenWidth}
               theme={theme}
             >
@@ -316,23 +316,6 @@ export default function ManageModesScreen({ navigation }) {
         </View>
       </CenterModal>
 
-      <CenterModal
-        visible={showConfirm?.type === 'edit'}
-        onClose={() => setShowConfirm(null)}
-        title="¿EDITAR CATÁLOGO?"
-      >
-        <Text style={[styles.confirmText, { color: theme.textMuted }]}>
-          Vas a abrir el editor de "{showConfirm?.name}".
-        </Text>
-        <View style={{ flexDirection: 'row', gap: 10, marginTop: 16 }}>
-          <TouchableOpacity style={{ flex: 1, borderRadius: 12, paddingVertical: 14, alignItems: 'center', borderWidth: 1, borderColor: theme.cardBorder }} onPress={() => setShowConfirm(null)}>
-            <Text style={{ fontSize: 14, fontWeight: '700', color: theme.textMuted }}>Cancelar</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={{ flex: 1, borderRadius: 12, paddingVertical: 14, alignItems: 'center', backgroundColor: theme.accent }} onPress={() => { setShowConfirm(null); navigation.navigate('CatalogDetail', { modeId: showConfirm?.modeId }); }}>
-            <Text style={{ fontSize: 14, fontWeight: '700', color: theme.accentText }}>EDITAR</Text>
-          </TouchableOpacity>
-        </View>
-      </CenterModal>
     </SafeAreaView>
   );
 }

@@ -47,3 +47,11 @@ Cinco fixes UX del testing en device del rediseño de catálogos. Reveal backgro
 **Fix 3 (clone reform):** cloneMode en AppContext ahora copia assignedWorkerIds y color del source. NO copia scheduledActivations — el duplicado nace sin horarios para evitar cruce inmediato con el original. El nombre del duplicado cambió de random (generateCatalogName) a "Copia de {nombre}" para reflejar el origen.
 
 **Fix 4 (selectTextOnFocus):** ThemedTextInput ahora acepta y propaga selectTextOnFocus al TextInput nativo. Aplicado en: ManageModesScreen modal crear catálogo, CatalogDetailScreen tab Detalles. Al tocar el input, todo el texto queda seleccionado → escribir un carácter reemplaza todo.
+
+## Sexto commit — tap navigation directa, edición de horarios con modal
+
+**Corrección de scope:** El commit anterior agregaba un modal de confirmación al tap en card de catálogo — incorrecto. El tap navega DIRECTO a CatalogDetail sin modal. El modal revertido, onTap restaurado a `navigation.navigate('CatalogDetail', { modeId })`.
+
+**Edición de horarios programados:** Tap en card de horario en tab Horario → modal "¿EDITAR HORARIO?" → confirmar → ScheduleSheet abre en modo edición con valores precargados. ScheduleSheet acepta nueva prop editingActivation: si presente, precarga type, date (convertido a DD-MM-YYYY), days, horas (convertidas a 12h con AM/PM). Título cambia a "EDITAR HORARIO". handleScheduleSave reemplaza la activation existente por id en lugar de agregar nueva.
+
+**Helpers nuevos en ScheduleSheet:** isoToLatam (ISO → DD-MM-YYYY), timeTo12 (24h → {hour, minute, isPM}). Ambas funciones puras para la conversión de formatos al precargar.
