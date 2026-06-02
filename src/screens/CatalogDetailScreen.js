@@ -33,7 +33,7 @@ const ALL_TABS = [
 
 export default function CatalogDetailScreen({ route, navigation }) {
   const { modeId } = route.params;
-  const { modes, products, updateMode, currentModeId, showNotif } = useApp();
+  const { modes, products, updateMode, applyModeUpdates, currentModeId, showNotif } = useApp();
   const { workers } = useAuth();
   const { theme } = useTheme();
 
@@ -414,16 +414,14 @@ export default function CatalogDetailScreen({ route, navigation }) {
             setConflictModal(null);
             showNotif(`${w?.name || 'Empleado'} no asignada para evitar conflicto.`);
           } else if (action === 'remove-from-existing') {
-            // Persist worker in current catalog (simulation didn't save)
             const currentMode = modes.find(m => m.id === modeId);
             const currentWorkerIds = currentMode?.assignedWorkerIds || [];
-            await updateMode(modeId, { assignedWorkerIds: [...currentWorkerIds, recentWorkerId] });
-            // Remove worker from the other catalog
             const otherMode = modes.find(m => m.id === otherModeId);
             if (otherMode) {
-              await updateMode(otherModeId, {
-                assignedWorkerIds: (otherMode.assignedWorkerIds || []).filter(id => id !== recentWorkerId),
-              });
+              await applyModeUpdates([
+                { modeId, patch: { assignedWorkerIds: [...currentWorkerIds, recentWorkerId] } },
+                { modeId: otherModeId, patch: { assignedWorkerIds: (otherMode.assignedWorkerIds || []).filter(id => id !== recentWorkerId) } },
+              ]);
             }
             setConflictModal(null);
             showNotif(`${w?.name || 'Empleado'} reasignada al catálogo actual.`);
