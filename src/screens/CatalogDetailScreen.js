@@ -18,6 +18,8 @@ import BottomSheetModal from '../components/BottomSheetModal';
 import CenterModal from '../components/CenterModal';
 import ThemedTextInput from '../components/ThemedTextInput';
 import { newId } from '../utils/ids';
+import { detectEmployeeConflicts } from '../utils/employeeConflicts';
+import EmployeeConflictModal from '../components/EmployeeConflictModal';
 
 const MULTI_LOCAL_ENABLED = false;
 
@@ -31,7 +33,7 @@ const ALL_TABS = [
 
 export default function CatalogDetailScreen({ route, navigation }) {
   const { modeId } = route.params;
-  const { modes, products, updateMode, currentModeId, showNotif } = useApp();
+  const { modes, products, updateMode, applyModeUpdates, currentModeId, showNotif } = useApp();
   const { workers } = useAuth();
   const { theme } = useTheme();
 
@@ -47,6 +49,7 @@ export default function CatalogDetailScreen({ route, navigation }) {
   const [showAddWorker, setShowAddWorker] = useState(false);
   const [entryToDelete, setEntryToDelete] = useState(null);
   const [workerToUnassign, setWorkerToUnassign] = useState(null);
+  const [conflictModal, setConflictModal] = useState(null);
 
   if (!mode) {
     return (
@@ -95,6 +98,18 @@ export default function CatalogDetailScreen({ route, navigation }) {
   const unassignedWorkers = workers.filter(w => !assignedWorkerIds.includes(w.id));
 
   const addWorkerToMode = async (workerId) => {
+    // Simulate: check conflicts before persisting
+    const simulatedMode = { ...mode, assignedWorkerIds: [...assignedWorkerIds, workerId] };
+    const simulatedModes = modes.map(m => m.id === modeId ? simulatedMode : m);
+    const conflicts = detectEmployeeConflicts(simulatedModes);
+    const workerConflicts = conflicts.filter(c => c.workerId === workerId);
+
+    if (workerConflicts.length > 0) {
+      setShowAddWorker(false);
+      setConflictModal({ conflict: workerConflicts[0], recentWorkerId: workerId });
+      return;
+    }
+
     await updateMode(modeId, { assignedWorkerIds: [...assignedWorkerIds, workerId] });
     setShowAddWorker(false);
     showNotif('Empleado asignado');
@@ -381,6 +396,40 @@ export default function CatalogDetailScreen({ route, navigation }) {
           </TouchableOpacity>
         </View>
       </CenterModal>
+
+      <EmployeeConflictModal
+        visible={conflictModal !== null}
+        onClose={() => setConflictModal(null)}
+        conflict={conflictModal?.conflict}
+        modes={modes}
+        workers={workers}
+        currentModeId={modeId}
+        onResolve={async (action) => {
+          if (!conflictModal) return;
+          const { conflict, recentWorkerId } = conflictModal;
+          const otherModeId = conflict.modeIdA === modeId ? conflict.modeIdB : conflict.modeIdA;
+          const w = workers.find(wr => wr.id === recentWorkerId);
+
+          if (action === 'remove-from-new') {
+            setConflictModal(null);
+            showNotif(`${w?.name || 'Empleado'} no asignada para evitar conflicto.`);
+          } else if (action === 'remove-from-existing') {
+            const currentMode = modes.find(m => m.id === modeId);
+            const currentWorkerIds = currentMode?.assignedWorkerIds || [];
+            const otherMode = modes.find(m => m.id === otherModeId);
+            if (otherMode) {
+              await applyModeUpdates([
+                { modeId, patch: { assignedWorkerIds: [...currentWorkerIds, recentWorkerId] } },
+                { modeId: otherModeId, patch: { assignedWorkerIds: (otherMode.assignedWorkerIds || []).filter(id => id !== recentWorkerId) } },
+              ]);
+            }
+            setConflictModal(null);
+            showNotif(`${w?.name || 'Empleado'} reasignada al catálogo actual.`);
+          } else {
+            setConflictModal(null);
+          }
+        }}
+      />
     </SafeAreaView>
   );
 }
