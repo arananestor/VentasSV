@@ -216,15 +216,6 @@ export function AppProvider({ children }) {
     await repository.save('modes', updated);
   };
 
-  const applyModeUpdates = async (updates) => {
-    const updated = modes.map(m => {
-      const u = updates.find(x => x.modeId === m.id);
-      return u ? { ...m, ...u.patch, updatedAt: new Date().toISOString() } : m;
-    });
-    setModes(updated);
-    await repository.save('modes', updated);
-  };
-
   const deleteMode = async (modeId) => {
     const mode = modes.find(m => m.id === modeId);
     if (mode?.isDefault) throw new Error('No se puede eliminar el catálogo principal');
@@ -352,7 +343,7 @@ export function AppProvider({ children }) {
       addSale, getTodaySales, getAllSales, updateSaleStatus, updateSaleItemUnit,
       cart, addToCart, removeFromCart, clearCart, cartTotal, cartCount,
       modes, currentModeId, currentMode,
-      setCurrentMode, createModeFromForm, updateMode, applyModeUpdates, deleteMode, cloneMode,
+      setCurrentMode, createModeFromForm, updateMode, deleteMode, cloneMode,
       autoActivateForWorker,
       showSnack, showNotif,
     }}>

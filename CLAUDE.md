@@ -25,7 +25,7 @@ make dev-clear         # Start with cache cleared
 make tunnel            # Expo with tunnel (restrictive networks)
 
 # Testing
-npm test               # Run all tests (882 tests, 60 suites — must be 0 failures)
+npm test               # Run all tests (881 tests, 60 suites — must be 0 failures)
 npm run test:unit      # Unit tests only (__tests__/unit/)
 npm run test:integration  # Integration tests only (__tests__/integration/)
 npm run test:coverage  # Coverage report (70% threshold)
@@ -53,7 +53,7 @@ App.js → SafeAreaProvider → ThemeProvider → AuthProvider → AppProvider �
 - Time zone convention: Schedule logic in `src/utils/modeScheduling.js` operates in the device's local time. Date strings (YYYY-MM-DD) and time strings (HH:mm) are interpreted as local. Date parsing avoids the 'Z' suffix to prevent UTC interpretation. VentasSV serves El Salvador (UTC-6) only — owners think in local time and the system respects that.
 - Internal tabs: `src/components/InternalTabs.js` is a controlled component for top-aligned tab navigation within a single screen (distinct from the bottom MainTabs navigator). Props: tabs, activeKey, onTabChange. Used in CatalogDetailScreen. Pattern: horizontal scrollable, underline on active tab, sentence case labels.
 - Catalog UI components: InternalTabs, DayChipsSelector, CatalogColorPicker, WeekCalendarView, CatalogActiveBanner, ScheduleSheet, CatalogSwitcherSheet. CatalogActiveBanner consumed by POSScreen, OrdersScreen, SalesScreen. CatalogSwitcherSheet provides mode switching from banner tap. ModeEditorScreen deleted in PR #86, replaced by CatalogDetailScreen.
-- Employee-catalog conflict detection: declarative pure functions in `src/utils/employeeConflicts.js` and `src/utils/conflictHelpers.js`. `detectEmployeeConflicts(modes)` returns array of `{ workerId, modeIdA, modeIdB, day, startMin, endMin }` computed runtime — conflicts are never persisted. Helpers expose description formatting, avatar computation for calendar cells, and per-cell conflict check. Modal: `src/components/EmployeeConflictModal.js` renders resolution UI with three options for newAssignment variant (PR #92). Calendar avatars and Tab Horario integration come in PR #93. Pattern documented in `docs/architecture_design/employee_catalog_conflicts.md`.
+- Employee-catalog conflict detection: declarative pure functions in `src/utils/employeeConflicts.js` and `src/utils/conflictHelpers.js`. `detectEmployeeConflicts(modes)` returns array of `{ workerId, modeIdA, modeIdB, day, startMin, endMin }` computed runtime — conflicts are never persisted. Helpers expose description formatting, avatar computation for calendar cells, and per-cell conflict check. UI integration (modal + avatar rendering + screen invocations) is implemented in PR #92. Pattern documented in `docs/architecture_design/employee_catalog_conflicts.md`.
 - Catalog scheduled activation shape: `src/utils/modeScheduling.js` defines the canonical shape of scheduledActivations: `{ id, type: 'evento'|'recurrente', modeId, date|days, startTime, endTime, createdAt }`. Legacy data persisted with the previous shape (startsAt, endsAt, previousModeId) is normalized transparently on read via `normalizeScheduledActivation` in `src/utils/scheduledActivationNormalizer.js`. Banner countdown and POS auto-activation derive timing from this shape using `getActiveModeAt`.
 - Bottom sheets: `src/components/BottomSheetModal.js` for non-destructive sheets. Consumers: CartSheet, SimpleProductSheet.
 - Icon and color picker: `src/components/IconColorPicker.js` unifies icon catalog and color selection in one searchable categorized grid. Source of icons and helpers: `src/constants/productConstants.js` (ICON_CATALOG with 11 categories, searchIcons, getIconCols, getIconBtnSize).
@@ -110,7 +110,7 @@ owner → co-admin → worker (positions: Cajero, Cocinero, Motorista, Camarero)
 - Integration tests (`__tests__/integration/`): payment, orders
 - Mocks in `__mocks__/` for AsyncStorage, vector-icons, safe-area-context
 - Coverage threshold: 70% on branches, functions, lines, statements
-- **Rule: 882 tests (minimum), 0 failures before any merge. No exceptions.**
+- **Rule: 881 tests (minimum), 0 failures before any merge. No exceptions.**
 - **AAA Pattern (mandatory):** Every test must follow Arrange-Act-Assert. The Act step must call a real function imported from `src/`. Never reimplement logic in tests. Comments `// Arrange`, `// Act`, `// Assert` are required in every test block.
 
 ## Repository
