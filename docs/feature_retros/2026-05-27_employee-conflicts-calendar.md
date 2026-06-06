@@ -25,3 +25,11 @@ Avatares de empleados y bordes rojos de conflicto en WeekCalendarView. Cada band
 - **PR #92 no está mergeado todavía.** Este branch se basa en develop con PR #91 (foundation). El test count es 881 (no 882 del PR #92 que agrega 1 test de isOwner). Los dos PRs (#92 modal+team y #93 calendar) son independientes y pueden mergearse en cualquier orden sin conflicto — tocan archivos distintos.
 - **SVG Circle + Text positioning en react-native-svg** es directo: cx/cy para el circle, x/y para el text con textAnchor="middle". La initial se posiciona cy+3 para centrado visual vertical (SVG text baseline está arriba, no al medio).
 - **computeBandPositions ahora incluye startMin/endMin** en cada banda para que el rendering pueda pasarlos a computeAvatarsInCell y hasConflictInCell. Antes solo tenía x/y/width/height (pixels). Los tests de computeBandPositions existentes no verifican estos campos nuevos — no rompieron.
+
+## Tercer commit — auto-advance time fields + calendar date picker
+
+**Auto-advance entre campos de hora:** TimeInputAmPm reescrito con useRef chain. HH (2 dígitos) → auto-focus MM via minuteRef interno. MM (2 dígitos) → auto-focus siguiente campo via nextRef prop pasado por el parent. ScheduleSheet crea endHourRef y lo pasa como nextRef al start time y como hourRef al end time. Resultado: el usuario escribe 4 dígitos para hora inicio y 4 para hora fin sin cerrar el teclado.
+
+**Calendar date picker:** El TextInput de fecha DD-MM-AAAA fue reemplazado por un botón "Seleccionar fecha" que abre un BottomSheetModal con CalendarPicker. CalendarPicker ya existía en el repo desde PRs tempranos pero nunca fue consumido — se reactivó sin cambios. El usuario toca un día en el calendario en lugar de escribir un formato. Al seleccionar, el sheet se cierra y la fecha se formatea automáticamente a DD-MM-AAAA.
+
+**selectTextOnFocus** agregado a ambos campos HH y MM para permitir re-edición rápida.

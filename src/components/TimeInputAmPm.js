@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import { View, TextInput, TouchableOpacity, Text, StyleSheet } from 'react-native';
 import { useTheme } from '../context/ThemeContext';
 
@@ -17,40 +17,53 @@ export function isValidTime12(hourStr, minuteStr) {
   return !isNaN(h) && h >= 1 && h <= 12 && !isNaN(m) && m >= 0 && m <= 59;
 }
 
-export function padMinutes(raw) {
-  if (!raw) return '';
-  const digits = raw.replace(/\D/g, '').slice(0, 2);
-  return digits;
-}
-
-export default function TimeInputAmPm({ label, hour, minute, isPM, onChangeHour, onChangeMinute, onChangeAmPm }) {
+export default function TimeInputAmPm({ label, hour, minute, isPM, onChangeHour, onChangeMinute, onChangeAmPm, nextRef, hourRef: externalHourRef }) {
   const { theme } = useTheme();
+  const internalHourRef = useRef(null);
+  const hourRef = externalHourRef || internalHourRef;
+  const minuteRef = useRef(null);
+
+  const handleHourChange = (v) => {
+    const digits = v.replace(/\D/g, '').slice(0, 2);
+    onChangeHour(digits);
+    if (digits.length === 2) minuteRef.current?.focus();
+  };
+
+  const handleMinuteChange = (v) => {
+    const digits = v.replace(/\D/g, '').slice(0, 2);
+    onChangeMinute(digits);
+    if (digits.length === 2 && nextRef?.current) nextRef.current.focus();
+  };
 
   return (
     <View style={styles.container}>
       {label && <Text style={[styles.label, { color: theme.textMuted }]}>{label}</Text>}
       <View style={styles.row}>
         <TextInput
+          ref={hourRef}
           style={[styles.input, { color: theme.text, borderColor: theme.cardBorder, backgroundColor: theme.bg }]}
           placeholder="07"
           placeholderTextColor={theme.textMuted}
           keyboardType="number-pad"
           maxLength={2}
           value={hour}
-          onChangeText={v => onChangeHour(v.replace(/\D/g, '').slice(0, 2))}
+          onChangeText={handleHourChange}
+          selectTextOnFocus
         />
         <Text style={[styles.colon, { color: theme.text }]}>:</Text>
         <TextInput
+          ref={minuteRef}
           style={[styles.input, { color: theme.text, borderColor: theme.cardBorder, backgroundColor: theme.bg }]}
           placeholder="30"
           placeholderTextColor={theme.textMuted}
           keyboardType="number-pad"
           maxLength={2}
           value={minute}
-          onChangeText={v => onChangeMinute(v.replace(/\D/g, '').slice(0, 2))}
+          onChangeText={handleMinuteChange}
           onBlur={() => {
             if (minute && minute.length === 1) onChangeMinute(minute.padStart(2, '0'));
           }}
+          selectTextOnFocus
         />
         <TouchableOpacity
           style={[styles.toggle, { borderColor: theme.cardBorder, backgroundColor: theme.bg }]}
