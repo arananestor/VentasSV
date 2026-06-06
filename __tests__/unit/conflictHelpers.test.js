@@ -70,6 +70,25 @@ describe('computeAvatarsInCell', () => {
     expect(result.visible).toHaveLength(3);
     expect(result.overflowCount).toBe(2);
   });
+
+  it('isOwner true for owner role, false for others', () => {
+    // Arrange
+    const ownerWorkers = [
+      { id: 'w1', name: 'Ana', role: 'owner' },
+      { id: 'w2', name: 'Bob', role: 'worker', color: '#FF0000' },
+    ];
+    const modes = [{ id: 'm1', assignedWorkerIds: ['w1', 'w2'] }];
+    const activations = [{ type: 'recurrente', days: [1], startTime: '08:00', endTime: '12:00', modeId: 'm1' }];
+
+    // Act
+    const result = computeAvatarsInCell(activations, modes, ownerWorkers, 1, 480, 720);
+
+    // Assert
+    const ownerAvatar = result.visible.find(a => a.workerId === 'w1');
+    const workerAvatar = result.visible.find(a => a.workerId === 'w2');
+    expect(ownerAvatar.isOwner).toBe(true);
+    expect(workerAvatar.isOwner).toBe(false);
+  });
 });
 
 describe('hasConflictInCell', () => {

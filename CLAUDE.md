@@ -25,7 +25,7 @@ make dev-clear         # Start with cache cleared
 make tunnel            # Expo with tunnel (restrictive networks)
 
 # Testing
-npm test               # Run all tests (881 tests, 60 suites — must be 0 failures)
+npm test               # Run all tests (882 tests, 60 suites — must be 0 failures)
 npm run test:unit      # Unit tests only (__tests__/unit/)
 npm run test:integration  # Integration tests only (__tests__/integration/)
 npm run test:coverage  # Coverage report (70% threshold)
@@ -110,7 +110,7 @@ owner → co-admin → worker (positions: Cajero, Cocinero, Motorista, Camarero)
 - Integration tests (`__tests__/integration/`): payment, orders
 - Mocks in `__mocks__/` for AsyncStorage, vector-icons, safe-area-context
 - Coverage threshold: 70% on branches, functions, lines, statements
-- **Rule: 881 tests (minimum), 0 failures before any merge. No exceptions.**
+- **Rule: 882 tests (minimum), 0 failures before any merge. No exceptions.**
 - **AAA Pattern (mandatory):** Every test must follow Arrange-Act-Assert. The Act step must call a real function imported from `src/`. Never reimplement logic in tests. Comments `// Arrange`, `// Act`, `// Assert` are required in every test block.
 
 ## Repository
