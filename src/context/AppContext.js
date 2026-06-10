@@ -104,7 +104,7 @@ export function AppProvider({ children }) {
       setSales(loadedSales);
       setModes(loadedModes.map(normalizeModeActivations));
       setCurrentModeIdState(loadedCurrentModeId);
-    } catch (e) { console.log('Error loading data', e); }
+    } catch (e) { /* silent — data will use defaults */ }
   };
 
   const saveProducts = async (newProducts) => {
