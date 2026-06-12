@@ -39,16 +39,20 @@ export default function CalendarPicker({ startDate, endDate, onSelectStart, onSe
 
   const handleDayPress = (day) => {
     const date = new Date(viewYear, viewMonth, day);
+    if (!onSelectEnd) {
+      onSelectStart(date);
+      return;
+    }
     if (!startDate || (startDate && endDate)) {
       onSelectStart(date);
-      if (onSelectEnd) onSelectEnd(null);
+      onSelectEnd(null);
     } else if (startDate && !endDate) {
       if (date.getTime() < startDate.getTime()) {
         onSelectStart(date);
       } else if (dayKey(date) === startKey) {
         onSelectStart(null);
       } else {
-        if (onSelectEnd) onSelectEnd(date);
+        onSelectEnd(date);
       }
     }
   };

@@ -1,12 +1,10 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
-import Svg, { Rect, Text as SvgText, Line, Circle } from 'react-native-svg';
+import Svg, { Rect, Text as SvgText, Line } from 'react-native-svg';
 import { useTheme } from '../context/ThemeContext';
 import useResponsive from '../hooks/useResponsive';
 import { expandToRanges } from '../utils/modeScheduling';
 import { CATALOG_COLORS } from './CatalogColorPicker';
-import { computeAvatarsInCell, hasConflictInCell } from '../utils/conflictHelpers';
-import { detectEmployeeConflicts } from '../utils/employeeConflicts';
 
 const DAY_LABELS = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
 const START_HOUR = 6;
@@ -14,8 +12,6 @@ const END_HOUR = 24;
 const HOUR_COUNT = END_HOUR - START_HOUR;
 const HEADER_H = 24;
 const ROW_H = 16;
-const AVATAR_R = 7;
-const AVATAR_SPACING = 18;
 
 export function computeBandPositions(activations, modes, colWidth, hourHeight) {
   const bands = [];
@@ -51,7 +47,7 @@ function dayToColumn(day) {
   return day === 0 ? 6 : day - 1;
 }
 
-export default function WeekCalendarView({ scheduledActivations = [], modes = [], workers = [] }) {
+export default function WeekCalendarView({ scheduledActivations = [], modes = [] }) {
   const { theme } = useTheme();
   const { width } = useResponsive();
   const calWidth = width - 32;
@@ -60,7 +56,6 @@ export default function WeekCalendarView({ scheduledActivations = [], modes = []
   const svgHeight = HEADER_H + HOUR_COUNT * hourHeight;
 
   const bands = computeBandPositions(scheduledActivations, modes, colWidth, hourHeight);
-  const conflicts = detectEmployeeConflicts(modes);
 
   return (
     <View style={[styles.container, { borderColor: theme.cardBorder }]}>
@@ -83,59 +78,18 @@ export default function WeekCalendarView({ scheduledActivations = [], modes = []
             y1={HEADER_H} y2={svgHeight} stroke={theme.cardBorder} strokeWidth={0.5} />
         ))}
 
-        {/* Bands with avatars and conflict indicators */}
-        {bands.map((b, i) => {
-          const cellConflict = hasConflictInCell(conflicts, b.day, b.startMin, b.endMin);
-          const avatars = workers.length > 0
-            ? computeAvatarsInCell(scheduledActivations, modes, workers, b.day, b.startMin, b.endMin)
-            : { visible: [], overflowCount: 0 };
-
-          return (
-            <React.Fragment key={i}>
-              {/* Band rect */}
-              <Rect x={b.x + 2} y={b.y} width={b.width - 4} height={Math.max(b.height, 2)}
-                rx={5} fill={b.color} opacity={0.85}
-                stroke={cellConflict ? theme.danger : b.color} strokeWidth={cellConflict ? 2 : 1} strokeOpacity={1} />
-
-              {/* Label */}
-              {b.height > 24 && (
-                <SvgText x={b.x + 5} y={b.y + 11} fontSize={8} fontWeight="600" fill="#fff">
-                  {b.label.length > 8 ? b.label.slice(0, 8) + '…' : b.label}
-                </SvgText>
-              )}
-
-              {/* Conflict indicator */}
-              {cellConflict && (
-                <SvgText x={b.x + b.width - 10} y={b.y + 12} fontSize={12} fontWeight="900" fill={theme.danger}>!</SvgText>
-              )}
-
-              {/* Avatars at bottom of band */}
-              {b.height > 30 && avatars.visible.map((av, ai) => {
-                const w = workers.find(wr => wr.id === av.workerId);
-                const cx = b.x + 12 + ai * AVATAR_SPACING;
-                const cy = b.y + b.height - AVATAR_R - 3;
-                const bgColor = av.isOwner ? theme.accent : (w?.color || '#1C1C1E');
-                const txtColor = av.isOwner ? theme.accentText : '#fff';
-                return (
-                  <React.Fragment key={`av${ai}`}>
-                    <Circle cx={cx} cy={cy} r={AVATAR_R} fill={bgColor} />
-                    <SvgText x={cx} y={cy + 3} fontSize={8} fontWeight="700" fill={txtColor} textAnchor="middle">
-                      {av.initial}
-                    </SvgText>
-                  </React.Fragment>
-                );
-              })}
-              {b.height > 30 && avatars.overflowCount > 0 && (
-                <React.Fragment>
-                  <Circle cx={b.x + 12 + avatars.visible.length * AVATAR_SPACING} cy={b.y + b.height - AVATAR_R - 3} r={AVATAR_R} fill="#666" />
-                  <SvgText x={b.x + 12 + avatars.visible.length * AVATAR_SPACING} y={b.y + b.height - AVATAR_R} fontSize={7} fontWeight="700" fill="#fff" textAnchor="middle">
-                    +{avatars.overflowCount}
-                  </SvgText>
-                </React.Fragment>
-              )}
-            </React.Fragment>
-          );
-        })}
+        {/* Bands */}
+        {bands.map((b, i) => (
+          <React.Fragment key={i}>
+            <Rect x={b.x + 2} y={b.y} width={b.width - 4} height={Math.max(b.height, 2)}
+              rx={5} fill={b.color} opacity={0.85} />
+            {b.height > 24 && (
+              <SvgText x={b.x + 5} y={b.y + 11} fontSize={8} fontWeight="600" fill="#fff">
+                {b.label.length > 8 ? b.label.slice(0, 8) + '…' : b.label}
+              </SvgText>
+            )}
+          </React.Fragment>
+        ))}
       </Svg>
     </View>
   );
