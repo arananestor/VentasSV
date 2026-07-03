@@ -47,10 +47,11 @@ export default function CalendarPicker({ startDate, endDate, onSelectStart, onSe
       onSelectStart(date);
       onSelectEnd(null);
     } else if (startDate && !endDate) {
-      if (date.getTime() < startDate.getTime()) {
+      if (dayKey(date) === startKey) {
+        onSelectEnd(date);
+      } else if (date.getTime() < startDate.getTime()) {
+        onSelectEnd(startDate);
         onSelectStart(date);
-      } else if (dayKey(date) === startKey) {
-        onSelectStart(null);
       } else {
         onSelectEnd(date);
       }

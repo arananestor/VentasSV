@@ -111,7 +111,7 @@ const getActiveModeAt = (now, modes, scheduledActivations, manualOverride) => {
 
     if (!isActive) return;
 
-    if (act.type === 'evento' && act.date === dateStr) {
+    if (act.type === 'evento' && act.date && dateStr >= act.date && dateStr <= (act.endDate || act.date)) {
       eventoMatch = act.modeId;
     } else if (act.type === 'recurrente') {
       recurrenteMatch = act.modeId;
@@ -133,15 +133,23 @@ function expandToRanges(activation) {
   const crossDay = rawEndMin <= startMin;
 
   if (activation.type === 'evento' && activation.date) {
-    const d = new Date(activation.date + 'T00:00:00'); // local time, no Z
-    const day = d.getDay();
-    if (crossDay) {
-      return [
-        { day, startMin, endMin: 24 * 60 },
-        { day: (day + 1) % 7, startMin: 0, endMin: rawEndMin },
-      ];
+    const startD = new Date(activation.date + 'T00:00:00'); // local time, no Z
+    const endD = activation.endDate
+      ? new Date(activation.endDate + 'T00:00:00')
+      : startD;
+    const ranges = [];
+    const cur = new Date(startD);
+    while (cur <= endD) {
+      const day = cur.getDay();
+      if (crossDay) {
+        ranges.push({ day, startMin, endMin: 24 * 60 });
+        ranges.push({ day: (day + 1) % 7, startMin: 0, endMin: rawEndMin });
+      } else {
+        ranges.push({ day, startMin, endMin: rawEndMin });
+      }
+      cur.setDate(cur.getDate() + 1);
     }
-    return [{ day, startMin, endMin: rawEndMin }];
+    return ranges;
   }
 
   if (activation.type === 'recurrente' && activation.days) {
