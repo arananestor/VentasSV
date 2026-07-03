@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import Svg, { Rect, Text as SvgText, Line } from 'react-native-svg';
 import { useTheme } from '../context/ThemeContext';
 import useResponsive from '../hooks/useResponsive';
@@ -36,7 +36,7 @@ export function computeBandPositions(activations, modes, colWidth, hourHeight) {
       const y = HEADER_H + ((startClamp - START_HOUR * 60) / 60) * hourHeight;
       const height = ((endClamp - startClamp) / 60) * hourHeight;
 
-      bands.push({ x, y, width: colWidth, height, color, label, day: r.day, modeId: act.modeId });
+      bands.push({ x, y, width: colWidth, height, color, label, day: r.day, modeId: act.modeId, startMin: startClamp, endMin: endClamp });
     });
   });
 
@@ -44,7 +44,6 @@ export function computeBandPositions(activations, modes, colWidth, hourHeight) {
 }
 
 function dayToColumn(day) {
-  // 0=Sun → column 6, 1=Mon → 0, ..., 6=Sat → 5
   return day === 0 ? 6 : day - 1;
 }
 
@@ -83,8 +82,7 @@ export default function WeekCalendarView({ scheduledActivations = [], modes = []
         {bands.map((b, i) => (
           <React.Fragment key={i}>
             <Rect x={b.x + 2} y={b.y} width={b.width - 4} height={Math.max(b.height, 2)}
-              rx={5} fill={b.color} opacity={0.85}
-              stroke={b.color} strokeWidth={1} strokeOpacity={1} />
+              rx={5} fill={b.color} opacity={0.85} />
             {b.height > 24 && (
               <SvgText x={b.x + 5} y={b.y + 11} fontSize={8} fontWeight="600" fill="#fff">
                 {b.label.length > 8 ? b.label.slice(0, 8) + '…' : b.label}

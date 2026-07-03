@@ -1,8 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { View, Text, TextInput, TouchableOpacity, ScrollView, StyleSheet } from 'react-native';
+import { Feather } from '@expo/vector-icons';
 import { useTheme } from '../context/ThemeContext';
 import BottomSheetModal from './BottomSheetModal';
 import CenterModal from './CenterModal';
+import CalendarPicker from './CalendarPicker';
 import DayChipsSelector from './DayChipsSelector';
 import WeekCalendarView from './WeekCalendarView';
 import TimeInputAmPm, { convertTo24h, isValidTime12 } from './TimeInputAmPm';
@@ -56,7 +58,9 @@ export default function ScheduleSheet({ visible, onClose, modeId, existingActiva
   const [endMin, setEndMin] = useState(initEnd.minute);
   const [endPM, setEndPM] = useState(initEnd.isPM);
   const [showConflict, setShowConflict] = useState(null);
+  const [showCalendar, setShowCalendar] = useState(false);
   const [saveError, setSaveError] = useState('');
+  const endHourRef = useRef(null);
 
   const modeName = (modes || []).find(m => m.id === modeId)?.name || '';
   const clearError = () => setSaveError('');
@@ -148,15 +152,15 @@ export default function ScheduleSheet({ visible, onClose, modeId, existingActiva
             {type === 'evento' && (
               <View style={styles.field}>
                 <Text style={[styles.fieldLabel, { color: theme.textMuted }]}>FECHA DEL EVENTO</Text>
-                <TextInput
-                  style={[styles.input, { color: theme.text, borderColor: theme.cardBorder, backgroundColor: theme.bg }]}
-                  placeholder="30-05-2026"
-                  placeholderTextColor={theme.textMuted}
-                  keyboardType="number-pad"
-                  maxLength={10}
-                  value={date}
-                  onChangeText={v => { setDate(formatDateInput(v)); clearError(); }}
-                />
+                <TouchableOpacity
+                  style={[styles.dateBtn, { borderColor: theme.cardBorder, backgroundColor: theme.bg }]}
+                  onPress={() => setShowCalendar(true)}
+                >
+                  <Feather name="calendar" size={16} color={theme.textMuted} />
+                  <Text style={[styles.dateBtnText, { color: date ? theme.text : theme.textMuted }]}>
+                    {date || 'Seleccionar fecha'}
+                  </Text>
+                </TouchableOpacity>
               </View>
             )}
 
@@ -177,6 +181,7 @@ export default function ScheduleSheet({ visible, onClose, modeId, existingActiva
                   onChangeHour={v => { setStartHour(v); clearError(); }}
                   onChangeMinute={v => { setStartMin(v); clearError(); }}
                   onChangeAmPm={setStartPM}
+                  nextRef={endHourRef}
                 />
               </View>
               <View style={{ flex: 1 }}>
@@ -188,6 +193,7 @@ export default function ScheduleSheet({ visible, onClose, modeId, existingActiva
                   onChangeHour={v => { setEndHour(v); clearError(); }}
                   onChangeMinute={v => { setEndMin(v); clearError(); }}
                   onChangeAmPm={setEndPM}
+                  hourRef={endHourRef}
                 />
               </View>
             </View>
@@ -226,6 +232,24 @@ export default function ScheduleSheet({ visible, onClose, modeId, existingActiva
         </ScrollView>
       </BottomSheetModal>
 
+      <BottomSheetModal visible={showCalendar} onClose={() => setShowCalendar(false)} title="ELEGIR FECHA">
+        <View style={{ paddingHorizontal: 16, paddingBottom: 20 }}>
+          <CalendarPicker
+            startDate={date && DATE_LATAM_RE.test(date) ? new Date(latamToIso(date) + 'T00:00:00') : null}
+            onSelectStart={(d) => {
+              if (d) {
+                const dd = String(d.getDate()).padStart(2, '0');
+                const mm = String(d.getMonth() + 1).padStart(2, '0');
+                const yyyy = d.getFullYear();
+                setDate(`${dd}-${mm}-${yyyy}`);
+                clearError();
+              }
+              setShowCalendar(false);
+            }}
+          />
+        </View>
+      </BottomSheetModal>
+
       <CenterModal visible={showConflict !== null} onClose={() => setShowConflict(null)}>
         <View style={{ alignItems: 'center' }}>
           <Text style={[styles.conflictTitle, { color: theme.text }]}>CRUCE DE HORARIOS</Text>
@@ -261,6 +285,8 @@ const styles = StyleSheet.create({
   field: { marginBottom: 16 },
   fieldLabel: { fontSize: 10, fontWeight: '800', letterSpacing: 2, marginBottom: 6 },
   input: { borderWidth: 1, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, fontSize: 15, fontWeight: '600' },
+  dateBtn: { flexDirection: 'row', alignItems: 'center', gap: 10, borderWidth: 1, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 14 },
+  dateBtnText: { fontSize: 15, fontWeight: '600' },
   timeRow: { flexDirection: 'row', gap: 10 },
   previewWrap: { marginBottom: 12, marginTop: 4 },
   previewLabel: { fontSize: 9, fontWeight: '800', letterSpacing: 2, marginBottom: 6 },
