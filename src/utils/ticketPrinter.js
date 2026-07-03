@@ -234,7 +234,6 @@ export const printTicket = async (sale) => {
     await Print.printAsync({ html, width: 280 });
     return { success: true };
   } catch (e) {
-    console.log('Print error:', e);
     return { error: e.message };
   }
 };
@@ -249,7 +248,6 @@ export const shareTicket = async (sale) => {
     });
     return { success: true };
   } catch (e) {
-    console.log('Share error:', e);
     return { error: e.message };
   }
 };

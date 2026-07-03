@@ -45,7 +45,6 @@ export function AuthProvider({ children }) {
       }
       if (savedDevice) setDeviceType(savedDevice);
     } catch (e) {
-      console.log('Auth load error', e);
       setIsSetup(false);
     }
   };

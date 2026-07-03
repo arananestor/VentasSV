@@ -39,7 +39,7 @@ export function TabProvider({ children }) {
           }
         }
       }
-    } catch (e) { console.log('Tab load error', e); }
+    } catch (e) { /* silent — tabs will use defaults */ }
   };
 
   const saveTabs = async (newTabs) => {
