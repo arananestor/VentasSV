@@ -20,7 +20,6 @@ import Divider from '../components/Divider';
 
 const SHARE_COLOR = '#0A84FF';
 const WA_COLOR = '#25D366';
-const MAPS_KEY = Constants.expoConfig?.extra?.googleMapsKey;
 
 export default function SaleDetailScreen({ route, navigation }) {
   const { sale } = route.params;
@@ -67,9 +66,10 @@ export default function SaleDetailScreen({ route, navigation }) {
 
   const orderDisplay = sale.orderNumber ? `#${sale.orderNumber}` : `#${sale.id.slice(-4)}`;
   const hasGeo = sale.geo?.latitude != null;
+  const mapsKey = Constants.expoConfig?.extra?.googleMapsKey;
 
   const mapPreviewUrl = hasGeo
-    ? `https://maps.googleapis.com/maps/api/staticmap?center=${sale.geo.latitude},${sale.geo.longitude}&zoom=15&size=600x300&scale=2&markers=color:red%7C${sale.geo.latitude},${sale.geo.longitude}&key=${MAPS_KEY}`
+    ? `https://maps.googleapis.com/maps/api/staticmap?center=${sale.geo.latitude},${sale.geo.longitude}&zoom=15&size=600x300&scale=2&markers=color:red%7C${sale.geo.latitude},${sale.geo.longitude}&key=${mapsKey}`
     : null;
 
   const btnStyle = (key, color) => ({

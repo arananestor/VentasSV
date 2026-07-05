@@ -6,7 +6,7 @@
 
 ## Resumen
 
-Dos fixes de UX identificados durante pruebas de produccion: (1) badges "PRINCIPAL" y "ACTIVO" redundantes y poco profesionales en CatalogDetailScreen, (2) CalendarPicker no soportaba seleccion de rango de fechas estilo Airbnb para eventos multi-dia.
+Tres fixes identificados durante pruebas de produccion: (1) badges "PRINCIPAL" y "ACTIVO" redundantes y poco profesionales en CatalogDetailScreen, (2) CalendarPicker no soportaba seleccion de rango de fechas estilo Airbnb para eventos multi-dia, (3) static map en SaleDetailScreen no cargaba porque MAPS_KEY se leia a nivel de modulo y quedaba undefined.
 
 ## Cambios
 
