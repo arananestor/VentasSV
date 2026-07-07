@@ -160,10 +160,6 @@ export default function CatalogDetailScreen({ route, navigation }) {
     <View style={styles.tabContent}>
       <ThemedTextInput label="NOMBRE" value={name} onChangeText={setName} placeholder="Nombre del catálogo" selectTextOnFocus />
       <ThemedTextInput label="DESCRIPCIÓN" value={desc} onChangeText={setDesc} placeholder="Opcional" />
-      <View style={styles.badges}>
-        {mode.isDefault && <View style={[styles.badge, { backgroundColor: theme.accent }]}><Text style={[styles.badgeText, { color: theme.accentText }]}>PRINCIPAL</Text></View>}
-        {currentModeId === mode.id && <View style={[styles.badge, { backgroundColor: theme.success + '20' }]}><Text style={[styles.badgeText, { color: theme.success }]}>ACTIVO</Text></View>}
-      </View>
       <Text style={[styles.sectionLabel, { color: theme.textMuted }]}>COLOR</Text>
       <CatalogColorPicker value={color} onChange={setColor} />
       <View style={{ height: 16 }} />
@@ -273,7 +269,10 @@ export default function CatalogDetailScreen({ route, navigation }) {
   const renderHorario = () => {
     const entries = mode.scheduledActivations || [];
     const describeEntry = (e) => {
-      if (e.type === 'evento') return `${e.date} · ${e.startTime} a ${e.endTime} · Evento`;
+      if (e.type === 'evento') {
+        const dateRange = e.endDate && e.endDate !== e.date ? `${e.date} → ${e.endDate}` : e.date;
+        return `${dateRange} · ${e.startTime} a ${e.endTime} · Evento`;
+      }
       if (e.type === 'recurrente') {
         const dayNames = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
         const ds = (e.days || []).map(d => dayNames[d]).join(', ');

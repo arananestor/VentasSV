@@ -212,18 +212,11 @@ export default function ManageModesScreen({ navigation }) {
                       {activeCount} productos activos
                     </Text>
                   </View>
-                  <View style={styles.badges}>
-                    {mode.isDefault && (
-                      <View style={[styles.badge, { backgroundColor: theme.accent + '15', borderColor: theme.accent }]}>
-                        <Text style={[styles.badgeText, { color: theme.accent }]}>Principal</Text>
-                      </View>
-                    )}
-                    {isActive && (
-                      <View style={[styles.badge, { backgroundColor: theme.success + '20', borderColor: theme.success }]}>
-                        <Text style={[styles.badgeText, { color: theme.success }]}>Activo</Text>
-                      </View>
-                    )}
-                  </View>
+                  {mode.isDefault && (
+                    <View style={[styles.badge, { backgroundColor: theme.accent + '15', borderColor: theme.accent }]}>
+                      <Text style={[styles.badgeText, { color: theme.accent }]}>Principal</Text>
+                    </View>
+                  )}
                 </View>
 
                 <View style={styles.workerRow}>
@@ -335,7 +328,6 @@ const styles = StyleSheet.create({
   cardHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
   cardName: { fontSize: 16, fontWeight: '800' },
   cardMeta: { fontSize: 12, fontWeight: '500', marginTop: 4 },
-  badges: { flexDirection: 'row', gap: 6 },
   badge: { borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3, borderWidth: 1 },
   badgeText: { fontSize: 10, fontWeight: '800', letterSpacing: 1 },
   workerRow: { flexDirection: 'row', gap: 4, marginTop: 8 },

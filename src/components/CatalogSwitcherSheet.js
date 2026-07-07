@@ -21,18 +21,11 @@ export default function CatalogSwitcherSheet({ visible, onClose, modes, currentM
             >
               <View style={[styles.colorBar, { backgroundColor: color }]} />
               <Text style={[styles.name, { color: theme.text }]}>{mode.name}</Text>
-              <View style={styles.badges}>
-                {mode.isDefault && (
-                  <View style={[styles.badge, { backgroundColor: theme.accent + '15' }]}>
-                    <Text style={[styles.badgeText, { color: theme.accent }]}>PRINCIPAL</Text>
-                  </View>
-                )}
-                {isActive && (
-                  <View style={[styles.badge, { backgroundColor: theme.success + '20' }]}>
-                    <Text style={[styles.badgeText, { color: theme.success }]}>ACTIVO</Text>
-                  </View>
-                )}
-              </View>
+              {mode.isDefault && (
+                <View style={[styles.badge, { backgroundColor: theme.accent + '15' }]}>
+                  <Text style={[styles.badgeText, { color: theme.accent }]}>PRINCIPAL</Text>
+                </View>
+              )}
             </TouchableOpacity>
           );
         })}
@@ -50,7 +43,6 @@ const styles = StyleSheet.create({
   },
   colorBar: { width: 4, height: 28, borderRadius: 2 },
   name: { flex: 1, fontSize: 15, fontWeight: '700' },
-  badges: { flexDirection: 'row', gap: 6 },
   badge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 },
   badgeText: { fontSize: 9, fontWeight: '800', letterSpacing: 1 },
 });

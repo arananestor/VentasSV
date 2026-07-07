@@ -31,6 +31,12 @@ function isoToLatam(iso) {
   return `${d}-${m}-${y}`;
 }
 
+function formatToLatam(dateObj) {
+  const dd = String(dateObj.getDate()).padStart(2, '0');
+  const mm = String(dateObj.getMonth() + 1).padStart(2, '0');
+  return `${dd}-${mm}-${dateObj.getFullYear()}`;
+}
+
 function timeTo12(time24) {
   if (!time24) return { hour: '', minute: '', isPM: false };
   const [hStr, mStr] = time24.split(':');
@@ -50,6 +56,7 @@ export default function ScheduleSheet({ visible, onClose, modeId, existingActiva
 
   const [type, setType] = useState(isEditing ? editingActivation.type : 'recurrente');
   const [date, setDate] = useState(isEditing && editingActivation.date ? isoToLatam(editingActivation.date) : '');
+  const [endDate, setEndDate] = useState(isEditing && editingActivation.endDate ? isoToLatam(editingActivation.endDate) : '');
   const [days, setDays] = useState(isEditing && editingActivation.days ? [...editingActivation.days] : []);
   const [startHour, setStartHour] = useState(initStart.hour);
   const [startMin, setStartMin] = useState(initStart.minute);
@@ -68,21 +75,19 @@ export default function ScheduleSheet({ visible, onClose, modeId, existingActiva
   const buildActivation = () => {
     const st = convertTo24h(startHour, startMin, startPM);
     const et = convertTo24h(endHour, endMin, endPM);
-    return {
-      type,
-      modeId,
-      ...(type === 'evento' ? { date: DATE_LATAM_RE.test(date) ? latamToIso(date) : '' } : { days }),
-      startTime: st,
-      endTime: et,
-    };
+    if (type === 'evento') {
+      const isoStart = DATE_LATAM_RE.test(date) ? latamToIso(date) : '';
+      const isoEnd = DATE_LATAM_RE.test(endDate) ? latamToIso(endDate) : isoStart;
+      return { type, modeId, date: isoStart, endDate: isoEnd, startTime: st, endTime: et };
+    }
+    return { type, modeId, days, startTime: st, endTime: et };
   };
 
   const isPreviewValid = () => {
     if (!isValidTime12(startHour, startMin) || !isValidTime12(endHour, endMin)) return false;
     if (type === 'evento') {
       if (!DATE_LATAM_RE.test(date)) return false;
-      const iso = latamToIso(date);
-      return !isNaN(new Date(iso + 'T00:00:00').getTime());
+      return !isNaN(new Date(latamToIso(date) + 'T00:00:00').getTime());
     }
     return days.length > 0;
   };
@@ -90,8 +95,13 @@ export default function ScheduleSheet({ visible, onClose, modeId, existingActiva
   const handleSave = () => {
     if (type === 'evento') {
       if (!DATE_LATAM_RE.test(date) || isNaN(new Date(latamToIso(date) + 'T00:00:00').getTime())) {
-        setSaveError('Fecha inválida. Usá formato DD-MM-AAAA.');
+        setSaveError('Seleccioná una fecha válida.');
         return;
+      }
+      if (endDate && DATE_LATAM_RE.test(endDate)) {
+        const s = new Date(latamToIso(date) + 'T00:00:00');
+        const e = new Date(latamToIso(endDate) + 'T00:00:00');
+        if (e < s) { setSaveError('La fecha fin no puede ser antes de la fecha inicio.'); return; }
       }
     }
     if (!isValidTime12(startHour, startMin)) { setSaveError('Hora de inicio inválida. Usá hora 1-12 y minutos 0-59.'); return; }
@@ -117,7 +127,7 @@ export default function ScheduleSheet({ visible, onClose, modeId, existingActiva
   };
 
   const resetAndClose = () => {
-    setType('recurrente'); setDate(''); setDays([]);
+    setType('recurrente'); setDate(''); setEndDate(''); setDays([]);
     setStartHour(''); setStartMin(''); setStartPM(false);
     setEndHour(''); setEndMin(''); setEndPM(false);
     setShowConflict(null); setSaveError('');
@@ -158,7 +168,9 @@ export default function ScheduleSheet({ visible, onClose, modeId, existingActiva
                 >
                   <Feather name="calendar" size={16} color={theme.textMuted} />
                   <Text style={[styles.dateBtnText, { color: date ? theme.text : theme.textMuted }]}>
-                    {date || 'Seleccionar fecha'}
+                    {date && endDate && date !== endDate
+                      ? `${date}  →  ${endDate}`
+                      : date || 'Seleccionar fecha'}
                   </Text>
                 </TouchableOpacity>
               </View>
@@ -236,15 +248,24 @@ export default function ScheduleSheet({ visible, onClose, modeId, existingActiva
         <View style={{ paddingHorizontal: 16, paddingBottom: 20 }}>
           <CalendarPicker
             startDate={date && DATE_LATAM_RE.test(date) ? new Date(latamToIso(date) + 'T00:00:00') : null}
+            endDate={endDate && DATE_LATAM_RE.test(endDate) ? new Date(latamToIso(endDate) + 'T00:00:00') : null}
             onSelectStart={(d) => {
               if (d) {
-                const dd = String(d.getDate()).padStart(2, '0');
-                const mm = String(d.getMonth() + 1).padStart(2, '0');
-                const yyyy = d.getFullYear();
-                setDate(`${dd}-${mm}-${yyyy}`);
+                setDate(formatToLatam(d));
                 clearError();
+              } else {
+                setDate('');
               }
-              setShowCalendar(false);
+              setEndDate('');
+            }}
+            onSelectEnd={(d) => {
+              if (d) {
+                setEndDate(formatToLatam(d));
+                clearError();
+              } else {
+                setEndDate('');
+              }
+              if (d) setShowCalendar(false);
             }}
           />
         </View>

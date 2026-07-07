@@ -206,6 +206,17 @@ describe('detectScheduleOverlap', () => {
     // Assert
     expect(result).toHaveLength(1);
   });
+
+  it('multi-day evento expands to ranges for each day in range', () => {
+    // Arrange — 2026-07-06 Mon, 2026-07-07 Tue, 2026-07-08 Wed
+    const newAct = { type: 'evento', date: '2026-07-06', endDate: '2026-07-08', startTime: '10:00', endTime: '14:00' };
+    const existing = [{ id: 'e1', modeId: 'm1', type: 'recurrente', days: [2], startTime: '12:00', endTime: '16:00' }];
+    // Act — Tuesday (day 2) should overlap
+    const result = detectScheduleOverlap(newAct, existing);
+    // Assert
+    expect(result).toHaveLength(1);
+    expect(result[0].overlapDay).toBe(2);
+  });
 });
 
 describe('getActiveModeAt', () => {
@@ -283,5 +294,23 @@ describe('getActiveModeAt', () => {
     const result = getActiveModeAt('2026-05-28T02:30:00', modes, activations, null);
     // Assert
     expect(result).toBe('night');
+  });
+
+  it('multi-day evento active on middle day of range', () => {
+    // Arrange — evento July 6-8, checking July 7 (Tuesday) at 12:00
+    const activations = [{ type: 'evento', date: '2026-07-06', endDate: '2026-07-08', startTime: '10:00', endTime: '14:00', modeId: 'promo' }];
+    // Act
+    const result = getActiveModeAt('2026-07-07T12:00:00', [principal, promo], activations, null);
+    // Assert
+    expect(result).toBe('promo');
+  });
+
+  it('multi-day evento not active outside date range', () => {
+    // Arrange — evento July 6-8, checking July 9 (Thursday)
+    const activations = [{ type: 'evento', date: '2026-07-06', endDate: '2026-07-08', startTime: '10:00', endTime: '14:00', modeId: 'promo' }];
+    // Act
+    const result = getActiveModeAt('2026-07-09T12:00:00', [principal, promo], activations, null);
+    // Assert
+    expect(result).toBe('principal');
   });
 });
